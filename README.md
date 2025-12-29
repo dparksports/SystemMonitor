@@ -40,4 +40,7 @@ powershell -ExecutionPolicy Bypass -File .\DeviceMonitorGUI.ps1
 
 ## Download
 
-[Download the latest release](../../releases)
+You can download the latest version from the [Releases Page](https://github.com/dparksports/DeviceMonitor/releases).
+
+**Direct Download (v1.0.0):**
+[DeviceMonitorGUI.ps1](https://github.com/dparksports/DeviceMonitor/releases/download/v1.0.0/DeviceMonitorGUI.ps1)
