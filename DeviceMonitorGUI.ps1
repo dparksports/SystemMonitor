@@ -4,7 +4,7 @@
 Add-Type -AssemblyName PresentationFramework
 Add-Type -AssemblyName System.ServiceProcess
 
-# XAML Definition
+# XAML Definition for Main Window
 # Added CheckBoxes for WiFi Direct and Kernel Debug
 $xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -30,17 +30,20 @@ $xaml = @"
                 <CheckBox Name="DebugToggle" Content="Kernel Debug" FontSize="14" VerticalAlignment="Center" Margin="5"/>
                 <Separator/>
                 <Button Name="ClearBtn" Content="Clear Events" Margin="5"/>
+                <Separator/>
+                <Button Name="TasksBtn" Content="Scheduled Tasks" Margin="5"/>
             </ToolBar>
         </ToolBarTray>
 
         <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="5"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
             
-            <!-- Left Pane: Device Events -->
-            <GroupBox Grid.Column="0" Header="Device Events" Padding="5" Margin="5">
+            <!-- Top Pane: Device Events -->
+            <GroupBox Grid.Row="0" Header="Device Events" Padding="5" Margin="5">
                 <DataGrid Name="DeviceGrid">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="80"/>
@@ -51,9 +54,12 @@ $xaml = @"
                     </DataGrid.Columns>
                 </DataGrid>
             </GroupBox>
+
+            <!-- Resizable Splitter 1 -->
+            <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" Background="LightGray"/>
             
-            <!-- Right Pane: Security Events -->
-            <GroupBox Grid.Column="1" Header="Security Events" Padding="5" Margin="5">
+            <!-- Middle Pane: Security Events -->
+            <GroupBox Grid.Row="2" Header="Security Events" Padding="5" Margin="5">
                 <DataGrid Name="SecurityGrid">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="80"/>
@@ -64,7 +70,51 @@ $xaml = @"
                     </DataGrid.Columns>
                 </DataGrid>
             </GroupBox>
+
+
         </Grid>
+    </DockPanel>
+</Window>
+"@
+
+# XAML Definition for Scheduled Tasks Window
+$tasksXaml = @"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Scheduled Tasks Manager" Height="500" Width="900" WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <Style TargetType="DataGrid">
+            <Setter Property="AutoGenerateColumns" Value="False"/>
+            <Setter Property="CanUserAddRows" Value="False"/>
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+        </Style>
+    </Window.Resources>
+    <DockPanel>
+        <!-- Toolbar -->
+        <ToolBarTray DockPanel.Dock="Top">
+            <ToolBar>
+                <Button Name="DisableBtn" Content="Disable" Margin="5" Width="70"/>
+                <Button Name="StopBtn" Content="Stop" Margin="5" Width="70"/>
+                <Button Name="StartBtn" Content="Start" Margin="5" Width="70"/>
+                <Button Name="DeleteBtn" Content="Delete" Margin="5" Width="70"/>
+                <Separator/>
+                <Button Name="RefreshBtn" Content="Refresh" Margin="5" Width="70"/>
+            </ToolBar>
+        </ToolBarTray>
+
+        <!-- Tasks Grid -->
+        <GroupBox DockPanel.Dock="Top" Header="Scheduled Tasks Running as Admin" Padding="5" Margin="5">
+            <DataGrid Name="TasksGrid" SelectionMode="Single">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Task Name" Binding="{Binding TaskName}" Width="250"/>
+                    <DataGridTextColumn Header="State" Binding="{Binding State}" Width="80"/>
+                    <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="*"/>
+                    <DataGridTextColumn Header="User" Binding="{Binding User}" Width="150"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </GroupBox>
     </DockPanel>
 </Window>
 "@
@@ -147,6 +197,153 @@ function Set-DebugState {
     Start-Process -FilePath "bcdedit.exe" -ArgumentList "/debug $state" -WindowStyle Hidden -Wait
 }
 
+# --- Scheduled Tasks Management Functions ---
+
+function Show-TasksWindow {
+    try {
+        $tasksWindow = Read-Xaml $tasksXaml
+    }
+    catch {
+        [System.Windows.MessageBox]::Show("Failed to load Tasks Window: $_", "Error", "OK", "Error")
+        return
+    }
+
+    # Find Controls
+    $tasksGrid = $tasksWindow.FindName("TasksGrid")
+    $disableBtn = $tasksWindow.FindName("DisableBtn")
+    $stopBtn = $tasksWindow.FindName("StopBtn")
+    $startBtn = $tasksWindow.FindName("StartBtn")
+    $deleteBtn = $tasksWindow.FindName("DeleteBtn")
+    $refreshBtn = $tasksWindow.FindName("RefreshBtn")
+
+    # Data Collection
+    $tasksData = New-Object System.Collections.ObjectModel.ObservableCollection[Object]
+    $tasksGrid.ItemsSource = $tasksData
+
+    # Function to load tasks
+    $loadTasks = {
+        try {
+            $tasks = Get-ScheduledTask | Where-Object {
+                $_.Principal.RunLevel -eq 'Highest'
+            }
+            
+            $tasksData.Clear()
+            foreach ($task in $tasks) {
+                $action = "-"
+                if ($task.Actions.Count -gt 0) {
+                    $firstAction = $task.Actions[0]
+                    if ($firstAction.Execute) {
+                        $action = $firstAction.Execute
+                        if ($firstAction.Arguments) {
+                            $action += " " + $firstAction.Arguments
+                        }
+                    }
+                }
+                
+                $tasksData.Add([PSCustomObject]@{
+                        TaskName = $task.TaskName
+                        TaskPath = $task.TaskPath
+                        State    = $task.State
+                        Action   = $action
+                        User     = $task.Principal.UserId
+                    })
+            }
+        }
+        catch {
+            [System.Windows.MessageBox]::Show("Failed to load tasks: $($_.Exception.Message)", "Error", "OK", "Error")
+        }
+    }
+
+    # Load tasks on window open
+    & $loadTasks
+
+    # Refresh Button
+    $refreshBtn.Add_Click({ & $loadTasks })
+
+    # Disable Button
+    $disableBtn.Add_Click({
+            $selected = $tasksGrid.SelectedItem
+            if ($selected) {
+                try {
+                    Disable-ScheduledTask -TaskName $selected.TaskName -TaskPath $selected.TaskPath -ErrorAction Stop
+                    [System.Windows.MessageBox]::Show("Task '$($selected.TaskName)' disabled successfully.", "Success", "OK", "Information")
+                    & $loadTasks
+                }
+                catch {
+                    [System.Windows.MessageBox]::Show("Failed to disable task: $($_.Exception.Message)", "Error", "OK", "Error")
+                }
+            }
+            else {
+                [System.Windows.MessageBox]::Show("Please select a task first.", "No Selection", "OK", "Warning")
+            }
+        })
+
+    # Stop Button
+    $stopBtn.Add_Click({
+            $selected = $tasksGrid.SelectedItem
+            if ($selected) {
+                try {
+                    Stop-ScheduledTask -TaskName $selected.TaskName -TaskPath $selected.TaskPath -ErrorAction Stop
+                    [System.Windows.MessageBox]::Show("Task '$($selected.TaskName)' stopped successfully.", "Success", "OK", "Information")
+                    & $loadTasks
+                }
+                catch {
+                    [System.Windows.MessageBox]::Show("Failed to stop task: $($_.Exception.Message)", "Error", "OK", "Error")
+                }
+            }
+            else {
+                [System.Windows.MessageBox]::Show("Please select a task first.", "No Selection", "OK", "Warning")
+            }
+        })
+
+    # Start Button
+    $startBtn.Add_Click({
+            $selected = $tasksGrid.SelectedItem
+            if ($selected) {
+                try {
+                    Start-ScheduledTask -TaskName $selected.TaskName -TaskPath $selected.TaskPath -ErrorAction Stop
+                    [System.Windows.MessageBox]::Show("Task '$($selected.TaskName)' started successfully.", "Success", "OK", "Information")
+                    & $loadTasks
+                }
+                catch {
+                    [System.Windows.MessageBox]::Show("Failed to start task: $($_.Exception.Message)", "Error", "OK", "Error")
+                }
+            }
+            else {
+                [System.Windows.MessageBox]::Show("Please select a task first.", "No Selection", "OK", "Warning")
+            }
+        })
+
+    # Delete Button
+    $deleteBtn.Add_Click({
+            $selected = $tasksGrid.SelectedItem
+            if ($selected) {
+                $result = [System.Windows.MessageBox]::Show(
+                    "Are you sure you want to delete task '$($selected.TaskName)'? This action cannot be undone.",
+                    "Confirm Delete",
+                    "YesNo",
+                    "Warning"
+                )
+                if ($result -eq "Yes") {
+                    try {
+                        Unregister-ScheduledTask -TaskName $selected.TaskName -TaskPath $selected.TaskPath -Confirm:$false -ErrorAction Stop
+                        [System.Windows.MessageBox]::Show("Task '$($selected.TaskName)' deleted successfully.", "Success", "OK", "Information")
+                        & $loadTasks
+                    }
+                    catch {
+                        [System.Windows.MessageBox]::Show("Failed to delete task: $($_.Exception.Message)", "Error", "OK", "Error")
+                    }
+                }
+            }
+            else {
+                [System.Windows.MessageBox]::Show("Please select a task first.", "No Selection", "OK", "Warning")
+            }
+        })
+
+    # Show the tasks window
+    $tasksWindow.ShowDialog() | Out-Null
+}
+
 
 # --- Main Script ---
 
@@ -166,6 +363,7 @@ $vpnToggle = $window.FindName("VpnToggle")
 $wifiToggle = $window.FindName("WifiDirectToggle")
 $debugToggle = $window.FindName("DebugToggle")
 $clearBtn = $window.FindName("ClearBtn")
+$tasksBtn = $window.FindName("TasksBtn")
 
 # Data Collections
 $deviceData = New-Object System.Collections.ObjectModel.ObservableCollection[Object]
@@ -253,6 +451,11 @@ $clearBtn.Add_Click({
         $securityData.Clear()
     })
 
+# Tasks Button - Open Scheduled Tasks Window
+$tasksBtn.Add_Click({
+        Show-TasksWindow
+    })
+
 # --- Device Monitoring Setup (System.Management) ---
 $deviceAction = {
     param($evtSender, $e)
@@ -308,11 +511,73 @@ $wRem.Start()
 
 # --- Security Monitoring Setup (Polling) ---
 $lastRecordId = 0
+
+# 1. Initial Load: Get last 20 events so the list isn't empty
 try {
-    $latest = Get-WinEvent -LogName 'Security' -MaxEvents 1 -ErrorAction SilentlyContinue
-    if ($latest) { $lastRecordId = $latest.RecordId }
+    if ($isAdmin) {
+        $recent = Get-WinEvent -LogName 'Security' -MaxEvents 20 -ErrorAction SilentlyContinue | Sort-Object TimeCreated
+        if ($recent) {
+            foreach ($evt in $recent) {
+                if ($evt.RecordId -gt $lastRecordId) { $lastRecordId = $evt.RecordId }
+                
+                # Re-use parsing logic (refactored below)
+                $ProcessEvent = {
+                    param($e)
+                    $xml = [xml]$e.ToXml()
+                    $data = $xml.Event.EventData.Data
+                    
+                    # Safe Account Extraction
+                    $account = $null
+                    if ($data) {
+                        $account = ($data | Where-Object { $_.Name -eq "TargetUserName" })."#text"
+                        if (-not $account) { $account = ($data | Where-Object { $_.Name -match "AccountName|User|SubjectUserName" } | Select-Object -First 1)."#text" }
+                    }
+                    else {
+                        # Fallback for events without EventData (Event 4624/4625 always have it, others might not)
+                        $account = $e.UserId.Value
+                    }
+                    
+                    if (-not $account) { $account = "N/A" }
+                    
+                    # LogonType Extraction
+                    $logonType = $null
+                    if ($data) {
+                        $logonType = ($data | Where-Object { $_.Name -eq "LogonType" })."#text"
+                    }
+                    $typeDesc = "-"
+                    if ($logonType) {
+                        $typeDesc = "Logon: $logonType"
+                        switch ($logonType) {
+                            "2" { $typeDesc = "Interactive" }
+                            "3" { $typeDesc = "Network" }
+                            "4" { $typeDesc = "Batch" }
+                            "5" { $typeDesc = "Service" }
+                            "7" { $typeDesc = "Unlock" }
+                            "10" { $typeDesc = "RDP" }
+                        }
+                    }
+
+                    $activity = $e.TaskDisplayName
+                    if (-not $activity) { $activity = "Event $($e.Id)" }
+
+                    return [PSCustomObject]@{
+                        Time     = $e.TimeCreated.ToString("HH:mm:ss")
+                        Id       = $e.Id
+                        Type     = $typeDesc
+                        Activity = $activity
+                        Account  = $account
+                    }
+                }
+                
+                $item = &$ProcessEvent $evt
+                $securityData.Insert(0, $item)
+            }
+        }
+    }
 }
-catch {}
+catch {
+    $securityData.Add([PSCustomObject]@{Time = "ERR"; Id = "-"; Type = "-"; Activity = "Init Failed"; Account = $_.Exception.Message })
+}
 
 $timer = New-Object System.Windows.Threading.DispatcherTimer
 $timer.Interval = [TimeSpan]::FromSeconds(2)
@@ -320,38 +585,44 @@ $timer.Add_Tick({
         try {
             if (-not $isAdmin) { return }
 
-            # Filter by RecordId to get truly new events (ALL IDs)
             $query = "*[System[(EventRecordID > $lastRecordId)]]"
-            $events = Get-WinEvent -LogName 'Security' -FilterXml $query -ErrorAction SilentlyContinue | Sort-Object TimeCreated
+            $events = Get-WinEvent -LogName 'Security' -FilterXPath $query -ErrorAction SilentlyContinue | Sort-Object TimeCreated
         
             if ($events) {
                 foreach ($evt in $events) {
                     if ($evt.RecordId -gt $lastRecordId) { $lastRecordId = $evt.RecordId }
-
+                
+                    # Inline parsing (copy of logic above) to avoid scope issues in timer
                     $xml = [xml]$evt.ToXml()
                     $data = $xml.Event.EventData.Data
                 
-                    $account = ($data | Where-Object { $_.Name -eq "TargetUserName" })."#text"
-                    $logonType = ($data | Where-Object { $_.Name -eq "LogonType" })."#text"
+                    $account = $null
+                    if ($data) {
+                        $account = ($data | Where-Object { $_.Name -eq "TargetUserName" })."#text"
+                        if (-not $account) { $account = ($data | Where-Object { $_.Name -match "AccountName|User|SubjectUserName" } | Select-Object -First 1)."#text" }
+                    }
+                    else {
+                        $account = $evt.UserId.Value
+                    }
+                    if (-not $account) { $account = "N/A" }
                 
-                    # Try generic properties if specific ones missing
-                    if (-not $account) { $account = ($data | Where-Object { $_.Name -match "AccountName|User|SubjectUserName" } | Select-Object -First 1)."#text" }
-                
+                    $logonType = $null
+                    if ($data) {
+                        $logonType = ($data | Where-Object { $_.Name -eq "LogonType" })."#text"
+                    }
                     $typeDesc = "-"
                     if ($logonType) {
-                        $typeDesc = "LogonType: $logonType"
+                        $typeDesc = "Logon: $logonType"
                         switch ($logonType) {
                             "2" { $typeDesc = "Interactive" }
                             "3" { $typeDesc = "Network" }
                             "4" { $typeDesc = "Batch" }
                             "5" { $typeDesc = "Service" }
                             "7" { $typeDesc = "Unlock" }
-                            "10" { $typeDesc = "Remote (RDP)" }
-                            "11" { $typeDesc = "Cached" }
+                            "10" { $typeDesc = "RDP" }
                         }
                     }
 
-                    # Use generic Activity name
                     $activity = $evt.TaskDisplayName
                     if (-not $activity) { $activity = "Event $($evt.Id)" }
 
@@ -366,7 +637,9 @@ $timer.Add_Tick({
                 }
             }
         }
-        catch { }
+        catch {
+            $securityData.Insert(0, [PSCustomObject]@{Time = "ERR"; Id = "POLL"; Type = "-"; Activity = $_.Exception.Message; Account = "-" })
+        }
     })
 
 $timer.Start()
