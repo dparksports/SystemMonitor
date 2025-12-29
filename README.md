@@ -23,6 +23,17 @@ A native PowerShell (WPF) application for monitoring system events and managing 
 *   **Kernel Debug Network**: Toggle `bcdedit /debug` on or off to control kernel debugging networking capabilities.
 *   **Audit Logging**: All toggle actions are recorded in the Device Events list with the Initiator's identity.
 
+### 5. Scheduled Tasks Manager
+*   **Dedicated Window**: Click the "Scheduled Tasks" button to open a separate task management window.
+*   **View Admin Tasks**: Displays all scheduled tasks running with highest privileges (administrator rights).
+*   **Task Management**: Full control over tasks with dedicated buttons:
+    *   **Disable**: Prevent tasks from running automatically
+    *   **Stop**: Terminate currently running tasks
+    *   **Start**: Execute tasks immediately
+    *   **Delete**: Permanently remove tasks (with confirmation)
+    *   **Refresh**: Update the task list to show current status
+*   **Task Details**: View task name, state (Ready, Running, Disabled), action (command being executed), and user account.
+
 ## Usage
 
 ### Prerequisites
@@ -56,5 +67,5 @@ powershell -ExecutionPolicy Bypass -File .\DeviceMonitorGUI.ps1
 
 You can download the latest version from the [Releases Page](https://github.com/dparksports/DeviceMonitor/releases).
 
-**Direct Download (v1.0.0):**
-[DeviceMonitor.zip](https://github.com/dparksports/DeviceMonitor/releases/download/v1.0.0/DeviceMonitor.zip)
+**Direct Download (v1.2.0):**
+[DeviceMonitor.zip](https://github.com/dparksports/DeviceMonitor/releases/download/v1.2.0/DeviceMonitor.zip)
