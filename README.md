@@ -18,6 +18,11 @@ A native PowerShell (WPF) application for monitoring system events and managing 
     *   **Enabled**: Sets `RasMan`, `IKEEXT`, `PolicyAgent`, and `RemoteAccess` services to `Manual` startup.
     *   **Disabled**: Stops these services and sets their startup type to `Disabled` for security/performance.
 
+### 4. Advanced Network Toggles
+*   **WiFi Direct**: Enable/Disable the "Microsoft Wi-Fi Direct Virtual Adapter" to block or allow ad-hoc wireless connections.
+*   **Kernel Debug Network**: Toggle `bcdedit /debug` on or off to control kernel debugging networking capabilities.
+*   **Audit Logging**: All toggle actions are recorded in the Device Events list with the Initiator's identity.
+
 ## Usage
 
 ### Prerequisites
