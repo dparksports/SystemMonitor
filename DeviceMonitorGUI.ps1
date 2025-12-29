@@ -5,6 +5,7 @@ Add-Type -AssemblyName PresentationFramework
 Add-Type -AssemblyName System.ServiceProcess
 
 # XAML Definition
+# Added CheckBoxes for WiFi Direct and Kernel Debug
 $xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -23,6 +24,10 @@ $xaml = @"
         <ToolBarTray DockPanel.Dock="Top">
             <ToolBar>
                 <CheckBox Name="VpnToggle" Content="VPN Service" FontSize="14" VerticalAlignment="Center" Margin="5"/>
+                <Separator/>
+                <CheckBox Name="WifiDirectToggle" Content="WiFi Direct" FontSize="14" VerticalAlignment="Center" Margin="5"/>
+                <Separator/>
+                <CheckBox Name="DebugToggle" Content="Kernel Debug" FontSize="14" VerticalAlignment="Center" Margin="5"/>
                 <Separator/>
                 <Button Name="ClearBtn" Content="Clear Events" Margin="5"/>
             </ToolBar>
@@ -82,43 +87,66 @@ function Get-Initiator {
     catch { return "Unknown" }
 }
 
-# --- VPN Service Logic ---
+# --- Service Management Logic ---
+
+# 1. VPN
 $vpnServices = @("RasMan", "IKEEXT", "PolicyAgent", "RemoteAccess")
 
 function Update-VpnStatus {
-    # Check if ANY of the services are NOT Disabled. If so, we consider VPN "enabled".
     $isEnabled = $false
     foreach ($svcName in $vpnServices) {
         $svc = Get-Service -Name $svcName -ErrorAction SilentlyContinue
-        if ($svc -and $svc.StartType -ne 'Disabled') {
-            $isEnabled = $true
-            break
-        }
+        if ($svc -and $svc.StartType -ne 'Disabled') { $isEnabled = $true; break }
     }
     return $isEnabled
 }
 
 function Set-VpnState {
     param([bool]$Enable)
-    
     $startType = if ($Enable) { "Manual" } else { "Disabled" }
-    
     foreach ($svcName in $vpnServices) {
         try {
-            # 1. Set Startup Type
-            # Set-Service can change StartupType
             Set-Service -Name $svcName -StartupType $startType -ErrorAction SilentlyContinue
-            
-            # 2. Stop if disabling
-            if (-not $Enable) {
-                Stop-Service -Name $svcName -Force -ErrorAction SilentlyContinue
-            }
+            if (-not $Enable) { Stop-Service -Name $svcName -Force -ErrorAction SilentlyContinue }
         }
-        catch {
-            # Best effort
-        }
+        catch {}
     }
 }
+
+# 2. WiFi Direct
+function Update-WifiDirectStatus {
+    # Check if adapter matches "Wi-Fi Direct" and is "Up"
+    $adapter = Get-NetAdapter -Name "*Wi-Fi Direct*" -ErrorAction SilentlyContinue
+    if ($adapter -and $adapter.Status -eq "Up") { return $true }
+    return $false
+}
+
+function Set-WifiDirectState {
+    param([bool]$Enable)
+    # Using Enable/Disable-NetAdapter
+    # Note: Requires PowerShell 5.1+ and Admin
+    if ($Enable) {
+        Enable-NetAdapter -Name "*Wi-Fi Direct*" -Confirm:$false -ErrorAction SilentlyContinue
+    }
+    else {
+        Disable-NetAdapter -Name "*Wi-Fi Direct*" -Confirm:$false -ErrorAction SilentlyContinue
+    }
+}
+
+# 3. Kernel Debug
+function Update-DebugStatus {
+    # bcdedit /enum {current} | findstr "debug"
+    $bcd = bcdedit /enum "{current}"
+    if ($bcd -match "debug\s+Yes") { return $true }
+    return $false
+}
+
+function Set-DebugState {
+    param([bool]$Enable)
+    $state = if ($Enable) { "on" } else { "off" }
+    Start-Process -FilePath "bcdedit.exe" -ArgumentList "/debug $state" -WindowStyle Hidden -Wait
+}
+
 
 # --- Main Script ---
 
@@ -135,6 +163,8 @@ catch {
 $deviceGrid = $window.FindName("DeviceGrid")
 $securityGrid = $window.FindName("SecurityGrid")
 $vpnToggle = $window.FindName("VpnToggle")
+$wifiToggle = $window.FindName("WifiDirectToggle")
+$debugToggle = $window.FindName("DebugToggle")
 $clearBtn = $window.FindName("ClearBtn")
 
 # Data Collections
@@ -151,29 +181,63 @@ $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
 if ($isAdmin) {
     $window.Title = "Windows System Monitor (Administrator) - User: $currentUser"
     
-    # Initialize VPN Toggle State
+    # Initialize Toggles
     $vpnToggle.IsChecked = Update-VpnStatus
+    $wifiToggle.IsChecked = Update-WifiDirectStatus
+    $debugToggle.IsChecked = Update-DebugStatus
     
     # VPN Toggle Event
     $vpnToggle.Add_Click({
             $enabled = $vpnToggle.IsChecked
             Set-VpnState -Enable $enabled
         
-            # Log action
-            $stateStr = if ($enabled) { "ENABLED (Manual)" } else { "DISABLED (Stopped)" }
+            $stateStr = if ($enabled) { "ENABLED" } else { "DISABLED" }
             $deviceData.Insert(0, [PSCustomObject]@{
                     Time      = [DateTime]::Now.ToString("HH:mm:ss")
                     EventType = "CONFIG"
                     Name      = "VPN Services"
                     Type      = "System"
-                    Initiator = "$stateStr"
+                    Initiator = "$currentUser ($stateStr)"
                 })
         })
+
+    # WiFi Toggle Event
+    $wifiToggle.Add_Click({
+            $enabled = $wifiToggle.IsChecked
+            Set-WifiDirectState -Enable $enabled
+        
+            $stateStr = if ($enabled) { "ENABLED" } else { "DISABLED" }
+            $deviceData.Insert(0, [PSCustomObject]@{
+                    Time      = [DateTime]::Now.ToString("HH:mm:ss")
+                    EventType = "CONFIG"
+                    Name      = "WiFi Direct"
+                    Type      = "Network"
+                    Initiator = "$currentUser ($stateStr)"
+                })
+        })
+
+    # Debug Toggle Event
+    $debugToggle.Add_Click({
+            $enabled = $debugToggle.IsChecked
+            Set-DebugState -Enable $enabled
+        
+            $stateStr = if ($enabled) { "ENABLED" } else { "DISABLED" }
+            $deviceData.Insert(0, [PSCustomObject]@{
+                    Time      = [DateTime]::Now.ToString("HH:mm:ss")
+                    EventType = "CONFIG"
+                    Name      = "Kernel Debug"
+                    Type      = "BootLoader"
+                    Initiator = "$currentUser ($stateStr)"
+                })
+        })
+
 }
 else {
     $window.Title = "Windows System Monitor (User) - User: $currentUser"
     $vpnToggle.IsEnabled = $false
-    $vpnToggle.Content = "VPN (Admin Only)"
+    $wifiToggle.IsEnabled = $false
+    $debugToggle.IsEnabled = $false
+    $vpnToggle.Content = "Admin Required"
     
     $securityData.Add([PSCustomObject]@{
             Time     = "INFO"
@@ -236,7 +300,6 @@ $qRem.WithinInterval = [TimeSpan]::FromSeconds(1)
 $qRem.Condition = "TargetInstance ISA 'Win32_PnPEntity'"
 $wRem = New-Object System.Management.ManagementEventWatcher $qRem
 
-# Explicit Registration
 Register-ObjectEvent -InputObject $wAdd -EventName "EventArrived" -Action $deviceAction | Out-Null
 Register-ObjectEvent -InputObject $wRem -EventName "EventArrived" -Action $deviceAction | Out-Null
 
@@ -257,7 +320,8 @@ $timer.Add_Tick({
         try {
             if (-not $isAdmin) { return }
 
-            $query = "*[System[(EventID=4624 or EventID=4625) and (EventRecordID > $lastRecordId)]]"
+            # Filter by RecordId to get truly new events (ALL IDs)
+            $query = "*[System[(EventRecordID > $lastRecordId)]]"
             $events = Get-WinEvent -LogName 'Security' -FilterXml $query -ErrorAction SilentlyContinue | Sort-Object TimeCreated
         
             if ($events) {
@@ -270,22 +334,26 @@ $timer.Add_Tick({
                     $account = ($data | Where-Object { $_.Name -eq "TargetUserName" })."#text"
                     $logonType = ($data | Where-Object { $_.Name -eq "LogonType" })."#text"
                 
-                    # NO Filtering as requested by user
-                    # if ($account -match "SYSTEM|DWM|UMFD") { continue }
+                    # Try generic properties if specific ones missing
+                    if (-not $account) { $account = ($data | Where-Object { $_.Name -match "AccountName|User|SubjectUserName" } | Select-Object -First 1)."#text" }
                 
-                    $typeDesc = "LogonType: $logonType"
-                    switch ($logonType) {
-                        "2" { $typeDesc = "Interactive" }
-                        "3" { $typeDesc = "Network" }
-                        "4" { $typeDesc = "Batch" }
-                        "5" { $typeDesc = "Service" }
-                        "7" { $typeDesc = "Unlock" }
-                        "10" { $typeDesc = "Remote (RDP)" }
-                        "11" { $typeDesc = "Cached" }
+                    $typeDesc = "-"
+                    if ($logonType) {
+                        $typeDesc = "LogonType: $logonType"
+                        switch ($logonType) {
+                            "2" { $typeDesc = "Interactive" }
+                            "3" { $typeDesc = "Network" }
+                            "4" { $typeDesc = "Batch" }
+                            "5" { $typeDesc = "Service" }
+                            "7" { $typeDesc = "Unlock" }
+                            "10" { $typeDesc = "Remote (RDP)" }
+                            "11" { $typeDesc = "Cached" }
+                        }
                     }
 
-                    $activity = "Logon"
-                    if ($evt.Id -eq 4625) { $activity = "Logon Failure" }
+                    # Use generic Activity name
+                    $activity = $evt.TaskDisplayName
+                    if (-not $activity) { $activity = "Event $($evt.Id)" }
 
                     $item = [PSCustomObject]@{
                         Time     = $evt.TimeCreated.ToString("HH:mm:ss")
