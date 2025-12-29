@@ -2,6 +2,7 @@
 # A Native WPF Application for monitoring Device and Security events on Windows.
 
 Add-Type -AssemblyName PresentationFramework
+Add-Type -AssemblyName System.ServiceProcess
 
 # XAML Definition
 $xaml = @"
@@ -17,38 +18,49 @@ $xaml = @"
             <Setter Property="GridLinesVisibility" Value="Horizontal"/>
         </Style>
     </Window.Resources>
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
-        
-        <!-- Left Pane: Device Events -->
-        <GroupBox Grid.Column="0" Header="Device Events" Padding="5" Margin="5">
-            <DataGrid Name="DeviceGrid">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="80"/>
-                    <DataGridTextColumn Header="Event" Binding="{Binding EventType}" Width="80"/>
-                    <DataGridTextColumn Header="Device Name" Binding="{Binding Name}" Width="150"/>
-                    <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="100"/>
-                    <DataGridTextColumn Header="Initiator" Binding="{Binding Initiator}" Width="*"/>
-                </DataGrid.Columns>
-            </DataGrid>
-        </GroupBox>
-        
-        <!-- Right Pane: Security Events -->
-        <GroupBox Grid.Column="1" Header="Security Events" Padding="5" Margin="5">
-            <DataGrid Name="SecurityGrid">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="80"/>
-                    <DataGridTextColumn Header="EventID" Binding="{Binding Id}" Width="60"/>
-                    <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="110"/>
-                    <DataGridTextColumn Header="Activity" Binding="{Binding Activity}" Width="100"/>
-                    <DataGridTextColumn Header="Account" Binding="{Binding Account}" Width="*"/>
-                </DataGrid.Columns>
-            </DataGrid>
-        </GroupBox>
-    </Grid>
+    <DockPanel>
+        <!-- Toolbar -->
+        <ToolBarTray DockPanel.Dock="Top">
+            <ToolBar>
+                <CheckBox Name="VpnToggle" Content="VPN Service" FontSize="14" VerticalAlignment="Center" Margin="5"/>
+                <Separator/>
+                <Button Name="ClearBtn" Content="Clear Events" Margin="5"/>
+            </ToolBar>
+        </ToolBarTray>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            
+            <!-- Left Pane: Device Events -->
+            <GroupBox Grid.Column="0" Header="Device Events" Padding="5" Margin="5">
+                <DataGrid Name="DeviceGrid">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="80"/>
+                        <DataGridTextColumn Header="Event" Binding="{Binding EventType}" Width="80"/>
+                        <DataGridTextColumn Header="Device Name" Binding="{Binding Name}" Width="150"/>
+                        <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="100"/>
+                        <DataGridTextColumn Header="Initiator" Binding="{Binding Initiator}" Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </GroupBox>
+            
+            <!-- Right Pane: Security Events -->
+            <GroupBox Grid.Column="1" Header="Security Events" Padding="5" Margin="5">
+                <DataGrid Name="SecurityGrid">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="80"/>
+                        <DataGridTextColumn Header="EventID" Binding="{Binding Id}" Width="60"/>
+                        <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="110"/>
+                        <DataGridTextColumn Header="Activity" Binding="{Binding Activity}" Width="100"/>
+                        <DataGridTextColumn Header="Account" Binding="{Binding Account}" Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </GroupBox>
+        </Grid>
+    </DockPanel>
 </Window>
 "@
 
@@ -70,6 +82,44 @@ function Get-Initiator {
     catch { return "Unknown" }
 }
 
+# --- VPN Service Logic ---
+$vpnServices = @("RasMan", "IKEEXT", "PolicyAgent", "RemoteAccess")
+
+function Update-VpnStatus {
+    # Check if ANY of the services are NOT Disabled. If so, we consider VPN "enabled".
+    $isEnabled = $false
+    foreach ($svcName in $vpnServices) {
+        $svc = Get-Service -Name $svcName -ErrorAction SilentlyContinue
+        if ($svc -and $svc.StartType -ne 'Disabled') {
+            $isEnabled = $true
+            break
+        }
+    }
+    return $isEnabled
+}
+
+function Set-VpnState {
+    param([bool]$Enable)
+    
+    $startType = if ($Enable) { "Manual" } else { "Disabled" }
+    
+    foreach ($svcName in $vpnServices) {
+        try {
+            # 1. Set Startup Type
+            # Set-Service can change StartupType
+            Set-Service -Name $svcName -StartupType $startType -ErrorAction SilentlyContinue
+            
+            # 2. Stop if disabling
+            if (-not $Enable) {
+                Stop-Service -Name $svcName -Force -ErrorAction SilentlyContinue
+            }
+        }
+        catch {
+            # Best effort
+        }
+    }
+}
+
 # --- Main Script ---
 
 # Load UI
@@ -84,6 +134,8 @@ catch {
 # Find Controls
 $deviceGrid = $window.FindName("DeviceGrid")
 $securityGrid = $window.FindName("SecurityGrid")
+$vpnToggle = $window.FindName("VpnToggle")
+$clearBtn = $window.FindName("ClearBtn")
 
 # Data Collections
 $deviceData = New-Object System.Collections.ObjectModel.ObservableCollection[Object]
@@ -95,11 +147,34 @@ $securityGrid.ItemsSource = $securityData
 # Update Title with User Status
 $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent().Name
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
 if ($isAdmin) {
     $window.Title = "Windows System Monitor (Administrator) - User: $currentUser"
+    
+    # Initialize VPN Toggle State
+    $vpnToggle.IsChecked = Update-VpnStatus
+    
+    # VPN Toggle Event
+    $vpnToggle.Add_Click({
+            $enabled = $vpnToggle.IsChecked
+            Set-VpnState -Enable $enabled
+        
+            # Log action
+            $stateStr = if ($enabled) { "ENABLED (Manual)" } else { "DISABLED (Stopped)" }
+            $deviceData.Insert(0, [PSCustomObject]@{
+                    Time      = [DateTime]::Now.ToString("HH:mm:ss")
+                    EventType = "CONFIG"
+                    Name      = "VPN Services"
+                    Type      = "System"
+                    Initiator = "$stateStr"
+                })
+        })
 }
 else {
     $window.Title = "Windows System Monitor (User) - User: $currentUser"
+    $vpnToggle.IsEnabled = $false
+    $vpnToggle.Content = "VPN (Admin Only)"
+    
     $securityData.Add([PSCustomObject]@{
             Time     = "INFO"
             Id       = "-"
@@ -108,6 +183,11 @@ else {
             Account  = "Right-click -> Run as Admin"
         })
 }
+
+$clearBtn.Add_Click({
+        $deviceData.Clear()
+        $securityData.Clear()
+    })
 
 # --- Device Monitoring Setup (System.Management) ---
 $deviceAction = {
@@ -156,6 +236,7 @@ $qRem.WithinInterval = [TimeSpan]::FromSeconds(1)
 $qRem.Condition = "TargetInstance ISA 'Win32_PnPEntity'"
 $wRem = New-Object System.Management.ManagementEventWatcher $qRem
 
+# Explicit Registration
 Register-ObjectEvent -InputObject $wAdd -EventName "EventArrived" -Action $deviceAction | Out-Null
 Register-ObjectEvent -InputObject $wRem -EventName "EventArrived" -Action $deviceAction | Out-Null
 
@@ -163,11 +244,8 @@ $wAdd.Start()
 $wRem.Start()
 
 # --- Security Monitoring Setup (Polling) ---
-# Polling is more robust for permissions than EventLogWatcher
 $lastRecordId = 0
-# Initialize lastRecordId to avoid flooding
 try {
-    # Get the latest event's RecordId safely
     $latest = Get-WinEvent -LogName 'Security' -MaxEvents 1 -ErrorAction SilentlyContinue
     if ($latest) { $lastRecordId = $latest.RecordId }
 }
@@ -177,10 +255,8 @@ $timer = New-Object System.Windows.Threading.DispatcherTimer
 $timer.Interval = [TimeSpan]::FromSeconds(2)
 $timer.Add_Tick({
         try {
-            # Only poll if Admin
             if (-not $isAdmin) { return }
 
-            # Filter by RecordId to get truly new events
             $query = "*[System[(EventID=4624 or EventID=4625) and (EventRecordID > $lastRecordId)]]"
             $events = Get-WinEvent -LogName 'Security' -FilterXml $query -ErrorAction SilentlyContinue | Sort-Object TimeCreated
         
@@ -188,17 +264,15 @@ $timer.Add_Tick({
                 foreach ($evt in $events) {
                     if ($evt.RecordId -gt $lastRecordId) { $lastRecordId = $evt.RecordId }
 
-                    # Parse XML for details
                     $xml = [xml]$evt.ToXml()
                     $data = $xml.Event.EventData.Data
                 
                     $account = ($data | Where-Object { $_.Name -eq "TargetUserName" })."#text"
                     $logonType = ($data | Where-Object { $_.Name -eq "LogonType" })."#text"
                 
-                    # Filter noise (SYSTEM accounts)
-                    if ($account -match "SYSTEM|DWM|UMFD") { continue }
+                    # NO Filtering as requested by user
+                    # if ($account -match "SYSTEM|DWM|UMFD") { continue }
                 
-                    # Map Logon Type
                     $typeDesc = "LogonType: $logonType"
                     switch ($logonType) {
                         "2" { $typeDesc = "Interactive" }
@@ -224,9 +298,7 @@ $timer.Add_Tick({
                 }
             }
         }
-        catch {
-            # Silent fail on polling errors to avoid spam
-        }
+        catch { }
     })
 
 $timer.Start()
