@@ -270,7 +270,13 @@ function Show-TasksWindow {
                     & $loadTasks
                 }
                 catch {
-                    [System.Windows.MessageBox]::Show("Failed to disable task: $($_.Exception.Message)", "Error", "OK", "Error")
+                    $errorMsg = $_.Exception.Message
+                    if ($errorMsg -match "Access is denied") {
+                        [System.Windows.MessageBox]::Show("Access Denied: This task is protected by the system or requires additional permissions.`n`nTask: $($selected.TaskName)`n`nSome Windows system tasks cannot be modified even with administrator rights.", "Permission Error", "OK", "Warning")
+                    }
+                    else {
+                        [System.Windows.MessageBox]::Show("Failed to disable task: $errorMsg", "Error", "OK", "Error")
+                    }
                 }
             }
             else {
@@ -288,7 +294,13 @@ function Show-TasksWindow {
                     & $loadTasks
                 }
                 catch {
-                    [System.Windows.MessageBox]::Show("Failed to stop task: $($_.Exception.Message)", "Error", "OK", "Error")
+                    $errorMsg = $_.Exception.Message
+                    if ($errorMsg -match "Access is denied") {
+                        [System.Windows.MessageBox]::Show("Access Denied: This task is protected by the system or requires additional permissions.`n`nTask: $($selected.TaskName)`n`nSome Windows system tasks cannot be modified even with administrator rights.", "Permission Error", "OK", "Warning")
+                    }
+                    else {
+                        [System.Windows.MessageBox]::Show("Failed to stop task: $errorMsg", "Error", "OK", "Error")
+                    }
                 }
             }
             else {
@@ -306,7 +318,13 @@ function Show-TasksWindow {
                     & $loadTasks
                 }
                 catch {
-                    [System.Windows.MessageBox]::Show("Failed to start task: $($_.Exception.Message)", "Error", "OK", "Error")
+                    $errorMsg = $_.Exception.Message
+                    if ($errorMsg -match "Access is denied") {
+                        [System.Windows.MessageBox]::Show("Access Denied: This task is protected by the system or requires additional permissions.`n`nTask: $($selected.TaskName)`n`nSome Windows system tasks cannot be modified even with administrator rights.", "Permission Error", "OK", "Warning")
+                    }
+                    else {
+                        [System.Windows.MessageBox]::Show("Failed to start task: $errorMsg", "Error", "OK", "Error")
+                    }
                 }
             }
             else {
@@ -331,7 +349,13 @@ function Show-TasksWindow {
                         & $loadTasks
                     }
                     catch {
-                        [System.Windows.MessageBox]::Show("Failed to delete task: $($_.Exception.Message)", "Error", "OK", "Error")
+                        $errorMsg = $_.Exception.Message
+                        if ($errorMsg -match "Access is denied") {
+                            [System.Windows.MessageBox]::Show("Access Denied: This task is protected by the system or requires additional permissions.`n`nTask: $($selected.TaskName)`n`nSome Windows system tasks cannot be deleted even with administrator rights.", "Permission Error", "OK", "Warning")
+                        }
+                        else {
+                            [System.Windows.MessageBox]::Show("Failed to delete task: $errorMsg", "Error", "OK", "Error")
+                        }
                     }
                 }
             }
