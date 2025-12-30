@@ -59,10 +59,11 @@ A native .NET 6+ WPF application for monitoring system events and managing VPN s
 *   **Persistent Data**: History and Muted settings are saved to disk and restored on next launch.
 
 ### 8. AI Assistant (Gemini)
+*   **Configuration**: Requires a valid Gemini API key. Create a file named `apikey.txt` in the same folder as the application and paste your API key inside it.
 *   **Context-Aware Q&A**: Right-click any row in **ANY** list (Device, Security, Tasks, Adapters, Connections) to "Ask AI about this".
 *   **Smart Context**: The app automatically formats the selected item (e.g., process details, event ID) into a prompt for the AI.
 *   **Interactive Dialog**: A dedicated chat window lets you ask follow-up questions about the specific system entity.
-*   **Intelligent Insights**: Powered by the **Gemini 1.5 Flash** model for fast and accurate explanations of obscure processes, error codes, and network activity.
+*   **Intelligent Insights**: Powered by the **Gemini 3 Flash Preview** model for fast and accurate explanations of obscure processes, error codes, and network activity.
 
 ## Usage
 
@@ -80,5 +81,5 @@ A native .NET 6+ WPF application for monitoring system events and managing VPN s
 
 You can download the latest version from the [Releases Page](https://github.com/dparksports/DeviceMonitor/releases).
 
-**Direct Download (v1.7.0):**
-[DeviceMonitor.zip](https://github.com/dparksports/DeviceMonitor/releases/download/v1.7.0/DeviceMonitor.zip)
+**Direct Download (v1.7.1):**
+[DeviceMonitor.zip](https://github.com/dparksports/DeviceMonitor/releases/download/v1.7.1/DeviceMonitor.zip)
