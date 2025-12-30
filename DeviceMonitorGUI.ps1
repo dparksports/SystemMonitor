@@ -32,6 +32,8 @@ $xaml = @"
                 <Button Name="ClearBtn" Content="Clear Events" Margin="5"/>
                 <Separator/>
                 <Button Name="TasksBtn" Content="Scheduled Tasks" Margin="5"/>
+                <Separator/>
+                <Button Name="NetworkAdaptersBtn" Content="Network Adapters" Margin="5"/>
             </ToolBar>
         </ToolBarTray>
 
@@ -112,6 +114,52 @@ $tasksXaml = @"
                     <DataGridTextColumn Header="State" Binding="{Binding State}" Width="80"/>
                     <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="*"/>
                     <DataGridTextColumn Header="User" Binding="{Binding User}" Width="150"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </GroupBox>
+    </DockPanel>
+</Window>
+"@
+
+# XAML Definition for Network Adapters Window
+$networkAdaptersXaml = @"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Network Adapters Manager" Height="550" Width="1000" WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <Style TargetType="DataGrid">
+            <Setter Property="AutoGenerateColumns" Value="False"/>
+            <Setter Property="CanUserAddRows" Value="False"/>
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+        </Style>
+    </Window.Resources>
+    <DockPanel>
+        <!-- Toolbar -->
+        <ToolBarTray DockPanel.Dock="Top">
+            <ToolBar>
+                <Button Name="UninstallWifiDirectBtn" Content="Uninstall Microsoft WiFi Direct Virtual Adapter" Margin="5"/>
+                <Separator/>
+                <Button Name="UninstallWanMiniportBtn" Content="Uninstall All WAN Miniport" Margin="5"/>
+                <Separator/>
+                <Button Name="UninstallBluetoothPanBtn" Content="Uninstall Bluetooth Device (Personal Area Network)" Margin="5"/>
+                <Separator/>
+                <Button Name="UninstallIntelWifiBtn" Content="Uninstall Intel WiFi 6E AX210" Margin="5"/>
+                <Separator/>
+                <Button Name="RefreshAdaptersBtn" Content="Refresh" Margin="5" Width="70"/>
+            </ToolBar>
+        </ToolBarTray>
+
+        <!-- Network Adapters Grid -->
+        <GroupBox DockPanel.Dock="Top" Header="Network Adapters" Padding="5" Margin="5">
+            <DataGrid Name="NetworkAdaptersGrid" SelectionMode="Single">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="250"/>
+                    <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="250"/>
+                    <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="80"/>
+                    <DataGridTextColumn Header="MAC Address" Binding="{Binding MacAddress}" Width="150"/>
+                    <DataGridTextColumn Header="Interface Type" Binding="{Binding InterfaceType}" Width="*"/>
                 </DataGrid.Columns>
             </DataGrid>
         </GroupBox>
@@ -368,6 +416,143 @@ function Show-TasksWindow {
     $tasksWindow.ShowDialog() | Out-Null
 }
 
+# --- Network Adapters Management Functions ---
+
+function Show-NetworkAdaptersWindow {
+    try {
+        $adaptersWindow = Read-Xaml $networkAdaptersXaml
+    }
+    catch {
+        [System.Windows.MessageBox]::Show("Failed to load Network Adapters Window: $_", "Error", "OK", "Error")
+        return
+    }
+
+    # Find Controls
+    $adaptersGrid = $adaptersWindow.FindName("NetworkAdaptersGrid")
+    $uninstallWifiDirectBtn = $adaptersWindow.FindName("UninstallWifiDirectBtn")
+    $uninstallWanMiniportBtn = $adaptersWindow.FindName("UninstallWanMiniportBtn")
+    $uninstallBluetoothPanBtn = $adaptersWindow.FindName("UninstallBluetoothPanBtn")
+    $uninstallIntelWifiBtn = $adaptersWindow.FindName("UninstallIntelWifiBtn")
+    $refreshAdaptersBtn = $adaptersWindow.FindName("RefreshAdaptersBtn")
+
+    # Data Collection
+    $adaptersData = New-Object System.Collections.ObjectModel.ObservableCollection[Object]
+    $adaptersGrid.ItemsSource = $adaptersData
+
+    # Function to load network adapters
+    $loadAdapters = {
+        try {
+            $adapters = Get-NetAdapter -ErrorAction SilentlyContinue
+            
+            $adaptersData.Clear()
+            foreach ($adapter in $adapters) {
+                $adaptersData.Add([PSCustomObject]@{
+                        Name          = $adapter.Name
+                        Description   = $adapter.InterfaceDescription
+                        Status        = $adapter.Status
+                        MacAddress    = $adapter.MacAddress
+                        InterfaceType = $adapter.InterfaceType
+                        DeviceID      = $adapter.DeviceID
+                    })
+            }
+        }
+        catch {
+            [System.Windows.MessageBox]::Show("Failed to load network adapters: $($_.Exception.Message)", "Error", "OK", "Error")
+        }
+    }
+
+    # Load adapters on window open
+    & $loadAdapters
+
+    # Refresh Button
+    $refreshAdaptersBtn.Add_Click({ & $loadAdapters })
+
+    # Helper function to uninstall device by name pattern
+    $uninstallDevice = {
+        param($namePattern, $deviceLabel)
+        
+        try {
+            # Get PnP devices matching the pattern
+            $devices = Get-PnpDevice | Where-Object { $_.FriendlyName -like $namePattern } -ErrorAction SilentlyContinue
+            
+            if (-not $devices -or $devices.Count -eq 0) {
+                [System.Windows.MessageBox]::Show("No devices found matching: $deviceLabel", "Not Found", "OK", "Information")
+                return
+            }
+            
+            $deviceCount = if ($devices -is [array]) { $devices.Count } else { 1 }
+            
+            $result = [System.Windows.MessageBox]::Show(
+                "Found $deviceCount device(s) matching '$deviceLabel'.`n`nAre you sure you want to uninstall? This may require a system restart.",
+                "Confirm Uninstall",
+                "YesNo",
+                "Warning"
+            )
+            
+            if ($result -eq "Yes") {
+                $successCount = 0
+                $failCount = 0
+                
+                foreach ($device in $devices) {
+                    try {
+                        # Use pnputil to remove the device
+                        $instanceId = $device.InstanceId
+                        $pnpResult = & pnputil /remove-device "$instanceId" 2>&1
+                        
+                        if ($LASTEXITCODE -eq 0) {
+                            $successCount++
+                        }
+                        else {
+                            $failCount++
+                        }
+                    }
+                    catch {
+                        $failCount++
+                    }
+                }
+                
+                if ($successCount -gt 0 -and $failCount -eq 0) {
+                    [System.Windows.MessageBox]::Show("Successfully uninstalled $successCount device(s).`n`nYou may need to restart your computer for changes to take effect.", "Success", "OK", "Information")
+                }
+                elseif ($successCount -gt 0 -and $failCount -gt 0) {
+                    [System.Windows.MessageBox]::Show("Uninstalled $successCount device(s), but $failCount device(s) failed.`n`nSome devices may be protected or in use.", "Partial Success", "OK", "Warning")
+                }
+                else {
+                    [System.Windows.MessageBox]::Show("Failed to uninstall devices. They may be protected by the system or require elevated permissions.", "Failed", "OK", "Error")
+                }
+                
+                & $loadAdapters
+            }
+        }
+        catch {
+            [System.Windows.MessageBox]::Show("Error during uninstall: $($_.Exception.Message)", "Error", "OK", "Error")
+        }
+    }
+
+    # Uninstall Microsoft WiFi Direct Virtual Adapter
+    $uninstallWifiDirectBtn.Add_Click({
+            & $uninstallDevice "*Microsoft Wi-Fi Direct Virtual Adapter*" "Microsoft WiFi Direct Virtual Adapter"
+        })
+
+    # Uninstall All WAN Miniport
+    $uninstallWanMiniportBtn.Add_Click({
+            & $uninstallDevice "*WAN Miniport*" "WAN Miniport"
+        })
+
+    # Uninstall Bluetooth Device (Personal Area Network)
+    $uninstallBluetoothPanBtn.Add_Click({
+            & $uninstallDevice "*Bluetooth Device (Personal Area Network)*" "Bluetooth Device (Personal Area Network)"
+        })
+
+    # Uninstall Intel WiFi 6E AX210
+    $uninstallIntelWifiBtn.Add_Click({
+            & $uninstallDevice "*Intel*Wi-Fi 6E AX210*" "Intel WiFi 6E AX210"
+        })
+
+    # Show the network adapters window
+    $adaptersWindow.ShowDialog() | Out-Null
+}
+
 
 # --- Main Script ---
 
@@ -388,6 +573,7 @@ $wifiToggle = $window.FindName("WifiDirectToggle")
 $debugToggle = $window.FindName("DebugToggle")
 $clearBtn = $window.FindName("ClearBtn")
 $tasksBtn = $window.FindName("TasksBtn")
+$networkAdaptersBtn = $window.FindName("NetworkAdaptersBtn")
 
 # Data Collections
 $deviceData = New-Object System.Collections.ObjectModel.ObservableCollection[Object]
@@ -478,6 +664,11 @@ $clearBtn.Add_Click({
 # Tasks Button - Open Scheduled Tasks Window
 $tasksBtn.Add_Click({
         Show-TasksWindow
+    })
+
+# Network Adapters Button - Open Network Adapters Window
+$networkAdaptersBtn.Add_Click({
+        Show-NetworkAdaptersWindow
     })
 
 # --- Device Monitoring Setup (System.Management) ---
