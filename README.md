@@ -1,6 +1,6 @@
-# Windows System Monitor
+# Windows System Monitor (C# / WPF)
 
-A native PowerShell (WPF) application for monitoring system events and managing VPN services on Windows.
+A native .NET 6+ WPF application for monitoring system events and managing VPN services on Windows. Ported from the original PowerShell script for better performance and maintainability.
 
 ## Features
 
@@ -51,34 +51,17 @@ A native PowerShell (WPF) application for monitoring system events and managing 
 
 ### Prerequisites
 *   Windows 10/11
-*   PowerShell 5.1 (Built-in)
+*   .NET Desktop Runtime (6.0 or higher)
 
-### Installation (UAC Bypass)
-
-To run the application as Administrator without constant prompts:
+### Installation
 
 1.  **Download** and extract the release zip `DeviceMonitor.zip`.
-2.  Right-click `Install.ps1` and select **"Run with PowerShell"**.
-    *   *Note: You will be prompted for Admin rights once during installation.*
-3.  The installer will create a desktop shortcut.
-
-**Usage:**
-- Double-click the **"Windows System Monitor"** shortcut on your desktop.
-- It will open immediately with full privileges and no UAC prompt.
-
-### Quick Run (No Install)
-If you prefer not to install, you can still run it manually:
-```powershell
-powershell -ExecutionPolicy Bypass -File .\DeviceMonitorGUI.ps1
-```
-
-> [!NOTE]
-> For Security Event monitoring and VPN Toggling, you must run the application as **Administrator**.
-> Right-click the PowerShell icon and select "Run as Administrator" before launching the script.
+2.  Right-click `DeviceMonitorCS.exe` and select **Run as Administrator**.
+    *   *Note: Administrator rights are required for monitoring Security logs and managing services.*
 
 ## Download
 
 You can download the latest version from the [Releases Page](https://github.com/dparksports/DeviceMonitor/releases).
 
-**Direct Download (v1.3.0):**
-[DeviceMonitor.zip](https://github.com/dparksports/DeviceMonitor/releases/download/v1.3.0/DeviceMonitor.zip)
+**Direct Download (v1.4.0):**
+[DeviceMonitor.zip](https://github.com/dparksports/DeviceMonitor/releases/download/v1.4.0/DeviceMonitor.zip)
