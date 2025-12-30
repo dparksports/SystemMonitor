@@ -14,7 +14,14 @@
         <TextBox x:Name="ContextBox" Grid.Row="1" Height="80" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Background="#F0F0F0" Padding="5"/>
 
         <TextBlock Text="AI Response:" Grid.Row="2" FontWeight="Bold" Margin="0,10,0,5" VerticalAlignment="Top"/>
-        <TextBox x:Name="ResponseBox" Grid.Row="2" Margin="0,25,0,0" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Padding="5"/>
+        <Grid Grid.Row="2" Margin="0,25,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBox x:Name="ResponseBox" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Padding="5"/>
+            <StackPanel x:Name="ActionsPanel" Grid.Row="1" Orientation="Vertical" Margin="0,5,0,0"/>
+        </Grid>
 
         <Grid Grid.Row="3" Margin="0,10,0,0">
             <Grid.ColumnDefinitions>

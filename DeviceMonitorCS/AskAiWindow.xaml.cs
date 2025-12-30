@@ -1,6 +1,10 @@
 using System;
+using System.Diagnostics;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
 using DeviceMonitorCS.Models;
 
 namespace DeviceMonitorCS
@@ -63,6 +67,9 @@ namespace DeviceMonitorCS
         {
             if (string.IsNullOrWhiteSpace(QuestionBox.Text)) return;
 
+            // Clear previous actions
+            ActionsPanel.Children.Clear();
+
             string question = QuestionBox.Text;
             string prompt = $"Here is a JSON object representing a system entity (e.g., a process, network connection, or event):\n\n{_context}\n\nUser Question: {question}\n\nPlease provide a concise explanation.";
             
@@ -74,6 +81,9 @@ namespace DeviceMonitorCS
             {
                 string answer = await _client.AskAsync(prompt);
                 ResponseBox.Text = answer;
+
+                // Parse for commands
+                ParseAndCreateActions(answer);
             }
             catch (Exception ex)
             {
@@ -84,6 +94,80 @@ namespace DeviceMonitorCS
                 AskBtn.IsEnabled = true;
                 QuestionBox.IsEnabled = true;
                 QuestionBox.Focus();
+            }
+        }
+
+        private void ParseAndCreateActions(string answer)
+        {
+            // Regex for parsing markdown code blocks: ```language code ```
+            // Supports powershell, cmd, batch, or generic code blocks
+            var regex = new Regex(@"```(powershell|cmd|batch|bash)?\s*([\s\S]*?)\s*```", RegexOptions.IgnoreCase);
+            var matches = regex.Matches(answer);
+
+            foreach (Match match in matches)
+            {
+                string lang = match.Groups[1].Value.ToLower();
+                string code = match.Groups[2].Value.Trim();
+
+                if (string.IsNullOrEmpty(lang)) lang = "Command";
+
+                // Filter for likely executable commands on Windows
+                if (lang == "powershell" || lang == "cmd" || lang == "batch" || lang == "")
+                {
+                    var btn = new Button
+                    {
+                        Content = $"Run {lang.ToUpper()}: {GetShortCodePreview(code)}",
+                        Margin = new Thickness(0, 5, 0, 0),
+                        Padding = new Thickness(10, 5, 10, 5),
+                        HorizontalAlignment = HorizontalAlignment.Left,
+                        Background = new SolidColorBrush(Color.FromRgb(221, 241, 255)), // Light Blue
+                        BorderBrush = Brushes.Gray
+                    };
+
+                    btn.Click += (s, ev) => ExecuteCommand(code, lang);
+                    ActionsPanel.Children.Add(btn);
+                }
+            }
+        }
+
+        private string GetShortCodePreview(string code)
+        {
+            var lines = code.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length > 0)
+            {
+                string preview = lines[0];
+                if (preview.Length > 50) preview = preview.Substring(0, 47) + "...";
+                if (lines.Length > 1) preview += " (+ more)";
+                return preview;
+            }
+            return "Script";
+        }
+
+        private void ExecuteCommand(string code, string lang)
+        {
+            try
+            {
+                var confirm = MessageBox.Show($"Are you sure you want to execute this command?\n\n{code}", "Confirm Execution", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (confirm != MessageBoxResult.Yes) return;
+
+                ProcessStartInfo psi;
+
+                if (lang == "cmd" || lang == "batch")
+                {
+                    psi = new ProcessStartInfo("cmd.exe", $"/c {code}") { UseShellExecute = true };
+                }
+                else // Default to PowerShell
+                {
+                    // Escape quotes for PowerShell command argument
+                    string escapedCode = code.Replace("\"", "\\\"");
+                    psi = new ProcessStartInfo("powershell.exe", $"-NoExit -Command \"{escapedCode}\"") { UseShellExecute = true };
+                }
+                 
+                Process.Start(psi);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Execution failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
     }

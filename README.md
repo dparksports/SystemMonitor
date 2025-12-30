@@ -64,6 +64,7 @@ A native .NET 6+ WPF application for monitoring system events and managing VPN s
 *   **Smart Context**: The app automatically formats the selected item (e.g., process details, event ID) into a prompt for the AI.
 *   **Interactive Dialog**: A dedicated chat window lets you ask follow-up questions about the specific system entity.
 *   **Intelligent Insights**: Powered by the **Gemini 3 Flash Preview** model for fast and accurate explanations of obscure processes, error codes, and network activity.
+*   **One-Click Action**: If the AI suggests a command (e.g., to find a process path), a **"Run" button** appears to let you execute it instantly.
 
 ## Usage
 
@@ -81,5 +82,5 @@ A native .NET 6+ WPF application for monitoring system events and managing VPN s
 
 You can download the latest version from the [Releases Page](https://github.com/dparksports/DeviceMonitor/releases).
 
-**Direct Download (v1.7.1):**
-[DeviceMonitorCS.zip](https://github.com/dparksports/DeviceMonitor/releases/download/v1.7.1/DeviceMonitorCS.zip)
+**Direct Download (v1.8.0):**
+[DeviceMonitorCS.zip](https://github.com/dparksports/DeviceMonitor/releases/download/v1.8.0/DeviceMonitorCS.zip)
