@@ -47,7 +47,8 @@ Don't just see "Event ID 4624" — understand it.
 ### 🛡️ Auto-Start at Logon
 Since this tool requires Administrator privileges, the best way to start it automatically is via **Task Scheduler** (bypasses UAC prompts).
 
-**Run this command (Administrator PowerShell):**
+**Run this command (Requires Admin PowerShell):**
+*(Note: If you get "Access is denied", right-click PowerShell and select "Run as Administrator")*
 ```powershell
 schtasks /create /tn "StartSystemMonitor" /tr "'C:\Path\To\DeviceMonitorCS.exe'" /sc onlogon /rl highest /f
 ```
