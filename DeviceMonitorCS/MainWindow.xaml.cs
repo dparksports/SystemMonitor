@@ -137,7 +137,7 @@ namespace DeviceMonitorCS
                 string startType = enable ? "manual" : "disabled";
                 foreach (var svcName in _vpnServices)
                 {
-                    RunCommand("sc.exe", $"config {svcName} start= {startType}");
+                    RunCommand("sc.exe", $"config \"{svcName}\" start= {startType}");
                     
                     if (!enable)
                     {
@@ -210,7 +210,7 @@ namespace DeviceMonitorCS
              string state = enable ? "on" : "off";
              try
              {
-                 RunCommand("bcdedit.exe", $"/debug {state}");
+                 RunCommand("bcdedit.exe", $"/set {{current}} debug {state}");
                  LogConfigEvent("Kernel Debug", enable);
              }
              catch (Exception ex)
@@ -229,16 +229,26 @@ namespace DeviceMonitorCS
                 CreateNoWindow = true,
                 UseShellExecute = false,
                 RedirectStandardError = true,
-                RedirectStandardOutput = true
+                RedirectStandardOutput = true,
+                WindowStyle = ProcessWindowStyle.Hidden
             };
 
-            using (var p = Process.Start(psi))
+            using (var p = new Process { StartInfo = psi })
             {
-                string err = p.StandardError.ReadToEnd();
+                var output = new System.Text.StringBuilder();
+                var error = new System.Text.StringBuilder();
+
+                p.OutputDataReceived += (s, e) => { if (e.Data != null) output.AppendLine(e.Data); };
+                p.ErrorDataReceived += (s, e) => { if (e.Data != null) error.AppendLine(e.Data); };
+
+                p.Start();
+                p.BeginOutputReadLine();
+                p.BeginErrorReadLine();
                 p.WaitForExit();
+
                 if (p.ExitCode != 0)
                 {
-                    throw new Exception($"{exe} failed (Code {p.ExitCode}): {err}");
+                    throw new Exception($"{exe} failed (Code {p.ExitCode}): {error}");
                 }
             }
         }
