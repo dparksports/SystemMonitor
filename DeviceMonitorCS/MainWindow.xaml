@@ -14,7 +14,18 @@
     <DockPanel>
         <!-- Toolbar -->
         <ToolBarTray DockPanel.Dock="Top">
-            <ToolBar>
+            <ToolBar Band="0" BandIndex="0">
+                <Button x:Name="HostedNetworkBtn" Content="Hosted Network" Margin="5"/>
+                <Separator/>
+                <Button x:Name="WanMiniportBtn" Content="WAN Miniports" Margin="5"/>
+                <Separator/>
+                <Button x:Name="NetworkAdaptersBtn" Content="Network Adapters" Margin="5"/>
+                <Separator/>
+                <Button x:Name="TasksBtn" Content="Scheduled Tasks" Margin="5"/>
+                <Separator/>
+                <Button x:Name="ConnectionsBtn" Content="Connections" Margin="5"/>
+            </ToolBar>
+            <ToolBar Band="1" BandIndex="0">
                 <CheckBox x:Name="VpnToggle" Content="VPN Service" FontSize="14" VerticalAlignment="Center" Margin="5"/>
                 <Separator/>
                 <CheckBox x:Name="WifiDirectToggle" Content="WiFi Direct" FontSize="14" VerticalAlignment="Center" Margin="5"/>
@@ -22,14 +33,6 @@
                 <CheckBox x:Name="DebugToggle" Content="Kernel Debug" FontSize="14" VerticalAlignment="Center" Margin="5"/>
                 <Separator/>
                 <Button x:Name="ClearBtn" Content="Clear Events" Margin="5"/>
-                <Separator/>
-                <Button x:Name="TasksBtn" Content="Scheduled Tasks" Margin="5"/>
-                <Separator/>
-                <Button x:Name="NetworkAdaptersBtn" Content="Network Adapters" Margin="5"/>
-                <Separator/>
-                <Button x:Name="WanMiniportBtn" Content="WAN Miniports" Margin="5"/>
-                <Separator/>
-                <Button x:Name="ConnectionsBtn" Content="Connections" Margin="5"/>
             </ToolBar>
         </ToolBarTray>
 

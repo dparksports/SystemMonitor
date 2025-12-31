@@ -69,6 +69,14 @@ A native .NET 6+ WPF application for monitoring system events and managing VPN s
 *   **Intelligent Insights**: Powered by the **Gemini 3 Flash Preview** model for fast and accurate explanations of obscure processes, error codes, and network activity.
 *   **One-Click Action**: If the AI suggests a command (e.g., to find a process path), a **"Run" button** appears to let you execute it instantly.
 
+### 9. Hosted Network Manager
+*   **Dedicated Window**: Click the "Hosted Network" button to manage the Windows Hosted Network (SoftAP).
+*   **Status & Control**: View current status and toggle the Hosted Network ON/OFF.
+*   **Adapter Management**: List all system network adapters with the ability to:
+    *   **Disable**: Selectively disable specific virtual adapters.
+    *   **Refresh**: Update list of adapters and their status.
+*   **Troubleshooting**: Useful for resolving issues with "Microsoft Hosted Network Virtual Adapter" which can often interfere with other wireless features.
+
 ## Usage
 
 ### Prerequisites
@@ -85,5 +93,5 @@ A native .NET 6+ WPF application for monitoring system events and managing VPN s
 
 You can download the latest version from the [Releases Page](https://github.com/dparksports/DeviceMonitor/releases).
 
-**Direct Download (v1.10.0):**
-[DeviceMonitorCS.zip](https://github.com/dparksports/DeviceMonitor/releases/download/v1.10.0/DeviceMonitorCS.zip)
+**Direct Download (v1.11.0):**
+[DeviceMonitorCS.zip](https://github.com/dparksports/DeviceMonitor/releases/download/v1.11.0/DeviceMonitorCS.zip)

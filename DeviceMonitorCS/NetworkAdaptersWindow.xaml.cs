@@ -144,13 +144,11 @@ namespace DeviceMonitorCS
 
                 if (result == MessageBoxResult.Yes)
                 {
-                    // PowerShell: Disable-NetAdapter -Name 'pattern' -Confirm:$false
-                    // We need to use wildcards for PowerShell if the name isn't exact, but Disable-NetAdapter supports wildcards.
-                    // Important: The Name passed to Disable-NetAdapter is the "Name" (e.g. "Wi-Fi"), not necessarily the InterfaceDescription.
-                    // However, we can filter by InterfaceDescription.
-                    // command: Get-NetAdapter | Where-Object { $_.InterfaceDescription -like 'pattern' } | Disable-NetAdapter -Confirm:$false
+                    // PowerShell: Disable-PnpDevice -FriendlyName 'pattern' -Confirm:$false
+                    // Using PnpDevice ensures it is disabled in Device Manager, which is often what is needed for virtual adapters.
+                    // Command: Get-PnpDevice | Where-Object { $_.FriendlyName -like 'pattern' } | Disable-PnpDevice -Confirm:$false
 
-                    string psCommand = $"Get-NetAdapter | Where-Object {{ $_.InterfaceDescription -like '{namePattern}' }} | Disable-NetAdapter -Confirm:$false";
+                    string psCommand = $"Get-PnpDevice | Where-Object {{ $_.FriendlyName -like '{namePattern}' }} | Disable-PnpDevice -Confirm:$false";
                     
                     var startInfo = new ProcessStartInfo
                     {
@@ -158,7 +156,7 @@ namespace DeviceMonitorCS
                         Arguments = $"-Command \"{psCommand}\"",
                         RedirectStandardOutput = true,
                         RedirectStandardError = true,
-                        UseShellExecute = false,
+                        UseShellExecute = false, // Required for RedirectStandardOutput
                         CreateNoWindow = true,
                         Verb = "runas" // Request admin
                     };

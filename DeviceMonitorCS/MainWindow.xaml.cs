@@ -61,6 +61,7 @@ namespace DeviceMonitorCS
             TasksBtn.Click += (s, e) => new TasksWindow().Show();
             NetworkAdaptersBtn.Click += (s, e) => new NetworkAdaptersWindow().Show();
             WanMiniportBtn.Click += (s, e) => new WanMiniportWindow().Show();
+            HostedNetworkBtn.Click += (s, e) => new HostedNetworkWindow().Show();
             ConnectionsBtn.Click += (s, e) => new ConnectionsWindow().Show();
 
             // Wire Toggles
