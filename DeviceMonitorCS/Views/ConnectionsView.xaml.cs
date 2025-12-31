@@ -4,14 +4,14 @@ using System.Windows.Controls;
 using System.Windows.Threading;
 using DeviceMonitorCS.Models;
 
-namespace DeviceMonitorCS
+namespace DeviceMonitorCS.Views
 {
-    public partial class ConnectionsWindow : Window
+    public partial class ConnectionsView : UserControl
     {
         private ConnectionMonitor _monitor;
         private DispatcherTimer _timer;
 
-        public ConnectionsWindow()
+        public ConnectionsView()
         {
             InitializeComponent();
             _monitor = new ConnectionMonitor();
@@ -44,7 +44,8 @@ namespace DeviceMonitorCS
             // Double click unmute
             MutedList.MouseDoubleClick += (s, e) => UnmuteSelected();
             
-            Closed += (s, e) => { _timer.Stop(); _monitor.SavePersistence(); };
+            this.Unloaded += (s, e) => { _timer.Stop(); _monitor.SavePersistence(); };
+            this.Loaded += (s, e) => { _timer.Start(); };
         }
 
         private void MuteSelected(DataGrid grid)
@@ -55,7 +56,7 @@ namespace DeviceMonitorCS
                 if (res == MessageBoxResult.Yes)
                 {
                     _monitor.MuteConnection(item);
-                    _monitor.RefreshConnections(); // Refresh to remove muted items immediately
+                    _monitor.RefreshConnections(); 
                 }
             }
         }
@@ -90,7 +91,7 @@ namespace DeviceMonitorCS
             if (selectedItem != null)
             {
                 var window = new AskAiWindow(selectedItem);
-                window.Owner = this;
+                window.Owner = Window.GetWindow(this);
                 window.ShowDialog();
             }
         }

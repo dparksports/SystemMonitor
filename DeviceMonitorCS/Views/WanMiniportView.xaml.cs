@@ -4,15 +4,16 @@ using System.Diagnostics;
 using System.Linq;
 using System.Management;
 using System.Windows;
+using System.Windows.Controls;
 using DeviceMonitorCS.Models;
 
-namespace DeviceMonitorCS
+namespace DeviceMonitorCS.Views
 {
-    public partial class WanMiniportWindow : Window
+    public partial class WanMiniportView : UserControl
     {
         public ObservableCollection<NetworkAdapterItem> WanAdapters { get; set; } = new ObservableCollection<NetworkAdapterItem>();
 
-        public WanMiniportWindow()
+        public WanMiniportView()
         {
             InitializeComponent();
             WanGrid.ItemsSource = WanAdapters;
@@ -27,6 +28,7 @@ namespace DeviceMonitorCS
             // WAN Miniport Controls
             DisableAllWanBtn.Click += (s, e) => DisableAllWanMiniports();
             UninstallAllWanBtn.Click += (s, e) => UninstallAllWanMiniports();
+            UninstallSstpBtn.Click += (s, e) => UninstallWanMiniportSstp();
 
             LoadAdapters();
         }
@@ -101,7 +103,7 @@ namespace DeviceMonitorCS
         {
             if (MessageBox.Show("Disable ALL WAN Miniports?", "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
             {
-                RunPowerShellCommand("Get-NetAdapter | Where-Object { $_.InterfaceDescription -like '*WAN Miniport*' } | Disable-NetAdapter -Confirm:$false", "Disable All WAN Miniports");
+                RunPowerShellCommand("Get-NetAdapter -IncludeHidden | Where-Object { $_.InterfaceDescription -like '*WAN Miniport*' } | Disable-NetAdapter -Confirm:$false -ErrorAction SilentlyContinue", "Disable All WAN Miniports");
                 LoadAdapters();
             }
         }
@@ -110,12 +112,6 @@ namespace DeviceMonitorCS
         {
              if (MessageBox.Show("Uninstall ALL WAN Miniports?\nNOTE: This logic uses pnputil to remove devices matching 'WAN Miniport'.", "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
              {
-                 // Reuse logic similar to NetworkAdaptersWindow but focused
-                 // First find the IDs via WMI to be safe, creating a script or list.
-                 // Ideally simpler:
-                 // We can use PowerShell to find and remove if possible, but pnputil is standard.
-                 // Let's iterate and remove like before.
-                 
                  try 
                  {
                      string wql = "SELECT * FROM Win32_PnPEntity WHERE Name LIKE '%WAN Miniport%'";
@@ -141,6 +137,98 @@ namespace DeviceMonitorCS
                      
                      MessageBox.Show($"Uninstalled {success} devices. Please reboot if needed.", "Done", MessageBoxButton.OK, MessageBoxImage.Information);
                      LoadAdapters();
+                 }
+                 catch(Exception ex)
+                 {
+                     MessageBox.Show($"Error: {ex.Message}");
+                 }
+                }
+            }
+
+        private void UninstallWanMiniportSstp()
+        {
+             if (MessageBox.Show("Uninstall specifically 'WAN Miniport (SSTP)'?\nNOTE: This uses pnputil to remove the device.", "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+             {
+                 try 
+                 {
+                     string deviceId = null;
+
+                     // Strategy 1: Win32_NetworkAdapter (Most reliable for "Network Adapters")
+                     try 
+                     {
+                         var searcher = new ManagementObjectSearcher("SELECT PNPDeviceID FROM Win32_NetworkAdapter WHERE Name LIKE '%WAN Miniport (SSTP)%'");
+                         foreach (ManagementObject obj in searcher.Get())
+                         {
+                             deviceId = obj["PNPDeviceID"]?.ToString();
+                             if (!string.IsNullOrEmpty(deviceId)) break;
+                         }
+                     }
+                     catch {}
+
+                     // Strategy 2: Win32_PnPEntity (Broader search) if not found
+                     if (string.IsNullOrEmpty(deviceId))
+                     {
+                         try
+                         {
+                            var searcher = new ManagementObjectSearcher("SELECT DeviceID FROM Win32_PnPEntity WHERE Name LIKE '%WAN Miniport%SSTP%'");
+                            foreach (ManagementObject obj in searcher.Get())
+                            {
+                                deviceId = obj["DeviceID"]?.ToString();
+                                if (!string.IsNullOrEmpty(deviceId)) break;
+                            }
+                         }
+                         catch {}
+                     }
+
+                     // Strategy 3: PowerShell Get-PnpDevice (Final Fallback)
+                     if (string.IsNullOrEmpty(deviceId))
+                     {
+                         try
+                         {
+                             var ps = new ProcessStartInfo
+                             {
+                                 FileName = "powershell.exe",
+                                 Arguments = "-Command \"Get-PnpDevice -FriendlyName '*WAN Miniport (SSTP)*' | Select-Object -ExpandProperty InstanceId\"",
+                                 RedirectStandardOutput = true,
+                                 UseShellExecute = false,
+                                 CreateNoWindow = true
+                             };
+                             using (var p = Process.Start(ps))
+                             {
+                                 string output = p.StandardOutput.ReadToEnd();
+                                 p.WaitForExit();
+                                 if (!string.IsNullOrWhiteSpace(output))
+                                 {
+                                     deviceId = output.Trim().Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+                                 }
+                             }
+                         }
+                         catch {}
+                     }
+
+                     if (string.IsNullOrEmpty(deviceId))
+                     {
+                         MessageBox.Show("WAN Miniport (SSTP) not found via WMI or PowerShell scan.", "Not Found", MessageBoxButton.OK, MessageBoxImage.Information);
+                         return;
+                     }
+
+                     var proc = Process.Start(new ProcessStartInfo {
+                         FileName = "pnputil.exe",
+                         Arguments = $"/remove-device \"{deviceId}\"",
+                         CreateNoWindow = true,
+                         UseShellExecute = false
+                     });
+                     proc.WaitForExit();
+                     
+                     if(proc.ExitCode == 0)
+                     {
+                        MessageBox.Show($"Uninstalled device successfully.\nID: {deviceId}\nPlease reboot if needed.", "Done", MessageBoxButton.OK, MessageBoxImage.Information);
+                        LoadAdapters();
+                     }
+                     else
+                     {
+                        MessageBox.Show($"Failed to uninstall device.\nID: {deviceId}\nExit Code: {proc.ExitCode}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                     }
                  }
                  catch(Exception ex)
                  {
