@@ -1,17 +1,18 @@
 using System;
 using System.Diagnostics;
 using System.Windows;
-
+using System.Windows.Controls;
 using System.Collections.ObjectModel;
 using System.Management;
 using DeviceMonitorCS.Models;
 
-namespace DeviceMonitorCS
+namespace DeviceMonitorCS.Views
 {
-    public partial class HostedNetworkWindow : Window
+    public partial class HostedNetworkView : UserControl
     {
         public ObservableCollection<NetworkAdapterItem> AdaptersData { get; set; } = new ObservableCollection<NetworkAdapterItem>();
-        public HostedNetworkWindow()
+
+        public HostedNetworkView()
         {
             InitializeComponent();
 
@@ -64,7 +65,7 @@ namespace DeviceMonitorCS
                 case "2": return "Connected";
                 case "3": return "Disconnecting";
                 case "7": return "Media Disconnected";
-                case "22": return "Disabled"; // Note: WMI often returns null for disabled devices instead of 22
+                case "22": return "Disabled";
                 default: return $"Code {code}";
             }
         }

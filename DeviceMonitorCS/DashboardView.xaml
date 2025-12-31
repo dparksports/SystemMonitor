@@ -1,0 +1,81 @@
+<UserControl x:Class="DeviceMonitorCS.DashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" 
+             d:DesignHeight="600" d:DesignWidth="800"
+             Background="#1E1E1E">
+    <UserControl.Resources>
+        <Style TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style TargetType="Border" x:Key="CardStyle">
+            <Setter Property="Background" Value="#2D2D30"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="15"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect Color="Black" BlurRadius="10" ShadowDepth="2" Opacity="0.3"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <TextBlock Text="Security Dashboard" FontSize="28" FontWeight="Light" Margin="0,0,0,20"/>
+
+        <!-- Status Cards -->
+        <UniformGrid Grid.Row="1" Columns="3" Margin="0,0,0,20">
+            <!-- Overall Status -->
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Text="Security Status" Opacity="0.7"/>
+                    <TextBlock x:Name="StatusText" Text="Protected" FontSize="24" FontWeight="Bold" Foreground="#00FF00" Margin="0,10,0,0"/>
+                    <TextBlock Text="Enforcer Active" FontSize="12" Margin="0,5,0,0" Opacity="0.5"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Network Shield -->
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Text="Network Shield" Opacity="0.7"/>
+                    <TextBlock x:Name="NetworkText" Text="Active" FontSize="24" FontWeight="Bold" Foreground="#00BFFF" Margin="0,10,0,0"/>
+                    <TextBlock Text="Hosted Network: Blocked" FontSize="12" Margin="0,5,0,0" Opacity="0.5"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Task Monitor -->
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Text="Task Monitor" Opacity="0.7"/>
+                    <TextBlock x:Name="TaskText" Text="Scanning" FontSize="24" FontWeight="Bold" Foreground="#FFD700" Margin="0,10,0,0"/>
+                    <TextBlock Text="Privileged Tasks Check" FontSize="12" Margin="0,5,0,0" Opacity="0.5"/>
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <!-- Activity Feed PlaceHolder -->
+        <Border Grid.Row="2" Style="{StaticResource CardStyle}" VerticalAlignment="Stretch">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <TextBlock Text="Recent Enforcement Activity" FontSize="18" Margin="0,0,0,10"/>
+                <ListBox x:Name="ActivityList" Grid.Row="1" Background="Transparent" BorderThickness="0" Foreground="LightGray">
+                     <!-- Items will be bound here -->
+                </ListBox>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

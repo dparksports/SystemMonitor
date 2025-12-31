@@ -3,20 +3,20 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
 using DeviceMonitorCS.Models;
 
-namespace DeviceMonitorCS
+namespace DeviceMonitorCS.Views
 {
-    public partial class TasksWindow : Window
+    public partial class TasksView : UserControl
     {
         public ObservableCollection<ScheduledTaskItem> TasksData { get; set; } = new ObservableCollection<ScheduledTaskItem>();
 
-        public TasksWindow()
+        public TasksView()
         {
             InitializeComponent();
             TasksGrid.ItemsSource = TasksData;
 
-            // Wire up buttons
             RefreshBtn.Click += (s, e) => LoadTasks();
             DisableBtn.Click += DisableBtn_Click;
             StopBtn.Click += StopBtn_Click;
@@ -31,7 +31,6 @@ namespace DeviceMonitorCS
             try
             {
                 TasksData.Clear();
-                // Use schtasks /query /FO CSV /V to get details
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = "schtasks.exe",
@@ -39,28 +38,25 @@ namespace DeviceMonitorCS
                     RedirectStandardOutput = true,
                     UseShellExecute = false,
                     CreateNoWindow = true,
-                    StandardOutputEncoding = System.Text.Encoding.UTF8 // Ensure encoding matches
+                    StandardOutputEncoding = System.Text.Encoding.UTF8 
                 };
 
                 using (var process = Process.Start(startInfo))
                 {
-                    // Basic CSV parsing
                     string output = process.StandardOutput.ReadToEnd();
                     process.WaitForExit();
 
                     var lines = output.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
                     
-                    // Skip header
                     if (lines.Length > 1)
                     {
                         var headers = ParseCsvLine(lines[0]);
-                        // Find indices
                         int idxTaskName = Array.IndexOf(headers, "TaskName");
                         int idxStatus = Array.IndexOf(headers, "Status");
                         int idxAction = Array.IndexOf(headers, "Task To Run");
                         int idxUser = Array.IndexOf(headers, "Run As User");
 
-                        if (idxTaskName == -1) idxTaskName = 0; // Fallback
+                        if (idxTaskName == -1) idxTaskName = 0; 
 
                         for (int i = 1; i < lines.Length; i++)
                         {
@@ -68,14 +64,7 @@ namespace DeviceMonitorCS
                             if (cols.Length < 2) continue;
 
                             string taskName = GetCol(cols, idxTaskName);
-                            // Filter for "High" run level is hard with just CSV output without checking XML, 
-                            // but usually Admin tasks run as SYSTEM or specific users. 
-                            // PowerShell script filtered by RunLevel 'Highest'. 
-                            // schtasks /query /V includes "Level" column usually.
                            
-                            // Let's just list all for now or filter by implicit admin heuristics if needed.
-                            // But usually users want to see important tasks. 
-                            
                             TasksData.Add(new ScheduledTaskItem
                             {
                                 TaskName = taskName.Trim('"'),
@@ -99,11 +88,8 @@ namespace DeviceMonitorCS
             return "";
         }
 
-        // Simple CSV split handling quotes
         private string[] ParseCsvLine(string line)
         {
-            // This is a naive parser but usually sufficient for schtasks output
-            // schtasks quotes all fields in CSV
             return line.Split(new[] { "\",\"" }, StringSplitOptions.None)
                        .Select(s => s.Trim('"'))
                        .ToArray();
@@ -195,7 +181,7 @@ namespace DeviceMonitorCS
             if (grid != null && grid.SelectedItem != null)
             {
                 var window = new AskAiWindow(grid.SelectedItem);
-                window.Owner = this;
+                window.Owner = Window.GetWindow(this);
                 window.ShowDialog();
             }
         }
