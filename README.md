@@ -1,108 +1,48 @@
-# Windows System Monitor (C# / WPF)
+# Windows System Monitor (Active Defense Hub)
 
-A native .NET 6+ WPF application for monitoring system events and managing VPN services on Windows. Ported from the original PowerShell script for better performance and maintainability.
+![Windows System Monitor Dashboard](DeviceMonitorCS/screenshot.png)
 
-## Features
+## 🛡️ The Concept
+**Windows System Monitor** is not just another passive logger. It is an **Active Defense Hub** designed for power users and security administrators who need real-time visibility and **instant automated response** capabilities.
 
-### 1. Device Monitoring
-*   **Real-time Tracking**: Instantly view Plug-and-Play (PnP) devices as they are added or removed (e.g., USB drives, Keyboards).
-*   **Detailed Info**: Displays Device Name, Type (e.g., HIDClass, USB), and the Initiator (Logged-on User).
+While traditional windows tools (Event Viewer, Device Manager) are fragmented and reactive, this application unifies system telemetry into a single **Dark Neon Dashboard** and actively neutralizes threats the moment they appear.
 
-### 2. Security Event Monitoring
-*   **Complete Visibility**: Monitors **ALL** events in the Windows Security Log (not just logons).
-*   **Smart Parsing**: Automatically extracts Account Names and Activity Types (e.g., "Special Logon", "Process Creation", "Privilege Usage").
-*   **Logon Type decoding**: For logon events, it decodes the numeric type (Interactive, Service, Network, etc.) into human-readable text.
+## ✨ Key Features (v2.1.0)
 
-### 3. VPN Service Management
-*   **One-Click Toggle**: A Toolbar button to easily enable/disable VPN-related services.
-    *   **Enabled**: Sets `RasMan`, `IKEEXT`, `PolicyAgent`, and `RemoteAccess` services to `Manual` startup.
-    *   **Disabled**: Stops these services and sets their startup type to `Disabled` for security/performance.
+### 1. 🧠 Automated Security Enforcement
+The application runs a background `SecurityEnforcer` loop (configurable interval) that doesn't just watch—it acts.
+*   **Anti-Tunneling**: Instantly detects unauthorized "WAN Miniport (SSTP)" adapters.
+    *   **Action**: Stops Service ➔ Disables Service ➔ Disables Adapter ➔ **Uninstalls Device**.
+    *   **Alert**: Dashboard turns **RED** and triggers an AI forensic explanation.
+*   **Hosted Network Killer**: Automatically blocks the creation of SoftAP hotspots ("Microsoft Hosted Network Virtual Adapter") to prevent unauthorized bridging.
 
-### 4. Advanced Network Toggles
-*   **WiFi Direct**: Enable/Disable the "Microsoft Wi-Fi Direct Virtual Adapter" to block or allow ad-hoc wireless connections.
-*   **Kernel Debug Network**: Toggle `bcdedit /debug` on or off to control kernel debugging networking capabilities.
-*   **Audit Logging**: All toggle actions are recorded in the Device Events list with the Initiator's identity.
+### 2. 📊 Modern Glass-Morphism Dashboard
+All critical system data is aggregated into one view:
+*   **Live Status Cards**: Real-time gauges for System Security, Network Shield, and Automated Tasks.
+*   **Unified Event Stream**: See Hardware plug-and-play events side-by-side with Windows Security Audit logs.
+*   **Glass UI**: A beautiful, deep dark theme (`#1E1E1E`) with neon accents (Cyan/Green/Amber) that looks at home on modern Windows 11 setups.
 
-### 5. Scheduled Tasks Manager
-*   **Dedicated Window**: Click the "Scheduled Tasks" button to open a separate task management window.
-*   **View Admin Tasks**: Displays all scheduled tasks running with highest privileges (administrator rights).
-*   **Task Management**: Full control over tasks with dedicated buttons:
-    *   **Disable**: Prevent tasks from running automatically
-    *   **Stop**: Terminate currently running tasks
-    *   **Start**: Execute tasks immediately
-    *   **Delete**: Permanently remove tasks (with confirmation)
-    *   **Refresh**: Update the task list to show current status
-*   **Task Details**: View task name, state (Ready, Running, Disabled), action (command being executed), and user account.
+### 3. 🤖 Integrated Gemini AI Forensics
+Don't just see "Event ID 4624" — understand it.
+*   **Context Aware**: Right-click ANY log entry (Process, Connection, Security Event) -> "Ask AI about this".
+*   **Incident Analysis**: The AI analyzes the specific metadata and explains *why* a process triggered a network connection or why a security event matters.
 
-### 6. Network Adapters Manager
-*   **Dedicated Window**: Click the "Network Adapters" button to view and manage network interfaces.
-*   **Comprehensive List**: View all network adapters with details including Name, Description, Status, MAC Address, and Interface Type.
-*   **Uninstall Capability**: Easily uninstall stubborn or problematic virtual adapters directly from the toolbar:
-    *   **Microsoft WiFi Direct Virtual Adapter**: Often causes issues with hotspots.
-    *   **WAN Miniport**: Uninstall all WAN Miniports at once to reset network stack.
-    *   **Bluetooth PAN**: Remove Bluetooth Personal Area Network devices.
-    *   **Intel WiFi 6E AX210**: Specific target for Intel AX210 driver reset.
-*   **Disable Capability**: Temporarily disable network adapters without uninstalling them.
-    *   **Supported Adapters**: WAN Miniports, Microsoft WiFi Direct, Bluetooth PAN, and Intel AX210.
-*   **Live Notifications**: Get instant visual notifications when any network adapter is added, removed, or modified on the system.
-*   **Safety Features**: 
-    *   Confirmation dialogs before any uninstall action.
-    *   Reports success/failure counts.
-    *   Automatic list refresh after operations.
+### 4. 🛠️ Power Tools
+*   **VPN Kill Switch**: One-click toggle to Stop and Disable all VPN-related services (`RasMan`, `IKEEXT`, etc.).
+*   **Connection Monitor**: view active TCP/UDP connections with "WhoIs" geo-location (Country/ISP).
+*   **Scheduled Task Manager**: Find and disable high-privilege scheduled tasks that often hide malware persistence.
 
-### 7. Network Connections Manager
-*   **Dedicated Window**: Click the "Connections" button to monitor active TCP/UDP connections.
-*   **Active Monitoring**: Real-time list of connections with Process Name, PID, Local/Remote Address, and State.
-*   **Who Is**: Automatically resolves external IP addresses to **Organization** and **Country** via `ipinfo.io` (e.g., `Google LLC (US)`).
-    *   **Smart Throttling**: Lookups are rate-limited (1 per 3s) to respect API limits.
-    *   **Caching**: Results are cached to disk (`ip_cache.json`) for instant future lookups.
-*   **Historical Log**: Keeps track of closed connections, perfect for catching short-lived processes or malware beacons.
-*   **Mute Function**: Right-click to "Mute" known safe connections (like Localhost or trusted servers) to declutter the view.
-*   **Muted Management**: Review muted IPs in a dedicated tab and unmute them if needed.
-*   **Persistent Data**: History and Muted settings are saved to disk and restored on next launch.
+## 🚀 Installation
 
-### 8. AI Assistant (Gemini)
-*   **Configuration**: Requires a valid Gemini API key. Create a file named `apikey.txt` in the same folder as the application and paste your API key inside it.
-*   **Context-Aware Q&A**: Right-click any row in **ANY** list (Device, Security, Tasks, Adapters, Connections) to "Ask AI about this".
-*   **Smart Context**: The app automatically formats the selected item (e.g., process details, event ID) into a prompt for the AI.
-*   **Interactive Dialog**: A dedicated chat window lets you ask follow-up questions about the specific system entity.
-*   **Intelligent Insights**: Powered by the **Gemini 3 Flash Preview** model for fast and accurate explanations of obscure processes, error codes, and network activity.
-*   **One-Click Action**: If the AI suggests a command (e.g., to find a process path), a **"Run" button** appears to let you execute it instantly.
+1.  **Download** the latest release:
+    *   [**DeviceMonitorCS.zip (v2.1.0)**](https://github.com/dparksports/DeviceMonitor/releases/download/v2.1.0/DeviceMonitorCS.zip)
+2.  **Extract** the zip file.
+3.  **Run as Administrator**: Right-click `DeviceMonitorCS.exe` -> "Run as Administrator".
+    *   *Admin rights are required to interact with Windows Services and Security Logs.*
 
-### 9. Hosted Network Manager
-*   **Dedicated Window**: Click the "Hosted Network" button to manage the Windows Hosted Network (SoftAP).
-*   **Status & Control**: View current status and toggle the Hosted Network ON/OFF.
-*   **Adapter Management**: List all system network adapters with the ability to:
-    *   **Disable**: Selectively disable specific virtual adapters.
-    *   **Refresh**: Update list of adapters and their status.
-*   **Troubleshooting**: Useful for resolving issues with "Microsoft Hosted Network Virtual Adapter" which can often interfere with other wireless features.
+## ⚙️ Configuration
+*   **Scan Interval**: Go to the **Settings** tab to adjust how aggressively the Security Enforcer scans (Default: 2000ms).
+*   **AI API**: Place your Gemini API key in `apikey.txt` to enable AI features.
 
-### 10. Automated Security Enforcement
-*   **Active Defense**: The `SecurityEnforcer` runs in the background to automatically neutralize high-risk threats.
-*   **Hosted Network**: Automatically stops and disallows the Hosted Network if it becomes active.
-*   **WAN Miniport (SSTP)**: Detects, Stops Service, Disables Service, and **Uninstalls** the adapter automatically to prevent unauthorized tunnels.
-*   **AI Explanation**: Triggers an AI explanation for why the threat was blocked, appearing instantly on the Dashboard.
-
-### 11. Modern Dashboard UI & Settings
-*   **Unified Interface**: A single-window experience with a sidebar for easy navigation between all tools.
-*   **Live Dashboard**: Real-time status cards for Security, Network, and Tasks that change color (Green/Amber/Red) based on system state.
-*   **Configurable Scans**: Adjust the Security Enforcer scan interval (1s - 10s) via the new **Settings** page to balance performance vs. responsiveness.
-
-## Usage
-
-### Prerequisites
-*   Windows 10/11
-*   .NET Desktop Runtime (6.0 or higher)
-
-### Installation
-
-1.  **Download** and extract the release zip `DeviceMonitor.zip`.
-2.  Right-click `DeviceMonitorCS.exe` and select **Run as Administrator**.
-    *   *Note: Administrator rights are required for monitoring Security logs and managing services.*
-
-## Download
-
-You can download the latest version from the [Releases Page](https://github.com/dparksports/DeviceMonitor/releases).
-
-**Direct Download (v2.0.0):**
-[DeviceMonitorCS.zip](https://github.com/dparksports/DeviceMonitor/releases/download/v2.0.0/DeviceMonitorCS.zip)
+---
+*Built with .NET 6 WPF & Modern C#*
