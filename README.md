@@ -7,7 +7,7 @@
 
 While traditional windows tools (Event Viewer, Device Manager) are fragmented and reactive, this application unifies system telemetry into a single **Dark Neon Dashboard** and actively neutralizes threats the moment they appear.
 
-## ✨ Key Features (v2.1.0)
+## ✨ Key Features (v2.1.1)
 
 ### 1. 🧠 Automated Security Enforcement
 The application runs a background `SecurityEnforcer` loop (configurable interval) that doesn't just watch—it acts.
@@ -30,12 +30,13 @@ Don't just see "Event ID 4624" — understand it.
 ### 4. 🛠️ Power Tools
 *   **VPN Kill Switch**: One-click toggle to Stop and Disable all VPN-related services (`RasMan`, `IKEEXT`, etc.).
 *   **Connection Monitor**: view active TCP/UDP connections with "WhoIs" geo-location (Country/ISP).
+*   **Enhanced Muted Connections**: Manage silenced connections with full visibility (Process, PID, Protocols) and granular control.
 *   **Scheduled Task Manager**: Find and disable high-privilege scheduled tasks that often hide malware persistence.
 
 ## 🚀 Installation
 
 1.  **Download** the latest release:
-    *   [**DeviceMonitorCS.zip (v2.1.0)**](https://github.com/dparksports/DeviceMonitor/releases/download/v2.1.0/DeviceMonitorCS.zip)
+    *   [**DeviceMonitorCS.zip (v2.1.1)**](https://github.com/dparksports/SystemMonitor/releases/download/v2.1.1/DeviceMonitorCS_v2.1.1.zip)
 2.  **Extract** the zip file.
 3.  **Run as Administrator**: Right-click `DeviceMonitorCS.exe` -> "Run as Administrator".
     *   *Admin rights are required to interact with Windows Services and Security Logs.*
