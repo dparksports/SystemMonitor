@@ -39,6 +39,8 @@ namespace DeviceMonitorCS.Models
         public ObservableCollection<ConnectionItem> ActiveConnections { get; set; } = new ObservableCollection<ConnectionItem>();
         public ObservableCollection<ConnectionItem> HistoricalConnections { get; set; } = new ObservableCollection<ConnectionItem>();
         public ObservableCollection<string> MutedConnections { get; set; } = new ObservableCollection<string>();
+        // UI Display
+        public ObservableCollection<ConnectionItem> DisplayMutedConnections { get; set; } = new ObservableCollection<ConnectionItem>();
 
         private readonly string _historyFile = "connection_history.json";
         private readonly string _mutedFile = "muted_connections.json";
@@ -179,8 +181,6 @@ namespace DeviceMonitorCS.Models
                 {
                     existing.LastSeen = DateTime.Now;
                     existing.State = item.State;
-                    // Trigger property change if bound mechanism supports it (ObservableCollection doesn't deep watch)
-                    // We might need to implement INotifyPropertyChanged on ConnectionItem for live UI updates
                 }
                 else
                 {
@@ -190,6 +190,37 @@ namespace DeviceMonitorCS.Models
                     ActiveConnections.Add(item);
                 }
             }
+
+            // --- Muted Connections Display Logic ---
+            var mutedActive = currentSnapshot.Where(IsMuted).ToList();
+            var activeMutedIps = new HashSet<string>(mutedActive.Select(c => c.RemoteAddress));
+            
+            // Inactive rules
+            var inactiveRules = MutedConnections.Where(ip => !activeMutedIps.Contains(ip)).ToList();
+
+            var newDisplayList = new List<ConnectionItem>();
+            foreach (var item in mutedActive)
+            {
+                ResolveWhoIs(item); 
+                newDisplayList.Add(item);
+            }
+            foreach (var ruleIp in inactiveRules)
+            {
+                 newDisplayList.Add(new ConnectionItem 
+                 { 
+                     RemoteAddress = ruleIp, 
+                     ProcessName = "Rule (Inactive)", 
+                     State = "Muted", 
+                     WhoIs = _whoIsCache.ContainsKey(ruleIp) ? _whoIsCache[ruleIp] : "Unknown",
+                     Protocol = "-",
+                     LocalAddress = "-",
+                     StartTime = DateTime.MinValue,
+                     LastSeen = DateTime.MinValue
+                 });
+            }
+
+            DisplayMutedConnections.Clear();
+            foreach(var item in newDisplayList) DisplayMutedConnections.Add(item);
             
             SavePersistence(); // Maybe too frequent? Save on close instead?
         }

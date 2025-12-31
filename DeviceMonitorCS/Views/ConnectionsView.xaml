@@ -126,15 +126,26 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Text="Muted IP Addresses (Double click or Context Menu to Unmute)" Margin="5" FontStyle="Italic" Foreground="Gray"/>
-                        <ListBox Grid.Row="1" x:Name="MutedList" Background="Transparent" BorderThickness="0" Foreground="White">
-                            <ListBox.ContextMenu>
+                        <TextBlock Text="Muted IPs (Rules &amp; Active Traffic) - Double click to Unmute" Margin="5" FontStyle="Italic" Foreground="Gray"/>
+                        <DataGrid Grid.Row="1" x:Name="MutedGrid" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" SelectionMode="Single"
+                                  Background="Transparent" BorderThickness="0" Foreground="White" RowBackground="#252526" AlternatingRowBackground="#2D2D30">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Process" Binding="{Binding ProcessName}" Width="150"/>
+                                <DataGridTextColumn Header="PID" Binding="{Binding Pid}" Width="60"/>
+                                <DataGridTextColumn Header="Proto" Binding="{Binding Protocol}" Width="50"/>
+                                <DataGridTextColumn Header="Local Address" Binding="{Binding LocalAddress}" Width="150"/>
+                                <DataGridTextColumn Header="Remote Address" Binding="{Binding RemoteAddress}" Width="150"/>
+                                <DataGridTextColumn Header="State" Binding="{Binding State}" Width="100"/>
+                                <DataGridTextColumn Header="Who Is" Binding="{Binding WhoIs}" Width="150"/>
+                                <DataGridTextColumn Header="Duration" Binding="{Binding Duration}" Width="80"/>
+                            </DataGrid.Columns>
+                            <DataGrid.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Header="Unmute" x:Name="UnmuteCtx"/>
                                     <MenuItem Header="Ask AI about this" Click="AskAi_Click"/>
                                 </ContextMenu>
-                            </ListBox.ContextMenu>
-                        </ListBox>
+                            </DataGrid.ContextMenu>
+                        </DataGrid>
                     </Grid>
                 </Border>
             </TabItem>

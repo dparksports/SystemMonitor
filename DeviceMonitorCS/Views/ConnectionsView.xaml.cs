@@ -18,7 +18,7 @@ namespace DeviceMonitorCS.Views
 
             ActiveGrid.ItemsSource = _monitor.ActiveConnections;
             HistoryGrid.ItemsSource = _monitor.HistoricalConnections;
-            MutedList.ItemsSource = _monitor.MutedConnections;
+            MutedGrid.ItemsSource = _monitor.DisplayMutedConnections;
 
             // Timer
             _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
@@ -42,7 +42,7 @@ namespace DeviceMonitorCS.Views
             UnmuteCtx.Click += (s, e) => UnmuteSelected();
             
             // Double click unmute
-            MutedList.MouseDoubleClick += (s, e) => UnmuteSelected();
+            MutedGrid.MouseDoubleClick += (s, e) => UnmuteSelected();
             
             this.Unloaded += (s, e) => { _timer.Stop(); _monitor.SavePersistence(); };
             this.Loaded += (s, e) => { _timer.Start(); };
@@ -63,9 +63,9 @@ namespace DeviceMonitorCS.Views
 
         private void UnmuteSelected()
         {
-            if (MutedList.SelectedItem is string ip)
+            if (MutedGrid.SelectedItem is ConnectionItem item)
             {
-                 _monitor.UnmuteConnection(ip);
+                 _monitor.UnmuteConnection(item.RemoteAddress);
                  _monitor.RefreshConnections();
             }
         }
