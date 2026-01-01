@@ -75,9 +75,11 @@ A comprehensive system utility for monitoring, managing, and securing your Windo
 
 ## Release
 
-- **Version:** v2.2.0
-- **Release Date:** 2026-01-01
-- Download: [DeviceMonitorCS v2.2.0](https://github.com/yourrepo/DeviceMonitorCS/releases/tag/v2.2.0)
+## Release
+
+*No official release available yet.*
+
+![Shield Up Screenshot](c:/Users/honey/mydevices/shield up screenshot.jpg)
 3. Restore NuGet packages.
 4. Build the solution (Release mode recommended).
 
