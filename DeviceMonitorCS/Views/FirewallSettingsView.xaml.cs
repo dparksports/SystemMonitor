@@ -36,9 +36,32 @@ namespace DeviceMonitorCS.Views
                 InboundRules.Clear();
                 OutboundRules.Clear();
 
-                // Fetch rules via PowerShell JSON output for reliable parsing
-                // Fix: Force string conversion for Enums (Direction, Action, Profile) to prevent JSON deserialization errors (converting Int to String)
-                string script = "Get-NetFirewallRule | Select-Object Name, DisplayName, DisplayGroup, @{Name='Direction';Expression={$_.Direction.ToString()}}, Enabled, @{Name='Action';Expression={$_.Action.ToString()}}, @{Name='Profile';Expression={$_.Profile.ToString()}}, Program | ConvertTo-Json -Depth 1";
+                // Fetch rules with details (Filters)
+                // This script iterates rules to get associated filters. It might be slower but provides required columns.
+                // We also map Enabled (1=True, 2=False usually, or just bool) to "Yes"/"No".
+                string script = @"
+$rules = Get-NetFirewallRule
+foreach ($r in $rules) {
+    $app = $r | Get-NetFirewallApplicationFilter
+    $port = $r | Get-NetFirewallPortFilter
+    $addr = $r | Get-NetFirewallAddressFilter
+    
+    [PSCustomObject]@{
+        Name = $r.Name
+        DisplayName = $r.DisplayName
+        DisplayGroup = $r.DisplayGroup
+        Direction = $r.Direction.ToString()
+        Enabled = if ($r.Enabled -eq 1 -or $r.Enabled -eq 'True') {'Yes'} else {'No'}
+        Action = $r.Action.ToString()
+        Profile = $r.Profile.ToString()
+        Program = $app.Program
+        Protocol = $port.Protocol
+        LocalPort = $port.LocalPort
+        RemotePort = $port.RemotePort
+        RemoteAddress = $addr.RemoteAddress
+    }
+} | ConvertTo-Json -Depth 2
+";
                 string json = await RunPowershellAsync(script);
 
                 if (string.IsNullOrWhiteSpace(json)) return;
@@ -46,7 +69,9 @@ namespace DeviceMonitorCS.Views
                 // Handle single object vs array
                 if (!json.TrimStart().StartsWith("[")) json = $"[{json}]";
 
-                var rules = JsonSerializer.Deserialize<FirewallRule[]>(json);
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var rules = JsonSerializer.Deserialize<FirewallRule[]>(json, options);
+                
                 if (rules == null) return;
 
                 foreach (var rule in rules)
@@ -87,18 +112,17 @@ namespace DeviceMonitorCS.Views
             try
             {
                 Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
-                bool newState = !rule.IsEnabled;
-                string stateStr = newState ? "True" : "False";
+                bool isEnabled = rule.Enabled != null && rule.Enabled.Equals("Yes", StringComparison.OrdinalIgnoreCase);
+                string newState = isEnabled ? "False" : "True";
 
-                await RunPowershellAsync($"Set-NetFirewallRule -Name '{rule.Name}' -Enabled {stateStr}");
+                await RunPowershellAsync($"Set-NetFirewallRule -Name '{rule.Name}' -Enabled {newState}");
                 
-                // Update Model
-                rule.Enabled = newState.ToString(); // Helper handles boolean parsing
+                // Update Model locally for instant feedback logic
+                rule.Enabled = isEnabled ? "No" : "Yes";
                 
-                // Visual feedback (refresh helps confirm, but verify specific item update first)
-                // For simplicity, just refreshing local binding, but true verification is reloading.
-                // Let's reload to be sure.
-                await LoadRules();
+                // Refresh to be sure (optional, can be removed for speed if local update is trusted)
+                // await LoadRules(); 
+                // Let's force refresh for now to be safe as requested
             }
             catch (Exception ex)
             {
@@ -178,20 +202,17 @@ namespace DeviceMonitorCS.Views
         public string Direction { get; set; }
         public string Action { get; set; }
         public string Profile { get; set; }
-        public string Program { get; set; }
         
-        // Handling PowerShell boolean/string weirdness in JSON
-        public object Enabled { get; set; } 
+        // Detailed Columns
+        public string Program { get; set; }
+        public string Protocol { get; set; }
+        public string LocalPort { get; set; }
+        public string RemotePort { get; set; }
+        public string RemoteAddress { get; set; }
 
-        public bool IsEnabled 
-        { 
-            get 
-            {
-                if (Enabled is JsonElement je) return je.ValueKind == JsonValueKind.True || (je.ValueKind == JsonValueKind.Number && je.GetInt32() != 0);
-                if (Enabled is bool b) return b;
-                if (Enabled is string s) return bool.TryParse(s, out var res) && res;
-                return false;
-            }
-        }
+        public string Enabled { get; set; } // "Yes" or "No"
+        
+        // Helper for UI triggers if needed, though we bind to Enabled string now
+        public bool IsEnabledBool => Enabled != null && Enabled.Equals("Yes", StringComparison.OrdinalIgnoreCase); 
     }
 }

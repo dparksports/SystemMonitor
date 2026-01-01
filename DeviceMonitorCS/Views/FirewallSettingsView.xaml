@@ -66,6 +66,11 @@
                         <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*"/>
                         <DataGridTextColumn Header="Group" Binding="{Binding DisplayGroup}" Width="1.5*"/>
                         <DataGridTextColumn Header="Profile" Binding="{Binding Profile}" Width="1*"/>
+                        <DataGridTextColumn Header="Program" Binding="{Binding Program}" Width="2*"/>
+                        <DataGridTextColumn Header="Protocol" Binding="{Binding Protocol}" Width="0.8*"/>
+                        <DataGridTextColumn Header="Local Port" Binding="{Binding LocalPort}" Width="0.8*"/>
+                        <DataGridTextColumn Header="Remote Port" Binding="{Binding RemotePort}" Width="0.8*"/>
+                        <DataGridTextColumn Header="Remote Address" Binding="{Binding RemoteAddress}" Width="1.5*"/>
                         <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="0.8*"/>
                         <DataGridTextColumn Header="Enabled" Binding="{Binding Enabled}" Width="0.8*"/>
                         <DataGridTemplateColumn Header="Actions" Width="100">
@@ -93,6 +98,11 @@
                         <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*"/>
                         <DataGridTextColumn Header="Group" Binding="{Binding DisplayGroup}" Width="1.5*"/>
                         <DataGridTextColumn Header="Profile" Binding="{Binding Profile}" Width="1*"/>
+                        <DataGridTextColumn Header="Program" Binding="{Binding Program}" Width="2*"/>
+                        <DataGridTextColumn Header="Protocol" Binding="{Binding Protocol}" Width="0.8*"/>
+                        <DataGridTextColumn Header="Local Port" Binding="{Binding LocalPort}" Width="0.8*"/>
+                        <DataGridTextColumn Header="Remote Port" Binding="{Binding RemotePort}" Width="0.8*"/>
+                        <DataGridTextColumn Header="Remote Address" Binding="{Binding RemoteAddress}" Width="1.5*"/>
                         <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="0.8*"/>
                         <DataGridTextColumn Header="Enabled" Binding="{Binding Enabled}" Width="0.8*"/>
                         <DataGridTemplateColumn Header="Actions" Width="100">
