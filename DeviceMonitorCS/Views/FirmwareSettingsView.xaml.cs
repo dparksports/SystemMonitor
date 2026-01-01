@@ -167,6 +167,147 @@ namespace DeviceMonitorCS.Views
             }
         }
 
+        private void ViewContent_Click(object sender, RoutedEventArgs e)
+        {
+            var menuItem = sender as MenuItem;
+            var contextMenu = menuItem.Parent as ContextMenu;
+            var grid = contextMenu.PlacementTarget as DataGrid;
+
+            if (grid != null && grid.SelectedItem is FirmwareTableItem item)
+            {
+                try
+                {
+                    // Reconstruct Provider Signature
+                    uint providerSig = 0;
+                    if (item.Name == "ACPI") providerSig = 0x41435049; // 'ACPI'
+                    else if (item.Name == "RSMB") providerSig = 0x52534D42; // 'RSMB'
+                    else if (item.Name == "FIRM") providerSig = 0x4649524D; // 'FIRM'
+                    else 
+                    {
+                        MessageBox.Show("Unknown provider signature for " + item.Name);
+                        return;
+                    }
+
+                    // Reconstruct Table ID Signature
+                    // TableID is string, e.g. "FACP". We need it as uint (Little Endian usually for this API?)
+                    // The API expects the integer value. 
+                    // e.g. 'ACPI' -> 0x41435049 (Big Endian logic in visual) BUT
+                    // Let's rely on BitConverter.
+                    // If string is "FACP", bytes are 0x46, 0x41, 0x43, 0x50.
+                    // ToUInt32 will make it 0x50434146 (Little Endian).
+                    // The NativeMethods.Enum... returned it as bytes, we converted to string.
+                    // Now we convert back.
+                    byte[] idBytes = System.Text.Encoding.ASCII.GetBytes(item.TableID);
+                    if (idBytes.Length != 4)
+                    {
+                        // Some tables might have different lengths or be purely numeric if not ACPI?
+                        // For this viewer, we assume standard 4-char IDs.
+                        // If parsing failed earlier or ID is weird, we might fail here.
+                    }
+                    uint tableIdInt = BitConverter.ToUInt32(idBytes, 0);
+
+                    // Get Size
+                    uint size = NativeMethods.GetSystemFirmwareTable(providerSig, tableIdInt, IntPtr.Zero, 0);
+                    if (size == 0)
+                    {
+                        MessageBox.Show("Failed to get table size or table not found.");
+                        return;
+                    }
+
+                    // Get Content
+                    IntPtr buffer = System.Runtime.InteropServices.Marshal.AllocHGlobal((int)size);
+                    try
+                    {
+                        if (NativeMethods.GetSystemFirmwareTable(providerSig, tableIdInt, buffer, size) == size)
+                        {
+                            byte[] data = new byte[size];
+                            System.Runtime.InteropServices.Marshal.Copy(buffer, data, 0, (int)size);
+
+                            string dump = FormatHexDump(data);
+                            string headerInfo = ParseAcpiHeader(data);
+                            
+                            string fullContent = $"Table: {item.TableID} ({item.Description})\nProvider: {item.Name}\nSize: {size} bytes\n\n{headerInfo}\n\n=== Hex Dump ===\n{dump}";
+
+                            var win = new FirmwareDetailWindow($"Table Content: {item.TableID}", fullContent);
+                            win.Owner = Window.GetWindow(this);
+                            win.Show();
+                        }
+                        else
+                        {
+                            MessageBox.Show("Failed to retrieve table content.");
+                        }
+                    }
+                    finally
+                    {
+                        System.Runtime.InteropServices.Marshal.FreeHGlobal(buffer);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Error: " + ex.Message);
+                }
+            }
+        }
+
+        private string ParseAcpiHeader(byte[] data)
+        {
+            if (data.Length < 36) return "Data too short for ACPI Header.";
+
+            try
+            {
+                string sig = System.Text.Encoding.ASCII.GetString(data, 0, 4);
+                uint len = BitConverter.ToUInt32(data, 4);
+                byte rev = data[8];
+                byte checksum = data[9];
+                string oemId = System.Text.Encoding.ASCII.GetString(data, 10, 6);
+                string oemTableId = System.Text.Encoding.ASCII.GetString(data, 16, 8);
+                uint oemRev = BitConverter.ToUInt32(data, 24);
+                string creatorId = System.Text.Encoding.ASCII.GetString(data, 28, 4);
+                uint creatorRev = BitConverter.ToUInt32(data, 32);
+
+                return $"=== ACPI Header ===\nSignature: {sig}\nLength: {len}\nRevision: {rev}\nChecksum: 0x{checksum:X2}\nOEM ID: {oemId}\nOEM Table ID: {oemTableId}\nOEM Revision: {oemRev:X8}\nCreator ID: {creatorId}\nCreator Revision: {creatorRev:X8}";
+            }
+            catch
+            {
+                return "Error parsing ACPI Header.";
+            }
+        }
+
+        private string FormatHexDump(byte[] data)
+        {
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            for (int i = 0; i < data.Length; i += 16)
+            {
+                sb.Append($"{i:X8}  ");
+
+                // Hex
+                for (int j = 0; j < 16; j++)
+                {
+                    if (i + j < data.Length)
+                        sb.Append($"{data[i + j]:X2} ");
+                    else
+                        sb.Append("   ");
+                }
+
+                sb.Append(" ");
+
+                // ASCII
+                for (int j = 0; j < 16; j++)
+                {
+                    if (i + j < data.Length)
+                    {
+                        byte b = data[i + j];
+                        if (b >= 32 && b <= 126)
+                            sb.Append((char)b);
+                        else
+                            sb.Append(".");
+                    }
+                }
+                sb.AppendLine();
+            }
+            return sb.ToString();
+        }
+
         private static class NativeMethods
         {
             [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
