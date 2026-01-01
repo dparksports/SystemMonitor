@@ -72,6 +72,12 @@ A comprehensive system utility for monitoring, managing, and securing your Windo
 
 1. Clone the repository.
 2. Open the solution in Visual Studio 2022.
+
+## Release
+
+- **Version:** v2.2.0
+- **Release Date:** 2026-01-01
+- Download: [DeviceMonitorCS v2.2.0](https://github.com/yourrepo/DeviceMonitorCS/releases/tag/v2.2.0)
 3. Restore NuGet packages.
 4. Build the solution (Release mode recommended).
 
