@@ -36,32 +36,39 @@ namespace DeviceMonitorCS.Views
                 InboundRules.Clear();
                 OutboundRules.Clear();
 
-                // Fetch rules with details (Filters)
-                // Use Pipeline with ForEach-Object to ensure output is captured by ConvertTo-Json.
-                // Wrapped in try/catch in PS to avoid crashing on individual rule errors.
+                // OPTIMIZED: Bulk fetch all data first, then join in PowerShell.
+                // This reduces from O(n) filter calls to just 4 total calls.
                 string script = @"
-Get-NetFirewallRule | ForEach-Object {
-    try {
-        $r = $_
-        $app = $r | Get-NetFirewallApplicationFilter -ErrorAction SilentlyContinue
-        $port = $r | Get-NetFirewallPortFilter -ErrorAction SilentlyContinue
-        $addr = $r | Get-NetFirewallAddressFilter -ErrorAction SilentlyContinue
-        
-        [PSCustomObject]@{
-            Name = $r.Name
-            DisplayName = $r.DisplayName
-            DisplayGroup = $r.DisplayGroup
-            Direction = $r.Direction.ToString()
-            Enabled = if ($r.Enabled -eq 1 -or $r.Enabled -eq 'True') {'Yes'} else {'No'}
-            Action = $r.Action.ToString()
-            Profile = $r.Profile.ToString()
-            Program = if ($app) { $app.Program } else { '' }
-            Protocol = if ($port) { $port.Protocol } else { '' }
-            LocalPort = if ($port -and $port.LocalPort) { ($port.LocalPort -join ',') } else { '' }
-            RemotePort = if ($port -and $port.RemotePort) { ($port.RemotePort -join ',') } else { '' }
-            RemoteAddress = if ($addr -and $addr.RemoteAddress) { ($addr.RemoteAddress -join ',') } else { '' }
-        }
-    } catch {}
+$rules = Get-NetFirewallRule
+$appFilters = Get-NetFirewallApplicationFilter
+$portFilters = Get-NetFirewallPortFilter
+$addrFilters = Get-NetFirewallAddressFilter
+
+# Create hashtables for fast lookup by InstanceID
+$appHash = @{}; $appFilters | ForEach-Object { $appHash[$_.InstanceID] = $_ }
+$portHash = @{}; $portFilters | ForEach-Object { $portHash[$_.InstanceID] = $_ }
+$addrHash = @{}; $addrFilters | ForEach-Object { $addrHash[$_.InstanceID] = $_ }
+
+$rules | ForEach-Object {
+    $r = $_
+    $app = $appHash[$r.Name]
+    $port = $portHash[$r.Name]
+    $addr = $addrHash[$r.Name]
+    
+    [PSCustomObject]@{
+        Name = $r.Name
+        DisplayName = $r.DisplayName
+        DisplayGroup = $r.DisplayGroup
+        Direction = $r.Direction.ToString()
+        Enabled = if ($r.Enabled -eq 1 -or $r.Enabled -eq 'True') {'Yes'} else {'No'}
+        Action = $r.Action.ToString()
+        Profile = $r.Profile.ToString()
+        Program = if ($app) { $app.Program } else { '' }
+        Protocol = if ($port) { $port.Protocol } else { '' }
+        LocalPort = if ($port -and $port.LocalPort) { ($port.LocalPort -join ',') } else { '' }
+        RemotePort = if ($port -and $port.RemotePort) { ($port.RemotePort -join ',') } else { '' }
+        RemoteAddress = if ($addr -and $addr.RemoteAddress) { ($addr.RemoteAddress -join ',') } else { '' }
+    }
 } | ConvertTo-Json -Depth 2
 ";
                 string json = await RunPowershellAsync(script);
