@@ -8,6 +8,9 @@ using System.Security.Principal;
 using System.ServiceProcess;
 using System.Windows;
 using System.Windows.Threading;
+using System.Runtime.InteropServices;
+using System.Windows.Interop;
+using DeviceMonitorCS.Helpers;
 using DeviceMonitorCS.Models;
 
 namespace DeviceMonitorCS
@@ -16,9 +19,10 @@ namespace DeviceMonitorCS
     {
         public ObservableCollection<DeviceEvent> DeviceData { get; set; } = new ObservableCollection<DeviceEvent>();
         public ObservableCollection<SecurityEvent> SecurityData { get; set; } = new ObservableCollection<SecurityEvent>();
-
-        private ManagementEventWatcher _deviceWatcherAdd;
-        private ManagementEventWatcher _deviceWatcherRem;
+        
+        // Removed WMI watchers
+        // private ManagementEventWatcher _deviceWatcherAdd;
+        // private ManagementEventWatcher _deviceWatcherRem;
         private string _currentUser;
 
 
@@ -38,8 +42,7 @@ namespace DeviceMonitorCS
             if (IsAdministrator())
             {
                 Title = $"Windows System Monitor (Administrator) - User: {_currentUser}";
-                StartDeviceMonitoring();
-                StartSecurityMonitoring();
+                StartSecurityMonitoring(); // Device monitoring now handled by OnSourceInitialized
                 
                 _enforcer = new SecurityEnforcer(HandleThreatDetected);
                 _enforcer.StatusChanged += (status, color) => Dispatcher.Invoke(() => DashboardView.UpdateLiveStatus(status, color));
@@ -117,26 +120,93 @@ namespace DeviceMonitorCS
             perfTimer.Start();
         }
 
-        // --- Device Monitoring ---
-        private void StartDeviceMonitoring()
+        // Native Device Notification
+        private IntPtr _notificationHandle;
+        
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+            var source = PresentationSource.FromVisual(this) as HwndSource;
+            source?.AddHook(WndProc);
+            ConnectDeviceWatcher(source?.Handle ?? IntPtr.Zero);
+        }
+
+        private void ConnectDeviceWatcher(IntPtr windowHandle)
         {
             try
             {
-                var query = new WqlEventQuery("__InstanceCreationEvent", new TimeSpan(0, 0, 1), "TargetInstance ISA 'Win32_PnPEntity'");
-                _deviceWatcherAdd = new ManagementEventWatcher(query);
-                _deviceWatcherAdd.EventArrived += (s, e) => Dispatcher.Invoke(() => HandleDeviceEvent(e.NewEvent, "ADDED"));
-                _deviceWatcherAdd.Start();
+                var dbi = new NativeMethods.DEV_BROADCAST_DEVICEINTERFACE();
+                dbi.dbcc_size = Marshal.SizeOf(dbi);
+                dbi.dbcc_devicetype = NativeMethods.DBT_DEVTYP_DEVICEINTERFACE;
+                dbi.dbcc_classguid = NativeMethods.GUID_DEVINTERFACE_USB_DEVICE;
 
-                var queryRem = new WqlEventQuery("__InstanceDeletionEvent", new TimeSpan(0, 0, 1), "TargetInstance ISA 'Win32_PnPEntity'");
-                _deviceWatcherRem = new ManagementEventWatcher(queryRem);
-                _deviceWatcherRem.EventArrived += (s, e) => Dispatcher.Invoke(() => HandleDeviceEvent(e.NewEvent, "REMOVED"));
-                _deviceWatcherRem.Start();
+                IntPtr buffer = Marshal.AllocHGlobal(dbi.dbcc_size);
+                Marshal.StructureToPtr(dbi, buffer, true);
+
+                _notificationHandle = NativeMethods.RegisterDeviceNotification(windowHandle, buffer, 0);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Device Monitor Error: {ex.Message}");
+                MessageBox.Show($"Device Watcher Error: {ex.Message}");
             }
         }
+
+        private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            if (msg == NativeMethods.WM_DEVICECHANGE)
+            {
+                 int nEventType = wParam.ToInt32();
+                 if (nEventType == NativeMethods.DBT_DEVICEARRIVAL || nEventType == NativeMethods.DBT_DEVICEREMOVECOMPLETE)
+                 {
+                     string action = nEventType == NativeMethods.DBT_DEVICEARRIVAL ? "ADDED" : "REMOVED";
+                     
+                     var hdr = Marshal.PtrToStructure<NativeMethods.DEV_BROADCAST_HDR>(lParam);
+                     if (hdr.dbch_devicetype == NativeMethods.DBT_DEVTYP_DEVICEINTERFACE)
+                     {
+                         var dev = Marshal.PtrToStructure<NativeMethods.DEV_BROADCAST_DEVICEINTERFACE>(lParam);
+                         string name = dev.dbcc_name; // Usually \\?\USB#VID_xxxx...
+                         
+                         // Clean up name for display
+                         name = ParseDeviceName(name);
+
+                         Dispatcher.Invoke(() => 
+                         {
+                             DeviceData.Insert(0, new DeviceEvent
+                             {
+                                 Time = DateTime.Now.ToString("HH:mm:ss"),
+                                 EventType = action,
+                                 Name = name,
+                                 Type = "USB Device",
+                                 Initiator = _currentUser // Native events don't have user context easily, use current user or "System"
+                             });
+                             
+                             // Keep lists somewhat clean
+                             if (DeviceData.Count > 100) DeviceData.RemoveAt(DeviceData.Count - 1);
+                         });
+                     }
+                 }
+            }
+            return IntPtr.Zero;
+        }
+
+        private string ParseDeviceName(string dbcc_name)
+        {
+            // Input format: \\?\USB#VID_1038&PID_12AD#6&25732bb2&0&1#{a5dcbf10-6530-11d2-901f-00c04fb951ed}
+            try 
+            {
+                if (string.IsNullOrEmpty(dbcc_name)) return "Unknown Device";
+                var parts = dbcc_name.Split('#');
+                if (parts.Length >= 3)
+                {
+                    return $"{parts[1]} ({parts[2]})";
+                }
+                return dbcc_name;
+            }
+            catch { return dbcc_name; }
+        }
+
+        /* WMI Removed */
+        // private void StartDeviceMonitoring() ...
 
         private void HandleDeviceEvent(ManagementBaseObject e, string eventType)
         {
@@ -423,9 +493,11 @@ namespace DeviceMonitorCS
 
         private void MainWindow_Closed(object sender, EventArgs e)
         {
+            if (_notificationHandle != IntPtr.Zero)
+            {
+               NativeMethods.UnregisterDeviceNotification(_notificationHandle);
+            }
             _enforcer?.Stop();
-            _deviceWatcherAdd?.Stop();
-            _deviceWatcherRem?.Stop();
             // _logWatcher?.Enabled = false; // if using watcher
             Application.Current.Shutdown();
         }

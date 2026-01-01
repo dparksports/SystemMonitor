@@ -18,6 +18,9 @@
 
   <ItemGroup>
     <Resource Include="app_icon.ico" />
+    <None Update="apikey.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
