@@ -33,6 +33,8 @@ namespace DeviceMonitorCS
 
         public int CheckInterval { get; set; } = 2000;
 
+        private int _loopCount = 0;
+
         private async Task RunLoop()
         {
             while (_isRunning)
@@ -42,6 +44,12 @@ namespace DeviceMonitorCS
                     CheckHostedNetwork();
                     CheckWanMiniports();
                     CheckPrivilegedTasks();
+                    
+                    if (_loopCount % 15 == 0) // Every 30 seconds (approx)
+                    {
+                         EnforceFirewallRules();
+                    }
+                    _loopCount++;
                 }
                 catch (Exception ex)
                 {
@@ -49,6 +57,40 @@ namespace DeviceMonitorCS
                 }
 
                 await Task.Delay(CheckInterval); 
+            }
+        }
+
+        private void EnforceFirewallRules()
+        {
+            try
+            {
+                // Reload to catch external updates (e.g. from UI)
+                // Actually Instance is singleton so it shares state if in same process.
+                // But just in case we want to be sure? No, singleton is fine.
+                // However, if the UI runs in same process, we depend on static instance.
+                
+                var overrides = DeviceMonitorCS.Helpers.FirewallConfigManager.Instance.RuleOverrides;
+                if (overrides.Count == 0) return;
+
+                var toEnable = overrides.Where(x => x.Value == "True").Select(x => x.Key).ToList();
+                var toDisable = overrides.Where(x => x.Value == "False").Select(x => x.Key).ToList();
+
+                if (toEnable.Count > 0)
+                {
+                    // Batch command
+                    string names = string.Join("','", toEnable);
+                    RunCommand("powershell", $"-Command \"Set-NetFirewallRule -Name '{names}' -Enabled True -ErrorAction SilentlyContinue\"");
+                }
+
+                if (toDisable.Count > 0)
+                {
+                    string names = string.Join("','", toDisable);
+                    RunCommand("powershell", $"-Command \"Set-NetFirewallRule -Name '{names}' -Enabled False -ErrorAction SilentlyContinue\"");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Firewall Enforcer Error: {ex.Message}");
             }
         }
 

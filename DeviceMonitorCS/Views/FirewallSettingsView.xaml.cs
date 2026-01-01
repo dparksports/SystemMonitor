@@ -12,6 +12,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
+using DeviceMonitorCS.Helpers;
 
 namespace DeviceMonitorCS.Views
 {
@@ -175,7 +176,10 @@ $rules | ForEach-Object {
                      foreach (var r in rulesToUpdate)
                      {
                          r.Enabled = targetStateUi;
+                         // Persist State
+                         FirewallConfigManager.Instance.SetOverride(r.Name, targetStateUi);
                      }
+                     FirewallConfigManager.Instance.Save();
                      
                      // Force refresh of the group header binding if it doesn't auto-update
                      // Since bindings are OneWay + Converter, we might need to trigger a refresh 
@@ -205,6 +209,9 @@ $rules | ForEach-Object {
                 
                 // Update Model locally
                 rule.Enabled = isEnabled ? "No" : "Yes";
+                
+                // Persist State
+                FirewallConfigManager.Instance.SetOverride(rule.Name, rule.Enabled);
             }
             catch (Exception ex)
             {
@@ -214,6 +221,40 @@ $rules | ForEach-Object {
             {
                 Mouse.OverrideCursor = null;
             }
+        }
+
+        private void AskAiRule_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem mi && mi.Parent is ContextMenu cm && cm.PlacementTarget is DataGrid grid && grid.SelectedItem is FirewallRule rule)
+            {
+                var win = Window.GetWindow(this);
+                var aiWin = new AskAiWindow(rule);
+                if (win != null) aiWin.Owner = win;
+                aiWin.ShowDialog();
+            }
+        }
+
+        private void AskAiGroup_Click(object sender, RoutedEventArgs e)
+        {
+             if (sender is MenuItem mi && mi.Tag is string groupName)
+             {
+                 var rules = new List<FirewallRule>();
+                 rules.AddRange(InboundRules.Where(r => r.DisplayGroup == groupName));
+                 rules.AddRange(OutboundRules.Where(r => r.DisplayGroup == groupName));
+
+                 var context = new 
+                 {
+                     Group = groupName,
+                     TotalRules = rules.Count,
+                     EnabledCount = rules.Count(r => r.IsEnabledBool),
+                     RulesSample = rules.Take(20).Select(r => new { r.Name, r.DisplayName, r.Enabled, r.Action, r.Direction }).ToList()
+                 };
+
+                 var win = Window.GetWindow(this);
+                 var aiWin = new AskAiWindow(context);
+                 if (win != null) aiWin.Owner = win;
+                 aiWin.ShowDialog();
+             }
         }
 
         private void GroupExpander_Expanded(object sender, RoutedEventArgs e)

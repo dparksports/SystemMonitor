@@ -96,6 +96,11 @@
                                                 <Expander IsExpanded="False" Expanded="GroupExpander_Expanded" Background="#333333" Foreground="White" BorderBrush="Gray" BorderThickness="0,0,0,1">
                                                     <Expander.Header>
                                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <StackPanel.ContextMenu>
+                                                                <ContextMenu>
+                                                                    <MenuItem Header="Ask AI about this Group" Click="AskAiGroup_Click" Tag="{Binding Name}"/>
+                                                                </ContextMenu>
+                                                            </StackPanel.ContextMenu>
                                                             <CheckBox VerticalAlignment="Center" Margin="0,0,10,0"
                                                                       IsChecked="{Binding Items, Converter={StaticResource GroupToEnabledStateConverter}, Mode=OneWay}"
                                                                       Click="GroupToggle_Click" Tag="{Binding Name}">
@@ -139,6 +144,7 @@
                     <DataGrid.ContextMenu>
                         <ContextMenu>
                             <MenuItem Header="Toggle Rule" Click="ToggleRuleCtx_Click"/>
+                            <MenuItem Header="Ask AI about this Rule" Click="AskAiRule_Click"/>
                         </ContextMenu>
                     </DataGrid.ContextMenu>
                 </DataGrid>
@@ -165,6 +171,11 @@
                                                 <Expander IsExpanded="False" Expanded="GroupExpander_Expanded" Background="#333333" Foreground="White" BorderBrush="Gray" BorderThickness="0,0,0,1">
                                                     <Expander.Header>
                                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <StackPanel.ContextMenu>
+                                                                <ContextMenu>
+                                                                    <MenuItem Header="Ask AI about this Group" Click="AskAiGroup_Click" Tag="{Binding Name}"/>
+                                                                </ContextMenu>
+                                                            </StackPanel.ContextMenu>
                                                              <CheckBox VerticalAlignment="Center" Margin="0,0,10,0"
                                                                       IsChecked="{Binding Items, Converter={StaticResource GroupToEnabledStateConverter}, Mode=OneWay}"
                                                                       Click="GroupToggle_Click" Tag="{Binding Name}">
@@ -208,6 +219,7 @@
                     <DataGrid.ContextMenu>
                         <ContextMenu>
                             <MenuItem Header="Toggle Rule" Click="ToggleRuleCtx_Click"/>
+                            <MenuItem Header="Ask AI about this Rule" Click="AskAiRule_Click"/>
                         </ContextMenu>
                     </DataGrid.ContextMenu>
                 </DataGrid>
