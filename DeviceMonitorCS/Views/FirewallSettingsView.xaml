@@ -3,9 +3,26 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:DeviceMonitorCS.Views"
              mc:Ignorable="d" 
              d:DesignHeight="700" d:DesignWidth="900"
              Background="#1E1E1E">
+    <UserControl.Resources>
+        <local:GroupToEnabledStateConverter x:Key="GroupToEnabledStateConverter"/>
+        
+        <CollectionViewSource x:Key="InboundRulesSource" Source="{Binding InboundRules, RelativeSource={RelativeSource AncestorType=UserControl}}">
+            <CollectionViewSource.GroupDescriptions>
+                <PropertyGroupDescription PropertyName="DisplayGroup"/>
+            </CollectionViewSource.GroupDescriptions>
+        </CollectionViewSource>
+        
+        <CollectionViewSource x:Key="OutboundRulesSource" Source="{Binding OutboundRules, RelativeSource={RelativeSource AncestorType=UserControl}}">
+            <CollectionViewSource.GroupDescriptions>
+                <PropertyGroupDescription PropertyName="DisplayGroup"/>
+            </CollectionViewSource.GroupDescriptions>
+        </CollectionViewSource>
+    </UserControl.Resources>
+
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -59,9 +76,41 @@
             </TabControl.Resources>
 
             <TabItem Header="Inbound Rules">
-                <DataGrid x:Name="InboundGrid" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" 
+                <DataGrid x:Name="InboundGrid" ItemsSource="{Binding Source={StaticResource InboundRulesSource}}" 
+                          AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" 
+                          EnableRowVirtualization="False"
                           Background="#252526" Foreground="White" RowBackground="#252526" AlternatingRowBackground="#2D2D30"
                           GridLinesVisibility="Horizontal" HeadersVisibility="Column" BorderThickness="0" Margin="0,10,0,0">
+                    <DataGrid.GroupStyle>
+                        <GroupStyle>
+                            <GroupStyle.ContainerStyle>
+                                <Style TargetType="{x:Type GroupItem}">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="{x:Type GroupItem}">
+                                                <Expander IsExpanded="False" Background="#333333" Foreground="White" BorderBrush="Gray" BorderThickness="0,0,0,1">
+                                                    <Expander.Header>
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <CheckBox VerticalAlignment="Center" Margin="0,0,10,0"
+                                                                      IsChecked="{Binding Items, Converter={StaticResource GroupToEnabledStateConverter}, Mode=OneWay}"
+                                                                      Click="GroupToggle_Click" Tag="{Binding Name}">
+                                                                 <CheckBox.LayoutTransform>
+                                                                    <ScaleTransform ScaleX="1.2" ScaleY="1.2"/>
+                                                                </CheckBox.LayoutTransform>
+                                                            </CheckBox>
+                                                            <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" Foreground="Cyan" VerticalAlignment="Center"/>
+                                                            <TextBlock Text="{Binding ItemCount, StringFormat=' ({0} rules)'}" FontStyle="Italic" Foreground="LightGray" VerticalAlignment="Center" Margin="5,0,0,0"/>
+                                                        </StackPanel>
+                                                    </Expander.Header>
+                                                    <ItemsPresenter />
+                                                </Expander>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </GroupStyle.ContainerStyle>
+                        </GroupStyle>
+                    </DataGrid.GroupStyle>
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*"/>
                         <DataGridTextColumn Header="Group" Binding="{Binding DisplayGroup}" Width="1.5*"/>
@@ -91,9 +140,41 @@
             </TabItem>
 
             <TabItem Header="Outbound Rules">
-                <DataGrid x:Name="OutboundGrid" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" 
+                <DataGrid x:Name="OutboundGrid" ItemsSource="{Binding Source={StaticResource OutboundRulesSource}}" 
+                          AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" 
+                          EnableRowVirtualization="False"
                           Background="#252526" Foreground="White" RowBackground="#252526" AlternatingRowBackground="#2D2D30"
                           GridLinesVisibility="Horizontal" HeadersVisibility="Column" BorderThickness="0" Margin="0,10,0,0">
+                    <DataGrid.GroupStyle>
+                        <GroupStyle>
+                            <GroupStyle.ContainerStyle>
+                                <Style TargetType="{x:Type GroupItem}">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="{x:Type GroupItem}">
+                                                <Expander IsExpanded="False" Background="#333333" Foreground="White" BorderBrush="Gray" BorderThickness="0,0,0,1">
+                                                    <Expander.Header>
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                             <CheckBox VerticalAlignment="Center" Margin="0,0,10,0"
+                                                                      IsChecked="{Binding Items, Converter={StaticResource GroupToEnabledStateConverter}, Mode=OneWay}"
+                                                                      Click="GroupToggle_Click" Tag="{Binding Name}">
+                                                                <CheckBox.LayoutTransform>
+                                                                    <ScaleTransform ScaleX="1.2" ScaleY="1.2"/>
+                                                                </CheckBox.LayoutTransform>
+                                                            </CheckBox>
+                                                            <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" Foreground="Cyan" VerticalAlignment="Center"/>
+                                                            <TextBlock Text="{Binding ItemCount, StringFormat=' ({0} rules)'}" FontStyle="Italic" Foreground="LightGray" VerticalAlignment="Center" Margin="5,0,0,0"/>
+                                                        </StackPanel>
+                                                    </Expander.Header>
+                                                    <ItemsPresenter />
+                                                </Expander>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </GroupStyle.ContainerStyle>
+                        </GroupStyle>
+                    </DataGrid.GroupStyle>
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*"/>
                         <DataGridTextColumn Header="Group" Binding="{Binding DisplayGroup}" Width="1.5*"/>

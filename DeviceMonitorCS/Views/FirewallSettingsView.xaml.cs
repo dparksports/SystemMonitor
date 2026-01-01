@@ -1,25 +1,38 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 
 namespace DeviceMonitorCS.Views
 {
-    public partial class FirewallSettingsView : UserControl
+    public partial class FirewallSettingsView : UserControl, INotifyPropertyChanged
     {
         public ObservableCollection<FirewallRule> InboundRules { get; set; } = new ObservableCollection<FirewallRule>();
         public ObservableCollection<FirewallRule> OutboundRules { get; set; } = new ObservableCollection<FirewallRule>();
 
+        public event PropertyChangedEventHandler PropertyChanged;
+        protected void OnPropertyChanged([CallerMemberName] string name = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        }
+
         public FirewallSettingsView()
         {
             InitializeComponent();
-            InboundGrid.ItemsSource = InboundRules;
-            OutboundGrid.ItemsSource = OutboundRules;
+            // DataContext is set to this for bindings to work
+            // Ideally we should use a proper ViewModel, but for this refactor we keep code-behind pattern
+            // However, the UserControl itself doesn't need to be DataContext if we use RelativeSource in XAML (which we did).
+            
             Loaded += async (s, e) => await LoadRules();
         }
 
@@ -37,7 +50,6 @@ namespace DeviceMonitorCS.Views
                 OutboundRules.Clear();
 
                 // OPTIMIZED: Bulk fetch all data first, then join in PowerShell.
-                // This reduces from O(n) filter calls to just 4 total calls.
                 string script = @"
 $rules = Get-NetFirewallRule
 $appFilters = Get-NetFirewallApplicationFilter
@@ -75,16 +87,10 @@ $rules | ForEach-Object {
 
                 if (string.IsNullOrWhiteSpace(json)) 
                 {
-                    // If no JSON, something went wrong with the script execution.
-                    // Check if run as admin, but we are admin.
-                    // Fallback or alert? 
-                    // Let's try to fetch basic rules if advanced fetch failed, or just alert.
-                    // For now, let's alert to help debug if it persists.
                     MessageBox.Show("Failed to retrieve firewall rules. The data returned was empty.");
                     return;
                 }
 
-                // Handle single object vs array
                 if (!json.TrimStart().StartsWith("[")) json = $"[{json}]";
 
                 var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
@@ -94,6 +100,9 @@ $rules | ForEach-Object {
 
                 foreach (var rule in rules)
                 {
+                    if (string.IsNullOrEmpty(rule.DisplayGroup))
+                        rule.DisplayGroup = "(Ungrouped)";
+
                     if (rule.Direction == "Inbound") InboundRules.Add(rule);
                     else OutboundRules.Add(rule);
                 }
@@ -125,6 +134,65 @@ $rules | ForEach-Object {
             }
         }
 
+        private async void GroupToggle_Click(object sender, RoutedEventArgs e)
+        {
+             if (sender is CheckBox cb && cb.Tag is string groupName)
+             {
+                 // Determine context (Inbound or Outbound)
+                 // This is tricky because the sender is inside a template.
+                 // However, we can infer from which list contains the group, or pass more info.
+                 // A simpler way: Check both lists for this group name. It's possible same group name exists in both.
+                 // XAML structure separates them, so let's try to detect the parent DataGrid or just process for all rules in that group across the currently visible tab context?
+                 // Or better, just update rules in the visible lists that match the group.
+                 
+                 // Let's check which Tab is selected by checking visibility or just process both? 
+                 // Firewall groups are usually global (same group name might span inbound/outbound), so toggling "Core Networking" usually implies both.
+                 // But the UI splits them. The user clicked a checkbox in *one* of the grids.
+                 // Let's try to find the rules in the collections.
+                 
+                 bool? isChecked = cb.IsChecked;
+                 string targetState = isChecked == true ? "True" : "False"; // PowerShell expects True/False string or bool
+                 string targetStateUi = isChecked == true ? "Yes" : "No";
+
+                 Mouse.OverrideCursor = Cursors.Wait;
+                 try
+                 {
+                     // Find all rules in this group in both lists (to be consistent with "Toggle Group" meaning)
+                     // or just the list the user clicked? 
+                     // Typically if I'm in "Inbound" tab and click "Group A", I expect Inbound Group A to toggle.
+                     // But if I want to be safe, I'll update all rules with that Group Name in the collections.
+                     
+                     var rulesToUpdate = new List<FirewallRule>();
+                     rulesToUpdate.AddRange(InboundRules.Where(r => r.DisplayGroup == groupName));
+                     rulesToUpdate.AddRange(OutboundRules.Where(r => r.DisplayGroup == groupName));
+
+                     if (rulesToUpdate.Count == 0) return;
+
+                     // Run PowerShell to update all at once
+                     await RunPowershellAsync($"Set-NetFirewallRule -DisplayGroup '{groupName}' -Enabled {targetState}");
+
+                     // Update UI
+                     foreach (var r in rulesToUpdate)
+                     {
+                         r.Enabled = targetStateUi;
+                     }
+                     
+                     // Force refresh of the group header binding if it doesn't auto-update
+                     // Since bindings are OneWay + Converter, we might need to trigger a refresh 
+                     // But if the rules update their property, the converter should re-evaluate if we bound to the collection?
+                     // Actually `Binding Items` in GroupStyle passes the CollectionViewGroup.Items, which is observable.
+                 }
+                 catch (Exception ex)
+                 {
+                     MessageBox.Show($"Error toggling group: {ex.Message}");
+                 }
+                 finally
+                 {
+                     Mouse.OverrideCursor = null;
+                 }
+             }
+        }
+
         private async Task ToggleRule(FirewallRule rule)
         {
             try
@@ -135,12 +203,8 @@ $rules | ForEach-Object {
 
                 await RunPowershellAsync($"Set-NetFirewallRule -Name '{rule.Name}' -Enabled {newState}");
                 
-                // Update Model locally for instant feedback logic
+                // Update Model locally
                 rule.Enabled = isEnabled ? "No" : "Yes";
-                
-                // Refresh to be sure (optional, can be removed for speed if local update is trusted)
-                // await LoadRules(); 
-                // Let's force refresh for now to be safe as requested
             }
             catch (Exception ex)
             {
@@ -212,7 +276,7 @@ $rules | ForEach-Object {
         }
     }
 
-    public class FirewallRule
+    public class FirewallRule : INotifyPropertyChanged
     {
         public string Name { get; set; }
         public string DisplayName { get; set; }
@@ -220,17 +284,59 @@ $rules | ForEach-Object {
         public string Direction { get; set; }
         public string Action { get; set; }
         public string Profile { get; set; }
-        
-        // Detailed Columns
         public string Program { get; set; }
         public string Protocol { get; set; }
         public string LocalPort { get; set; }
         public string RemotePort { get; set; }
         public string RemoteAddress { get; set; }
 
-        public string Enabled { get; set; } // "Yes" or "No"
-        
-        // Helper for UI triggers if needed, though we bind to Enabled string now
-        public bool IsEnabledBool => Enabled != null && Enabled.Equals("Yes", StringComparison.OrdinalIgnoreCase); 
+        private string _enabled;
+        public string Enabled 
+        { 
+            get => _enabled; 
+            set 
+            {
+                if (_enabled != value)
+                {
+                    _enabled = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(IsEnabledBool));
+                }
+            } 
+        }
+
+        public bool IsEnabledBool => Enabled != null && Enabled.Equals("Yes", StringComparison.OrdinalIgnoreCase);
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        protected void OnPropertyChanged([CallerMemberName] string name = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        }
+    }
+
+    public class GroupToEnabledStateConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            // value is ReadOnlyObservableCollection<object> (the Items in the group)
+            if (value is IList<object> items)
+            {
+                var rules = items.OfType<FirewallRule>().ToList();
+                if (rules.Count == 0) return false;
+
+                bool allEnabled = rules.All(r => r.IsEnabledBool);
+                bool allDisabled = rules.All(r => !r.IsEnabledBool);
+
+                if (allEnabled) return true;
+                if (allDisabled) return false;
+                return null; // Indeterminate
+            }
+            return false;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
