@@ -1,6 +1,6 @@
 # Windows System Monitor
 
-[![Download Latest Release](https://img.shields.io/badge/Download-v2.1.3-blue?style=for-the-badge&logo=windows)](https://github.com/dparksports/SystemMonitor/releases/download/v2.1.3/DeviceMonitorCS_v2.1.3.zip)
+[![Download Latest Release](https://img.shields.io/badge/Download-v2.1.4-blue?style=for-the-badge&logo=windows)](https://github.com/dparksports/SystemMonitor/releases/download/v2.1.4/DeviceMonitorCS_v2.1.4.zip)
 
 **Windows System Monitor** is a powerful, C#-based WPF application designed to give you deep visibility and control over your Windows environment. It goes beyond standard task managers by providing real-time hardware tracking, advanced network management, security event logging, and privacy controls.
 
