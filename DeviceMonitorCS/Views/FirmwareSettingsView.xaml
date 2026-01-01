@@ -43,6 +43,8 @@
             </DataGrid.Resources>
             <DataGrid.ContextMenu>
                 <ContextMenu>
+                    <MenuItem Header="View Content" Click="ViewContent_Click"/>
+                    <Separator/>
                     <MenuItem Header="Ask AI about this" Click="AskAi_Click"/>
                 </ContextMenu>
             </DataGrid.ContextMenu>
