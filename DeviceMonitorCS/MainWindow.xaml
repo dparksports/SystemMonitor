@@ -69,6 +69,7 @@
                 <TextBlock Text="MAIN" Foreground="#808080" FontSize="12" Margin="5,0,0,5" FontWeight="SemiBold"/>
                 <Button x:Name="NavDashboardBtn" Content="Dashboard" Style="{StaticResource NavButton}"/>
                 <Button x:Name="PerformanceBtn" Content="System Performance" Style="{StaticResource NavButton}"/>
+                <Button x:Name="PrivacyBtn" Content="Privacy Settings" Style="{StaticResource NavButton}"/>
                 
 
                 <TextBlock Text="TOOLS" Foreground="#808080" FontSize="12" Margin="5,20,0,5" FontWeight="SemiBold"/>
@@ -82,6 +83,7 @@
                 <CheckBox x:Name="VpnToggle" Content="VPN Services"/>
                 <CheckBox x:Name="WifiDirectToggle" Content="WiFi Direct"/>
                 <CheckBox x:Name="DebugToggle" Content="Kernel Debug"/>
+                <CheckBox x:Name="UsageDataToggle" Content="Usage Data"/>
                 
                 <Separator Background="#3E3E42" Margin="0,20"/>
                 <Button x:Name="SettingsBtn" Content="Settings" Style="{StaticResource NavButton}"/>
@@ -97,9 +99,9 @@
 
             <!-- Performance View -->
             <views:PerformanceView x:Name="PerformanceView" Visibility="Collapsed"/>
-
-            <!-- Logs View Removed (Integrated into Dashboard) -->
-
+            
+            <!-- Privacy View -->
+            <views:PrivacyView x:Name="PrivacyView" Visibility="Collapsed"/>
 
             <!-- Tools Views -->
             <views:HostedNetworkView x:Name="HostedNetworkView" Visibility="Collapsed"/>
