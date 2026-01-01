@@ -4,7 +4,7 @@
 
 **Windows System Monitor** is an advanced system utility designed for power users, administrators, and developers. It provides deep visibility into Windows firmware, security events, and network configurations that are often hidden or difficult to access.
 
-![Screenshot](screenshot.png)
+![Screenshot](DeviceMonitorCS/screenshot.png)
 
 ## What's New in v2.2
 
