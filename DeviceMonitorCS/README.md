@@ -1,49 +1,49 @@
 # Windows System Monitor
 
-[![Download Latest Release](https://img.shields.io/badge/Download-v2.1.4-blue?style=for-the-badge&logo=windows)](https://github.com/dparksports/SystemMonitor/releases/download/v2.1.4/DeviceMonitorCS_v2.1.4.zip)
+[![Download Latest Release](https://img.shields.io/badge/Download-v2.2.8-blue?style=for-the-badge&logo=windows)](https://github.com/dparksports/DeviceMonitor/releases/download/v2.2.8/DeviceMonitorCS.zip)
 
-**Windows System Monitor** is a powerful, C#-based WPF application designed to give you deep visibility and control over your Windows environment. It goes beyond standard task managers by providing real-time hardware tracking, advanced network management, security event logging, and privacy controls.
+**Windows System Monitor** is an advanced system utility designed for power users, administrators, and developers. It provides deep visibility into Windows firmware, security events, and network configurations that are often hidden or difficult to access.
 
 ![Screenshot](screenshot.png)
 
-## Key Features
+## What's New in v2.2
 
-### 🛡️ Security & Privacy
-*   **Privacy Settings (NEW)**: Toggle the "Usage Data" (telemetry) scheduled task with a single click.
-*   **AI Insights (NEW)**: Integrated **Gemini AI** explains complex system components and potential threats in plain English.
-*   **Security Enforcer**: Real-time monitoring of security event logs with automated threat blocking and analysis.
+### 🖥️ Firmware Settings & UEFI Explorer
+*   **Native Table Access**: Directly queries the Windows Kernel (via P/Invoke) to list all **ACPI**, **SMBIOS**, and **UEFI** firmware tables.
+*   **Smart Deciphering**: Automatically translates cryptic table IDs (e.g., `FACP`, `MCFG`, `APIC`) into human-readable descriptions (e.g., "Fixed ACPI Description Table").
+*   **Content Viewer**: Right-click any table to view its **Raw Hex Dump** and decoded **ACPI Header** info (Signature, OEM ID, Checksum).
+*   **BCD Explorer**: A structured view of the **Boot Configuration Data**, parsing all hidden settings (`emssettings`, `badmemory`, `globalsettings`) with a "View Details" popup for complex entries.
 
-### 📡 Network Management
-*   **Connection Monitor**: View all active TCP/UDP connections, including process names, remote locations, and data transfer.
-*   **Muted Connections**: Filter out known safe connections to focus on suspicious activity.
-*   **Hosted Network Manager**: Manage the legacy Windows Hosted Network feature.
-*   **Wifi Direct & VPN Toggles**: Quickly enable or disable network features that can expose your device.
+### 🤖 AI Integration
+*   **"Ask AI"**: Context-aware AI integration (powered by Google Gemini). Right-click any confusing entry—whether it's a security event, a BCD flag, or a firmware table—to get an instant explanation in plain English.
 
-### ⚙️ System Control
-*   **Hardware Events**: Monitor PnP device insertion (USB drives, etc.) in real-time.
-*   **Scheduled Tasks**: View and manage Windows Scheduled Tasks.
-*   **Kernel Debug Toggle**: Easily enable/disable kernel debugging to prevent unauthorized tampering.
+### 🛡️ Security & PrivacyEnforcer
+*   **Security Event Log**: Real-time stream of security events with "Muted Connections" filtering to ignore noise.
+*   **Privacy Toggle**: One-click disable for the "Usage Data" (Telemetry) scheduled task.
+*   **Kernel Debug Toggle**: Monitoring and control of Kernel Debug settings to prevent unauthorized tampering.
+
+### 📡 Network Manager
+*   **Hosted Network**: Legacy controls to Start/Stop/Repair the Windows Hosted Network (SoftAP).
+*   **Adapter & Miniport Repair**: Tools to reset and repair WAN Miniports and network adapters when connectivity fails.
+*   **Connection Monitor**: Active TCP/UDP connection tracking with process association.
 
 ## Installation
 
-1.  **Download**: Click the download button above to get the latest `DeviceMonitorCS_v2.1.3.zip`.
-2.  **Extract**: Unzip the contents to a folder of your choice (e.g., `C:\Apps\SystemMonitor`).
-3.  **Run**: Double-click `DeviceMonitorCS.exe`.
-    *   *Note: Runs best as Administrator to access all system features.*
-4.  **AI Setup**: To enable AI features, create a file named `apikey.txt` in the app folder and paste your Gemini API key inside.
+1.  **Download**: Get the latest `DeviceMonitorCS.zip` from the [Releases Page](https://github.com/dparksports/DeviceMonitor/releases).
+2.  **Extract**: Unzip the contents to a folder (e.g., `C:\Apps\SystemMonitor`).
+3.  **Run**: Launch `DeviceMonitorCS.exe` as **Administrator**.
+    *   *Note: Admin privileges are required to access UEFI variables and Security Logs.*
 
-## Usage
-
-*   **Dashboard**: Overview of recent security and hardware events.
-*   **System Performance**: Real-time graphs for CPU, Memory, and Network usage.
-*   **Privacy Settings**: Control Windows telemetry and ask AI about system components.
-*   **Quick Actions**: Sidebar toggles for VPN, WiFi Direct, Kernel Debug, and Usage Data.
+## AI Configuration (Optional)
+To enable the "Ask AI" features:
+1.  Get a free API key from [Google AI Studio](https://aistudio.google.com/).
+2.  Create a file named `apikey.txt` in the same folder as the `.exe`.
+3.  Paste your API key into the file.
 
 ## Requirements
 
-*   Windows 10 or Windows 11
-*   .NET 10.0 Runtime (included in self-contained builds or required separately)
-*   Administrator privileges (recommended)
+*   **OS**: Windows 10 or Windows 11 (x64).
+*   **Runtime**: .NET 10.0 (The release is self-contained, no separate install required).
 
 ---
-*Built with ❤️ by the Windows System Monitor Team*
+*Built with ❤️ for the Windows Community*
