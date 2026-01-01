@@ -38,12 +38,15 @@ namespace DeviceMonitorCS
             if (IsAdministrator())
             {
                 Title = $"Windows System Monitor (Administrator) - User: {_currentUser}";
-                // InitializeToggles(); // Moved to PrivacyView
                 StartDeviceMonitoring();
                 StartSecurityMonitoring();
                 
                 _enforcer = new SecurityEnforcer(HandleThreatDetected);
                 _enforcer.StatusChanged += (status, color) => Dispatcher.Invoke(() => DashboardView.UpdateLiveStatus(status, color));
+                
+                // Handle Firewall Drift
+                _enforcer.ConfigurationDriftDetected += (driftItems) => Dispatcher.Invoke(() => HandleFirewallDrift(driftItems));
+                
                 _enforcer.Start();
             }
             else
@@ -425,6 +428,23 @@ namespace DeviceMonitorCS
             _deviceWatcherRem?.Stop();
             // _logWatcher?.Enabled = false; // if using watcher
             Application.Current.Shutdown();
+        }
+        private void HandleFirewallDrift(List<string> driftItems)
+        {
+            if (driftItems == null || driftItems.Count == 0) return;
+
+            string changes = string.Join("\n", driftItems);
+            string message = "The following Firewall settings have changed or were modified by Windows:\n\n" +
+                             changes +
+                             "\n\nDo you want to restore your saved settings?";
+
+            var result = MessageBox.Show(message, "Firewall Configuration Drift Detected", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            
+            if (result == MessageBoxResult.Yes)
+            {
+                _enforcer.ForceApplyFirewallRules();
+                MessageBox.Show("Settings restored successfully.", "Restored");
+            }
         }
     }
 }

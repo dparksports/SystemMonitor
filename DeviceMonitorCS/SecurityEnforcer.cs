@@ -35,6 +35,8 @@ namespace DeviceMonitorCS
 
         private int _loopCount = 0;
 
+        public event Action<List<string>> ConfigurationDriftDetected;
+
         private async Task RunLoop()
         {
             while (_isRunning)
@@ -47,7 +49,7 @@ namespace DeviceMonitorCS
                     
                     if (_loopCount % 15 == 0) // Every 30 seconds (approx)
                     {
-                         EnforceFirewallRules();
+                         await MonitorFirewallDrift();
                     }
                     _loopCount++;
                 }
@@ -60,15 +62,10 @@ namespace DeviceMonitorCS
             }
         }
 
-        private void EnforceFirewallRules()
+        public void ForceApplyFirewallRules()
         {
             try
             {
-                // Reload to catch external updates (e.g. from UI)
-                // Actually Instance is singleton so it shares state if in same process.
-                // But just in case we want to be sure? No, singleton is fine.
-                // However, if the UI runs in same process, we depend on static instance.
-                
                 var overrides = DeviceMonitorCS.Helpers.FirewallConfigManager.Instance.RuleOverrides;
                 if (overrides.Count == 0) return;
 
@@ -77,7 +74,6 @@ namespace DeviceMonitorCS
 
                 if (toEnable.Count > 0)
                 {
-                    // Batch command
                     string names = string.Join("','", toEnable);
                     RunCommand("powershell", $"-Command \"Set-NetFirewallRule -Name '{names}' -Enabled True -ErrorAction SilentlyContinue\"");
                 }
@@ -91,6 +87,71 @@ namespace DeviceMonitorCS
             catch (Exception ex)
             {
                 Debug.WriteLine($"Firewall Enforcer Error: {ex.Message}");
+            }
+        }
+
+        private async Task MonitorFirewallDrift()
+        {
+            try
+            {
+                var overrides = DeviceMonitorCS.Helpers.FirewallConfigManager.Instance.RuleOverrides;
+                if (overrides.Count == 0) return;
+
+                var driftItems = new List<string>();
+
+                // Build a script to check status efficiently
+                var checkScript = "$drift = @(); ";
+                
+                foreach (var kvp in overrides)
+                {
+                    string expected = kvp.Value == "True" ? "1" : "2"; // 1=True, 2=False (approx, or check boolean string in PS)
+                    // Actually Get-NetFirewallRule .Enabled returns 1 (True) or 2 (False) usually, or Boolean.
+                    // simpler: if enabled -ne $true
+                    
+                    string checkState = kvp.Value == "True" ? "$false" : "$true";
+                    string desc = kvp.Value == "True" ? "Should be Enabled" : "Should be Disabled";
+                    
+                    // We check if state matches the OPPOSITE of what we want (meaning drift occurred)
+                    checkScript += $"if ((Get-NetFirewallRule -Name '{kvp.Key}' -ErrorAction SilentlyContinue).Enabled -eq {checkState}) {{ $drift += '{kvp.Key} ({desc})' }}; ";
+                }
+                
+                checkScript += "$drift";
+
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Arguments = $"-Command \"{checkScript}\"",
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                await Task.Run(() =>
+                {
+                    using (var p = Process.Start(psi))
+                    {
+                        if (p != null)
+                        {
+                            string output = p.StandardOutput.ReadToEnd();
+                            p.WaitForExit();
+                            
+                            var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                            if (lines.Length > 0)
+                            {
+                                driftItems.AddRange(lines);
+                            }
+                        }
+                    }
+                });
+
+                if (driftItems.Count > 0)
+                {
+                    ConfigurationDriftDetected?.Invoke(driftItems);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Drift Check Error: {ex.Message}");
             }
         }
 
