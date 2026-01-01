@@ -75,9 +75,9 @@ A comprehensive system utility for monitoring, managing, and securing your Windo
 
 ## Release
 
-- **Version:** v10.0.0
+- **Version:** v2.3.1
 - **Release Date:** 2026-01-01
-- Download: [DeviceMonitorCS v10.0.0](https://github.com/dparksports/SystemMonitor/releases/tag/v10.0.0)
+- Download: [DeviceMonitorCS v2.3.1](https://github.com/dparksports/SystemMonitor/releases/tag/v2.3.1)
 
 ![Shield Up Screenshot](DeviceMonitorCS/shield-up-screenshot.jpg)
 3. Restore NuGet packages.
