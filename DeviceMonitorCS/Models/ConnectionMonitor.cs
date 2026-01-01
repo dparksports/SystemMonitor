@@ -42,9 +42,9 @@ namespace DeviceMonitorCS.Models
         // UI Display
         public ObservableCollection<ConnectionItem> DisplayMutedConnections { get; set; } = new ObservableCollection<ConnectionItem>();
 
-        private readonly string _historyFile = "connection_history.json";
-        private readonly string _mutedFile = "muted_connections.json";
-        private readonly string _ipCacheFile = "ip_cache.json";
+        private readonly string _historyFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "connection_history.json");
+        private readonly string _mutedFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "muted_connections.json");
+        private readonly string _ipCacheFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ip_cache.json");
 
         // Cache for Process Names and WhoIs to avoid spamming
         private ConcurrentDictionary<int, string> _processCache = new ConcurrentDictionary<int, string>();

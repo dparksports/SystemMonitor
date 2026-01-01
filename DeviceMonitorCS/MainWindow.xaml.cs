@@ -78,6 +78,7 @@ namespace DeviceMonitorCS
             // Navigation Wiring
             NavDashboardBtn.Click += (s, e) => NavigateTo(DashboardView);
             PerformanceBtn.Click += (s, e) => NavigateTo(PerformanceView);
+            PrivacyBtn.Click += (s, e) => NavigateTo(PrivacyView);
             
             HostedNetworkBtn.Click += (s, e) => NavigateTo(HostedNetworkView);
             WanMiniportBtn.Click += (s, e) => NavigateTo(WanMiniportView);
@@ -98,6 +99,7 @@ namespace DeviceMonitorCS
             // Start Monitoring
             WifiDirectToggle.Click += WifiDirectToggle_Click;
             DebugToggle.Click += DebugToggle_Click;
+            UsageDataToggle.Click += UsageDataToggle_Click;
 
             // Wire Toggles
             VpnToggle.Click += VpnToggle_Click;
@@ -122,6 +124,7 @@ namespace DeviceMonitorCS
             VpnToggle.IsChecked = CheckVpnStatus();
             WifiDirectToggle.IsChecked = CheckWifiDirectStatus();
             DebugToggle.IsChecked = CheckDebugStatus();
+            UsageDataToggle.IsChecked = CheckUsageDataStatus();
         }
 
         // --- VPN Logic ---
@@ -230,6 +233,45 @@ namespace DeviceMonitorCS
              {
                   MessageBox.Show($"Error: {ex.Message}");
                   DebugToggle.IsChecked = !enable;
+             }
+        }
+
+        // --- Usage Data Logic ---
+        private bool CheckUsageDataStatus()
+        {
+             try
+             {
+                 var psi = new ProcessStartInfo 
+                 { 
+                     FileName = "powershell.exe", 
+                     Arguments = "-Command \"(Get-ScheduledTask -TaskName 'UsageDataReceiver' -TaskPath '\\Microsoft\\Windows\\Flighting\\FeatureConfig\\').State\"", 
+                     RedirectStandardOutput = true, 
+                     UseShellExecute = false, 
+                     CreateNoWindow = true 
+                 };
+                 using (var p = Process.Start(psi))
+                 {
+                     string outStr = p.StandardOutput.ReadToEnd();
+                     p.WaitForExit();
+                     return !string.IsNullOrWhiteSpace(outStr) && !outStr.Trim().Equals("Disabled", StringComparison.OrdinalIgnoreCase);
+                 }
+             }
+             catch { return false; }
+        }
+
+        private void UsageDataToggle_Click(object sender, RoutedEventArgs e)
+        {
+             bool enable = UsageDataToggle.IsChecked == true;
+             string cmd = enable ? "Enable-ScheduledTask" : "Disable-ScheduledTask";
+             try
+             {
+                 RunCommand("powershell.exe", $"-Command \"{cmd} -TaskName 'UsageDataReceiver' -TaskPath '\\Microsoft\\Windows\\Flighting\\FeatureConfig\\'\"");
+                 LogConfigEvent("Usage Data", enable);
+             }
+             catch (Exception ex)
+             {
+                  MessageBox.Show($"Error: {ex.Message}");
+                  UsageDataToggle.IsChecked = !enable;
              }
         }
 
@@ -464,6 +506,7 @@ namespace DeviceMonitorCS
             // Hide all
             DashboardView.Visibility = Visibility.Collapsed;
             PerformanceView.Visibility = Visibility.Collapsed;
+            PrivacyView.Visibility = Visibility.Collapsed;
             HostedNetworkView.Visibility = Visibility.Collapsed;
             WanMiniportView.Visibility = Visibility.Collapsed;
             NetworkAdaptersView.Visibility = Visibility.Collapsed;
