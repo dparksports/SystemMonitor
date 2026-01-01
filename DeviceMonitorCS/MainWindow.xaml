@@ -70,6 +70,7 @@
                 <Button x:Name="NavDashboardBtn" Content="Dashboard" Style="{StaticResource NavButton}"/>
                 <Button x:Name="PerformanceBtn" Content="System Performance" Style="{StaticResource NavButton}"/>
                 <Button x:Name="PrivacyBtn" Content="Privacy Settings" Style="{StaticResource NavButton}"/>
+                <Button x:Name="FirmwareSettingsBtn" Content="Firmware Settings" Style="{StaticResource NavButton}"/>
                 
 
                 <TextBlock Text="TOOLS" Foreground="#808080" FontSize="12" Margin="5,20,0,5" FontWeight="SemiBold"/>
@@ -102,6 +103,9 @@
             
             <!-- Privacy View -->
             <views:PrivacyView x:Name="PrivacyView" Visibility="Collapsed"/>
+            
+            <!-- Firmware Settings View -->
+            <views:FirmwareSettingsView x:Name="FirmwareSettingsView" Visibility="Collapsed"/>
 
             <!-- Tools Views -->
             <views:HostedNetworkView x:Name="HostedNetworkView" Visibility="Collapsed"/>

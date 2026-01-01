@@ -79,6 +79,7 @@ namespace DeviceMonitorCS
             NavDashboardBtn.Click += (s, e) => NavigateTo(DashboardView);
             PerformanceBtn.Click += (s, e) => NavigateTo(PerformanceView);
             PrivacyBtn.Click += (s, e) => NavigateTo(PrivacyView);
+            FirmwareSettingsBtn.Click += (s, e) => NavigateTo(FirmwareSettingsView);
             
             HostedNetworkBtn.Click += (s, e) => NavigateTo(HostedNetworkView);
             WanMiniportBtn.Click += (s, e) => NavigateTo(WanMiniportView);
@@ -405,18 +406,92 @@ namespace DeviceMonitorCS
 
         private void ProcessSecurityEvent(EventRecord evt)
         {
-             // Source Column (mapped to Account property) - Use Provider Name
              string source = evt.ProviderName ?? "System";
-
-             // Details Column (mapped to Type property) - Use Description
              string details = "";
+             
+             // Properties to extract
+             string accountName = "";
+             string accountDomain = "";
+             string logonId = "";
+             string securityId = "";
+             string privileges = "";
+             string logonType = "";
+             string processName = "";
+             string workstationName = "";
+             string ipAddress = "";
+             string ipPort = "";
+             string restrictedAdminMode = "";
+             string remoteCredentialGuard = "";
+             string virtualAccount = "";
+             string groupName = "";
+             string groupDomain = "";
+             string groupSecurityId = "";
+
              try 
              {
                  details = evt.FormatDescription();
                  if (!string.IsNullOrEmpty(details))
                  {
-                     // Clean up newlines and truncate
+                     // Convert newlines to spaces for uniform regex parsing
                      details = details.Replace("\r", " ").Replace("\n", " ");
+
+                     // Dictionary mapping Regex Pattern -> Ref Variable (conceptually)
+                     // Since we can't pass refs easily in a loop with different variables, we'll do it sequentially
+                     // but use a helper to extract and remove.
+                     
+                     // Helper Func: Extract value, assign to var, remove from details
+                     // We match "Key: Value" where Value is until the next "Key:" or end of string.
+                     // The lookahead checks for " TwoWords:" or " OneWord:" pattern.
+                     
+                     string Extract(string keyPattern, ref string targetVar)
+                     {
+                         // Pattern: Key followed by colon, optional space, then convert the capture group
+                         // We use a non-greedy match for content (.*?) until valid lookahead
+                         var regex = new System.Text.RegularExpressions.Regex(keyPattern + @":\s*(.*?)(?=\s+[A-Za-z][A-Za-z ]+:|$)");
+                         var match = regex.Match(details);
+                         if (match.Success)
+                         {
+                             targetVar = match.Groups[1].Value.Trim();
+                             details = details.Replace(match.Value, " "); // Replace with space to prevent sticking words together
+                             return match.Value;
+                         }
+                         return null;
+                     }
+
+                     // 1. Account Info
+                     Extract("Account Name", ref accountName);
+                     Extract("Account Domain", ref accountDomain);
+                     Extract("Logon ID", ref logonId);
+                     Extract("Security ID", ref securityId);
+                     
+                     // 2. Network / System
+                     Extract("Logon Type", ref logonType);
+                     Extract("Workstation Name", ref workstationName);
+                     Extract("Source Network Address", ref ipAddress);
+                     Extract("Source Port", ref ipPort);
+                     Extract("Process Name", ref processName);
+                     Extract("New Process Name", ref processName); // sometimes "New Process Name"
+
+                     // 3. Extended Info
+                     Extract("Restricted Admin Mode", ref restrictedAdminMode);
+                     Extract("Remote Credential Guard", ref remoteCredentialGuard);
+                     Extract("Virtual Account", ref virtualAccount);
+
+                     // 4. Group Info
+                     Extract("Group Name", ref groupName);
+                     Extract("Group Domain", ref groupDomain);
+                     // If there's a second Security ID (e.g. for Group), extracting 'Security ID' again will pick it up
+                     // because the first one was removed from 'details' by the first Extract call.
+                     Extract("Security ID", ref groupSecurityId);
+
+                     // 5. Privileges - Specific handling
+                     // Privileges often is the last item or long list. 
+                     // The generic extraction might fail if it contains keys inside (unlikely for privileges).
+                     // But strictly speaking, Privileges might be: "SeTcbPrivilege\nSeChangeNotify..."
+                     Extract("Privileges", ref privileges);
+
+                     // Clean up multiple spaces
+                     details = System.Text.RegularExpressions.Regex.Replace(details, @"\s+", " ").Trim();
                      if (details.Length > 150) details = details.Substring(0, 147) + "...";
                  }
              }
@@ -430,9 +505,37 @@ namespace DeviceMonitorCS
              {
                  Time = evt.TimeCreated?.ToString("HH:mm:ss"),
                  Id = evt.Id,
-                 Type = details,   // Populates 'Details' column
-                 Activity = activity, // Populates 'Event' column
-                 Account = source    // Populates 'Source' column
+                 Type = details,
+                 Activity = activity,
+                 Account = source,
+                 AccountName = accountName,
+                 AccountDomain = accountDomain,
+                 LogonId = logonId,
+                 SecurityId = securityId,
+                 Privileges = privileges,
+                 LogonType = logonType,
+                 ProcessName = processName,
+                 WorkstationName = workstationName,
+                 IpAddress = ipAddress,
+                 IpPort = ipPort,
+                 RestrictedAdminMode = restrictedAdminMode,
+                 RemoteCredentialGuard = remoteCredentialGuard,
+                 VirtualAccount = virtualAccount,
+                 GroupName = groupName,
+                 GroupDomain = groupDomain,
+                 GroupSecurityId = groupSecurityId,
+                 // Set Privilege Flags based on substrings
+                 SeAssignPrimaryTokenPrivilege = privileges.Contains("SeAssignPrimaryTokenPrivilege"),
+                 SeTcbPrivilege = privileges.Contains("SeTcbPrivilege"),
+                 SeSecurityPrivilege = privileges.Contains("SeSecurityPrivilege"),
+                 SeTakeOwnershipPrivilege = privileges.Contains("SeTakeOwnershipPrivilege"),
+                 SeLoadDriverPrivilege = privileges.Contains("SeLoadDriverPrivilege"),
+                 SeBackupPrivilege = privileges.Contains("SeBackupPrivilege"),
+                 SeRestorePrivilege = privileges.Contains("SeRestorePrivilege"),
+                 SeDebugPrivilege = privileges.Contains("SeDebugPrivilege"),
+                 SeAuditPrivilege = privileges.Contains("SeAuditPrivilege"),
+                 SeSystemEnvironmentPrivilege = privileges.Contains("SeSystemEnvironmentPrivilege"),
+                 SeImpersonatePrivilege = privileges.Contains("SeImpersonatePrivilege")
              });
         }
 

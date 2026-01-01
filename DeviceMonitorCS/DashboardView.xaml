@@ -89,7 +89,35 @@
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="80"/>
                         <DataGridTextColumn Header="Source" Binding="{Binding Account}" Width="100"/>
-                        <DataGridTextColumn Header="Event" Binding="{Binding Activity}" Width="250"/>
+                        <DataGridTextColumn Header="Event" Binding="{Binding Activity}" Width="200"/>
+                        <DataGridTextColumn Header="Account Name" Binding="{Binding AccountName}" Width="120"/>
+                        <DataGridTextColumn Header="Account Domain" Binding="{Binding AccountDomain}" Width="120"/>
+                        <DataGridTextColumn Header="Logon ID" Binding="{Binding LogonId}" Width="100"/>
+                        <DataGridTextColumn Header="Security ID" Binding="{Binding SecurityId}" Width="150"/>
+                        
+                        <!-- Privilege Checkboxes -->
+                        <DataGridCheckBoxColumn Header="AssignToken" Binding="{Binding SeAssignPrimaryTokenPrivilege}" Width="80"/>
+                        <DataGridCheckBoxColumn Header="TCB" Binding="{Binding SeTcbPrivilege}" Width="50"/>
+                        <DataGridCheckBoxColumn Header="Security" Binding="{Binding SeSecurityPrivilege}" Width="60"/>
+                        <DataGridCheckBoxColumn Header="TakeOwn" Binding="{Binding SeTakeOwnershipPrivilege}" Width="60"/>
+                        <DataGridCheckBoxColumn Header="LoadDriver" Binding="{Binding SeLoadDriverPrivilege}" Width="70"/>
+                        <DataGridCheckBoxColumn Header="Backup" Binding="{Binding SeBackupPrivilege}" Width="60"/>
+                        <DataGridCheckBoxColumn Header="Restore" Binding="{Binding SeRestorePrivilege}" Width="60"/>
+                        <DataGridCheckBoxColumn Header="Debug" Binding="{Binding SeDebugPrivilege}" Width="50"/>
+                        <DataGridCheckBoxColumn Header="Audit" Binding="{Binding SeAuditPrivilege}" Width="50"/>
+                        <DataGridCheckBoxColumn Header="SysEnv" Binding="{Binding SeSystemEnvironmentPrivilege}" Width="60"/>
+                        <DataGridCheckBoxColumn Header="Impersonate" Binding="{Binding SeImpersonatePrivilege}" Width="80"/>
+
+                        <DataGridTextColumn Header="Logon Type" Binding="{Binding LogonType}" Width="80"/>
+                        <DataGridTextColumn Header="Process" Binding="{Binding ProcessName}" Width="100"/>
+                        <DataGridTextColumn Header="Workstation" Binding="{Binding WorkstationName}" Width="100"/>
+                        <DataGridTextColumn Header="Source IP" Binding="{Binding IpAddress}" Width="100"/>
+                        <DataGridTextColumn Header="Restricted Admin" Binding="{Binding RestrictedAdminMode}" Width="100"/>
+                        <DataGridTextColumn Header="Cred Guard" Binding="{Binding RemoteCredentialGuard}" Width="80"/>
+                        <DataGridTextColumn Header="Virtual Acc" Binding="{Binding VirtualAccount}" Width="80"/>
+                        <DataGridTextColumn Header="Group Name" Binding="{Binding GroupName}" Width="100"/>
+                        <DataGridTextColumn Header="Group Domain" Binding="{Binding GroupDomain}" Width="100"/>
+                        <DataGridTextColumn Header="Group SID" Binding="{Binding GroupSecurityId}" Width="120"/>
                         <DataGridTextColumn Header="Details" Binding="{Binding Type}" Width="*"/>
                     </DataGrid.Columns>
                 </DataGrid>
