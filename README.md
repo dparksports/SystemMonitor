@@ -63,23 +63,23 @@ A comprehensive system utility for monitoring, managing, and securing your Windo
 3. Under "Startup Behavior", click **"Install to Scheduled Tasks"**.
 4. The app will now start automatically when you log in.
 
-## Requirements
-- **OS**: Windows 10/11 (64-bit recommended)
-- **Runtime**: .NET Framework 4.8 or .NET 6+ (depending on build variant)
-- **Privileges**: Administrator rights are required for most features (managing drivers, services, and tasks).
-
-## Building from Source
-
-1. Clone the repository.
-2. Open the solution in Visual Studio 2022.
-
 ## Release
 
 - **Version:** v2.3.1
 - **Release Date:** 2026-01-01
 - Download: [DeviceMonitorCS v2.3.1](https://github.com/dparksports/SystemMonitor/releases/tag/v2.3.1)
 
-![Shield Up Screenshot](DeviceMonitorCS/shield-up-screenshot.jpg)
+
+## Requirements
+- **OS**: Windows 10/11 (64-bit recommended)
+- **Runtime**: .NET Framework 4.8 or .NET 6+ (depending on build variant)
+- **Privileges**: Administrator rights are required for most features (managing drivers, services, and tasks).
+
+
+## Building from Source
+
+1. Clone the repository.
+2. Open the solution in Visual Studio 2022.
 3. Restore NuGet packages.
 4. Build the solution (Release mode recommended).
 
