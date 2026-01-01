@@ -81,12 +81,6 @@
                 <Button x:Name="TasksBtn" Content="Scheduled Tasks" Style="{StaticResource NavButton}"/>
                 <Button x:Name="ConnectionsBtn" Content="Connections" Style="{StaticResource NavButton}"/>
 
-                <TextBlock Text="QUICK ACTIONS" Foreground="#808080" FontSize="12" Margin="5,20,0,5" FontWeight="SemiBold"/>
-                <CheckBox x:Name="VpnToggle" Content="VPN Services"/>
-                <CheckBox x:Name="WifiDirectToggle" Content="WiFi Direct"/>
-                <CheckBox x:Name="DebugToggle" Content="Kernel Debug"/>
-                <CheckBox x:Name="UsageDataToggle" Content="Usage Data"/>
-                
                 <Separator Background="#3E3E42" Margin="0,20"/>
                 <Button x:Name="SettingsBtn" Content="Settings" Style="{StaticResource NavButton}"/>
                 <Button x:Name="ClearBtn" Content="Clear Logs" Style="{StaticResource NavButton}" Foreground="#FF6B6B"/>

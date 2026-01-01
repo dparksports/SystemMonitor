@@ -21,8 +21,7 @@ namespace DeviceMonitorCS
         private ManagementEventWatcher _deviceWatcherRem;
         private string _currentUser;
 
-        // VPN Services
-        private readonly string[] _vpnServices = { "RasMan", "IKEEXT", "PolicyAgent", "RemoteAccess" };
+
         
         private SecurityEnforcer _enforcer;
         private PerformanceMonitor _perfMonitor;
@@ -39,7 +38,7 @@ namespace DeviceMonitorCS
             if (IsAdministrator())
             {
                 Title = $"Windows System Monitor (Administrator) - User: {_currentUser}";
-                InitializeToggles();
+                // InitializeToggles(); // Moved to PrivacyView
                 StartDeviceMonitoring();
                 StartSecurityMonitoring();
                 
@@ -99,12 +98,6 @@ namespace DeviceMonitorCS
             DashboardView.BindData(SecurityData, DeviceData);
 
             // Start Monitoring
-            WifiDirectToggle.Click += WifiDirectToggle_Click;
-            DebugToggle.Click += DebugToggle_Click;
-            UsageDataToggle.Click += UsageDataToggle_Click;
-
-            // Wire Toggles
-            VpnToggle.Click += VpnToggle_Click;
 
             Closed += MainWindow_Closed;
             
@@ -119,208 +112,6 @@ namespace DeviceMonitorCS
                 }
             };
             perfTimer.Start();
-        }
-
-        private void InitializeToggles()
-        {
-            VpnToggle.IsChecked = CheckVpnStatus();
-            WifiDirectToggle.IsChecked = CheckWifiDirectStatus();
-            DebugToggle.IsChecked = CheckDebugStatus();
-            UsageDataToggle.IsChecked = CheckUsageDataStatus();
-        }
-
-        // --- VPN Logic ---
-        private bool CheckVpnStatus()
-        {
-            try
-            {
-                foreach (var svcName in _vpnServices)
-                {
-                    using (var sc = new ServiceController(svcName))
-                    {
-                        if (sc.Status != ServiceControllerStatus.Stopped && sc.StartType != ServiceStartMode.Disabled)
-                            return true;
-                    }
-                }
-            }
-            catch { }
-            return false;
-        }
-
-        private void VpnToggle_Click(object sender, RoutedEventArgs e)
-        {
-            bool enable = VpnToggle.IsChecked == true;
-            try
-            {
-                string startType = enable ? "manual" : "disabled";
-                foreach (var svcName in _vpnServices)
-                {
-                    RunCommand("sc.exe", $"config \"{svcName}\" start= {startType}");
-                    
-                    if (!enable)
-                    {
-                        using (var sc = new ServiceController(svcName))
-                        {
-                            if (sc.Status != ServiceControllerStatus.Stopped) sc.Stop();
-                        }
-                    }
-                }
-                LogConfigEvent("VPN Services", enable);
-            }
-            catch (Exception ex) 
-            {
-                MessageBox.Show($"Error toggling VPN: {ex.Message}");
-                VpnToggle.IsChecked = !enable; // Revert
-            }
-        }
-
-        // --- WiFi Direct Logic ---
-        private bool CheckWifiDirectStatus()
-        {
-            try
-            {
-                 var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_NetworkAdapter WHERE Name LIKE '%Wi-Fi Direct%' AND NetConnectionStatus = 2"); // 2 = Connected/Up? Or just check if enabled?
-                 // PowerShell checked Status == 'Up'. Win32_NetworkAdapter user standard codes.
-                 // Actually easier way: check if it exists and is enabled.
-                 // PowerShell: Get-NetAdapter ... if ($adapter.Status -eq 'Up')
-                 // Let's assume unchecked if not found or down.
-                 
-                 // Simpler: Just rely on persistent state if possible, but reading live is better.
-                 // Calling powershell for this specific status check might be easiest if WMI is vague.
-                 return false; // Default to false for safety if we can't easily detect 'Up' without complexity
-            }
-            catch { return false; }
-        }
-
-        private void WifiDirectToggle_Click(object sender, RoutedEventArgs e)
-        {
-             bool enable = WifiDirectToggle.IsChecked == true;
-             string cmd = enable ? "Enable-NetAdapter" : "Disable-NetAdapter";
-             try
-             {
-                 RunCommand("powershell.exe", $"-Command \"{cmd} -Name '*Wi-Fi Direct*' -Confirm:$false\"");
-                 LogConfigEvent("WiFi Direct", enable);
-             }
-             catch (Exception ex)
-             {
-                 MessageBox.Show($"Error: {ex.Message}");
-                 WifiDirectToggle.IsChecked = !enable;
-             }
-        }
-
-        // --- Debug Logic ---
-        private bool CheckDebugStatus()
-        {
-             // bcdedit /enum {current}
-             try
-             {
-                 var p = Process.Start(new ProcessStartInfo { FileName = "bcdedit.exe", Arguments = "/enum {current}", RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true });
-                 string outStr = p.StandardOutput.ReadToEnd();
-                 p.WaitForExit();
-                 return outStr.Contains("debug                   Yes");
-             }
-             catch { return false; }
-        }
-
-        private void DebugToggle_Click(object sender, RoutedEventArgs e)
-        {
-             bool enable = DebugToggle.IsChecked == true;
-             string state = enable ? "on" : "off";
-             try
-             {
-                 RunCommand("bcdedit.exe", $"/set {{current}} debug {state}");
-                 LogConfigEvent("Kernel Debug", enable);
-             }
-             catch (Exception ex)
-             {
-                  MessageBox.Show($"Error: {ex.Message}");
-                  DebugToggle.IsChecked = !enable;
-             }
-        }
-
-        // --- Usage Data Logic ---
-        private bool CheckUsageDataStatus()
-        {
-             try
-             {
-                 var psi = new ProcessStartInfo 
-                 { 
-                     FileName = "powershell.exe", 
-                     Arguments = "-Command \"(Get-ScheduledTask -TaskName 'UsageDataReceiver' -TaskPath '\\Microsoft\\Windows\\Flighting\\FeatureConfig\\').State\"", 
-                     RedirectStandardOutput = true, 
-                     UseShellExecute = false, 
-                     CreateNoWindow = true 
-                 };
-                 using (var p = Process.Start(psi))
-                 {
-                     string outStr = p.StandardOutput.ReadToEnd();
-                     p.WaitForExit();
-                     return !string.IsNullOrWhiteSpace(outStr) && !outStr.Trim().Equals("Disabled", StringComparison.OrdinalIgnoreCase);
-                 }
-             }
-             catch { return false; }
-        }
-
-        private void UsageDataToggle_Click(object sender, RoutedEventArgs e)
-        {
-             bool enable = UsageDataToggle.IsChecked == true;
-             string cmd = enable ? "Enable-ScheduledTask" : "Disable-ScheduledTask";
-             try
-             {
-                 RunCommand("powershell.exe", $"-Command \"{cmd} -TaskName 'UsageDataReceiver' -TaskPath '\\Microsoft\\Windows\\Flighting\\FeatureConfig\\'\"");
-                 LogConfigEvent("Usage Data", enable);
-             }
-             catch (Exception ex)
-             {
-                  MessageBox.Show($"Error: {ex.Message}");
-                  UsageDataToggle.IsChecked = !enable;
-             }
-        }
-
-        private void RunCommand(string exe, string args)
-        {
-            var psi = new ProcessStartInfo
-            {
-                FileName = exe,
-                Arguments = args,
-                CreateNoWindow = true,
-                UseShellExecute = false,
-                RedirectStandardError = true,
-                RedirectStandardOutput = true,
-                WindowStyle = ProcessWindowStyle.Hidden
-            };
-
-            using (var p = new Process { StartInfo = psi })
-            {
-                var output = new System.Text.StringBuilder();
-                var error = new System.Text.StringBuilder();
-
-                p.OutputDataReceived += (s, e) => { if (e.Data != null) output.AppendLine(e.Data); };
-                p.ErrorDataReceived += (s, e) => { if (e.Data != null) error.AppendLine(e.Data); };
-
-                p.Start();
-                p.BeginOutputReadLine();
-                p.BeginErrorReadLine();
-                p.WaitForExit();
-
-                if (p.ExitCode != 0)
-                {
-                    throw new Exception($"{exe} failed (Code {p.ExitCode}): {error}");
-                }
-            }
-        }
-
-        private void LogConfigEvent(string name, bool enabled)
-        {
-            string state = enabled ? "ENABLED" : "DISABLED";
-            DeviceData.Insert(0, new DeviceEvent
-            {
-                Time = DateTime.Now.ToString("HH:mm:ss"),
-                EventType = "CONFIG",
-                Name = name,
-                Type = "System",
-                Initiator = $"{_currentUser} ({state})"
-            });
         }
 
         // --- Device Monitoring ---

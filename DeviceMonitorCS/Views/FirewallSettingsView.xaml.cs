@@ -37,34 +37,45 @@ namespace DeviceMonitorCS.Views
                 OutboundRules.Clear();
 
                 // Fetch rules with details (Filters)
-                // This script iterates rules to get associated filters. It might be slower but provides required columns.
-                // We also map Enabled (1=True, 2=False usually, or just bool) to "Yes"/"No".
+                // Use Pipeline with ForEach-Object to ensure output is captured by ConvertTo-Json.
+                // Wrapped in try/catch in PS to avoid crashing on individual rule errors.
                 string script = @"
-$rules = Get-NetFirewallRule
-foreach ($r in $rules) {
-    $app = $r | Get-NetFirewallApplicationFilter
-    $port = $r | Get-NetFirewallPortFilter
-    $addr = $r | Get-NetFirewallAddressFilter
-    
-    [PSCustomObject]@{
-        Name = $r.Name
-        DisplayName = $r.DisplayName
-        DisplayGroup = $r.DisplayGroup
-        Direction = $r.Direction.ToString()
-        Enabled = if ($r.Enabled -eq 1 -or $r.Enabled -eq 'True') {'Yes'} else {'No'}
-        Action = $r.Action.ToString()
-        Profile = $r.Profile.ToString()
-        Program = $app.Program
-        Protocol = $port.Protocol
-        LocalPort = $port.LocalPort
-        RemotePort = $port.RemotePort
-        RemoteAddress = $addr.RemoteAddress
-    }
+Get-NetFirewallRule | ForEach-Object {
+    try {
+        $r = $_
+        $app = $r | Get-NetFirewallApplicationFilter -ErrorAction SilentlyContinue
+        $port = $r | Get-NetFirewallPortFilter -ErrorAction SilentlyContinue
+        $addr = $r | Get-NetFirewallAddressFilter -ErrorAction SilentlyContinue
+        
+        [PSCustomObject]@{
+            Name = $r.Name
+            DisplayName = $r.DisplayName
+            DisplayGroup = $r.DisplayGroup
+            Direction = $r.Direction.ToString()
+            Enabled = if ($r.Enabled -eq 1 -or $r.Enabled -eq 'True') {'Yes'} else {'No'}
+            Action = $r.Action.ToString()
+            Profile = $r.Profile.ToString()
+            Program = if ($app) { $app.Program } else { '' }
+            Protocol = if ($port) { $port.Protocol } else { '' }
+            LocalPort = if ($port) { $port.LocalPort } else { '' }
+            RemotePort = if ($port) { $port.RemotePort } else { '' }
+            RemoteAddress = if ($addr) { $addr.RemoteAddress } else { '' }
+        }
+    } catch {}
 } | ConvertTo-Json -Depth 2
 ";
                 string json = await RunPowershellAsync(script);
 
-                if (string.IsNullOrWhiteSpace(json)) return;
+                if (string.IsNullOrWhiteSpace(json)) 
+                {
+                    // If no JSON, something went wrong with the script execution.
+                    // Check if run as admin, but we are admin.
+                    // Fallback or alert? 
+                    // Let's try to fetch basic rules if advanced fetch failed, or just alert.
+                    // For now, let's alert to help debug if it persists.
+                    MessageBox.Show("Failed to retrieve firewall rules. The data returned was empty.");
+                    return;
+                }
 
                 // Handle single object vs array
                 if (!json.TrimStart().StartsWith("[")) json = $"[{json}]";

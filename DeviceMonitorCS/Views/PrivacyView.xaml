@@ -14,16 +14,19 @@
                 </TextBlock.Effect>
             </TextBlock>
 
-            <GroupBox Header="Windows Telemetry" Foreground="White" BorderBrush="#3E3E42" Padding="15">
+            <GroupBox Header="System Protections" Foreground="White" BorderBrush="#3E3E42" Padding="15">
                 <StackPanel>
-                    <TextBlock Text="Control how Windows handles usage data and telemetry." Foreground="#CCCCCC" Margin="0,0,0,15"/>
+                    <TextBlock Text="Manage critical system privacy and security features." Foreground="#CCCCCC" Margin="0,0,0,15"/>
                     
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
-                        <TextBlock Text="Current Status: " Foreground="White" FontSize="16" VerticalAlignment="Center"/>
-                        <TextBlock x:Name="UsageStatusDetailsText" Text="Checking..." FontSize="16" FontWeight="Bold" VerticalAlignment="Center" Foreground="Yellow"/>
-                    </StackPanel>
+                    <CheckBox x:Name="VpnToggle" Content="VPN Services" Style="{StaticResource {x:Type CheckBox}}" Click="VpnToggle_Click" Margin="0,5"/>
+                    <CheckBox x:Name="WifiDirectToggle" Content="WiFi Direct" Style="{StaticResource {x:Type CheckBox}}" Click="WifiDirectToggle_Click" Margin="0,5"/>
+                    <CheckBox x:Name="DebugToggle" Content="Kernel Debug Mode" Style="{StaticResource {x:Type CheckBox}}" Click="DebugToggle_Click" Margin="0,5"/>
+                    <CheckBox x:Name="UsageDataToggle" Content="Windows Usage Data Collection" Style="{StaticResource {x:Type CheckBox}}" Click="UsageDataToggle_Click" Margin="0,5"/>
 
-                    <Button x:Name="ToggleUsageDataBtn" Content="Toggle Usage Data" Width="200" HorizontalAlignment="Left" Padding="10,5" Background="#007ACC" Foreground="White" BorderThickness="0" Click="ToggleUsageDataBtn_Click"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,15,0,0">
+                         <TextBlock Text="Status: " Foreground="White" VerticalAlignment="Center"/>
+                         <TextBlock x:Name="StatusDetailsText" Text="Ready" Foreground="Gray" VerticalAlignment="Center" Margin="5,0,0,0"/>
+                    </StackPanel>
                 </StackPanel>
             </GroupBox>
 
