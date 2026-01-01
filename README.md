@@ -2,7 +2,7 @@
 
 A comprehensive system utility for monitoring, managing, and securing your Windows environment. This application offers advanced control over network adapters, scheduled tasks, firmware settings, and system privacy, all within a modern, dark-themed UI.
 
-![Dashboard Preview](DeviceMonitorCS/screenshot.png)
+![Dashboard Preview](DeviceMonitorCS/shield-up-screenshot.jpg)
 
 ## Features
 
@@ -77,7 +77,9 @@ A comprehensive system utility for monitoring, managing, and securing your Windo
 
 ## Release
 
-*No official release available yet.*
+- **Version:** v2.3.0
+- **Release Date:** 2026-01-01
+- Download: [DeviceMonitorCS v2.3.0](https://github.com/yourrepo/DeviceMonitorCS/releases/tag/v2.3.0)
 
 ![Shield Up Screenshot](c:/Users/honey/mydevices/shield up screenshot.jpg)
 3. Restore NuGet packages.
