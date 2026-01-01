@@ -16,7 +16,7 @@
 
         <TextBlock Text="Firmware Settings" FontSize="24" FontWeight="Bold" Foreground="Cyan" Margin="0,0,0,20">
             <TextBlock.Effect>
-                <DropShadowEffect Color="Cyan" BlurRadius="10" ShadowDepth="0" Opacity="0.3"/>
+                <DropShadowEffect Color="#00FFFF" BlurRadius="10" ShadowDepth="0" Opacity="0.3"/>
             </TextBlock.Effect>
         </TextBlock>
 

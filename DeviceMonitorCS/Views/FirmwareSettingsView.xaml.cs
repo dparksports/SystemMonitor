@@ -83,27 +83,41 @@ namespace DeviceMonitorCS.Views
                     if (result > 0)
                     {
                          int count = (int)result / 4; // Each ID is 4 bytes
+                         var idList = new System.Collections.Generic.List<string>();
+
                          for (int i = 0; i < count; i++)
                          {
-                             // Read table ID
-                             // Offset = i * 4
                              byte[] idBytes = new byte[4];
                              System.Runtime.InteropServices.Marshal.Copy(IntPtr.Add(buffer, i*4), idBytes, 0, 4);
-                             
-                             // Convert to string (usually ASCII)
                              string tableIdStr = System.Text.Encoding.ASCII.GetString(idBytes);
+                             idList.Add(tableIdStr);
+                         }
+
+                         // Deduplicate
+                         var groups = idList.GroupBy(x => x).ToList();
+
+                         foreach (var group in groups)
+                         {
+                             string tableIdStr = group.Key;
+                             int instanceCount = group.Count();
                              
-                             // Get content length
-                             // GetSystemFirmwareTable
+                             // Get content length for the first instance
+                             byte[] idBytes = System.Text.Encoding.ASCII.GetBytes(tableIdStr);
                              uint tableIdInt = BitConverter.ToUInt32(idBytes, 0);
                              uint len = NativeMethods.GetSystemFirmwareTable(providerSig, tableIdInt, IntPtr.Zero, 0);
+
+                             string desc = GetTableDescription(tableIdStr);
+                             if (instanceCount > 1)
+                             {
+                                 desc += $" ({instanceCount} instances)";
+                             }
 
                              FirmwareTables.Add(new FirmwareTableItem
                              {
                                  Name = providerName,
-                                 TableID = tableIdStr, // e.g., "FACP"
+                                 TableID = tableIdStr,
                                  Length = len.ToString(),
-                                 Description = GetTableDescription(tableIdStr)
+                                 Description = desc
                              });
                          }
                     }
