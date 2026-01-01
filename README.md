@@ -56,4 +56,4 @@ schtasks /create /tn "StartSystemMonitor" /tr "'C:\Path\To\DeviceMonitorCS.exe'"
 *(Replace `C:\Path\To\...` with the actual path to your extracted executable)*
 
 ---
-*Built with .NET 6 WPF & Modern C#*
+*Made with ❤️ in California*
