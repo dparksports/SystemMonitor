@@ -18,6 +18,35 @@ namespace DeviceMonitorCS.Models
         public string Type { get; set; }
         public string Activity { get; set; }
         public string Account { get; set; }
+        public string AccountName { get; set; }
+        public string AccountDomain { get; set; }
+        public string LogonId { get; set; }
+        public string SecurityId { get; set; }
+        public string Privileges { get; set; }
+        public string LogonType { get; set; }
+        public string ProcessName { get; set; }
+        public string WorkstationName { get; set; }
+        public string IpAddress { get; set; }
+        public string IpPort { get; set; }
+        public string RestrictedAdminMode { get; set; }
+        public string RemoteCredentialGuard { get; set; }
+        public string VirtualAccount { get; set; }
+        public string GroupName { get; set; }
+        public string GroupDomain { get; set; }
+        public string GroupSecurityId { get; set; }
+
+        // Privilege Flags
+        public bool SeAssignPrimaryTokenPrivilege { get; set; }
+        public bool SeTcbPrivilege { get; set; }
+        public bool SeSecurityPrivilege { get; set; }
+        public bool SeTakeOwnershipPrivilege { get; set; }
+        public bool SeLoadDriverPrivilege { get; set; }
+        public bool SeBackupPrivilege { get; set; }
+        public bool SeRestorePrivilege { get; set; }
+        public bool SeDebugPrivilege { get; set; }
+        public bool SeAuditPrivilege { get; set; }
+        public bool SeSystemEnvironmentPrivilege { get; set; }
+        public bool SeImpersonatePrivilege { get; set; }
     }
 
     public class ScheduledTaskItem
@@ -37,5 +66,21 @@ namespace DeviceMonitorCS.Models
         public string MacAddress { get; set; }
         public string InterfaceType { get; set; }
         public string DeviceID { get; set; }
+    }
+
+    public class FirmwareTableItem
+    {
+        public string Name { get; set; }
+        public string TableID { get; set; }
+        public string Length { get; set; }
+    }
+
+    public class BcdEntry
+    {
+        public string Type { get; set; }
+        public string Identifier { get; set; }
+        public string Description { get; set; }
+        public string Device { get; set; }
+        public string Path { get; set; }
     }
 }
