@@ -65,9 +65,9 @@ A comprehensive system utility for monitoring, managing, and securing your Windo
 
 ## Release
 
-- **Version:** v2.3.1
+- **Version:** v2.3.2
 - **Release Date:** 2026-01-01
-- Download: [DeviceMonitorCS v2.3.1](https://github.com/dparksports/SystemMonitor/releases/tag/v2.3.1)
+- Download: [DeviceMonitorCS v2.3.2](https://github.com/dparksports/SystemMonitor/releases/tag/v2.3.2)
 
 
 ## Requirements
