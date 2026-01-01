@@ -1,6 +1,6 @@
 # Windows System Monitor
 
-[![Download Latest Release](https://img.shields.io/badge/Download-v2.2.8-blue?style=for-the-badge&logo=windows)](https://github.com/dparksports/DeviceMonitor/releases/download/v2.2.8/DeviceMonitorCS.zip)
+[![Download Latest Release](https://img.shields.io/badge/Download-v2.2.9-blue?style=for-the-badge&logo=windows)](https://github.com/dparksports/DeviceMonitor/releases/download/v2.2.9/DeviceMonitorCS.zip)
 
 **Windows System Monitor** is an advanced system utility designed for power users, administrators, and developers. It provides deep visibility into Windows firmware, security events, and network configurations that are often hidden or difficult to access.
 
