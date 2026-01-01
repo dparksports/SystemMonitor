@@ -22,6 +22,7 @@ A comprehensive system utility for monitoring, managing, and securing your Windo
     - **Disk**: Read/Write speeds for all active drives.
 
 ### 🔒 Privacy Manager
+- **Shield Up Status**: Prominent "Shield Up" visual indicator on the dashboard confirming active privacy protection.
 - **Telemetry Control**: Deep control over Windows diagnostic data sent to Microsoft.
 - **AI Integration**: Ask Gemini AI about specific system components (e.g., "What does UsageDataReceiver do?") directly from the app.
 
