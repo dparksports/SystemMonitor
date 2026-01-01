@@ -37,7 +37,8 @@ namespace DeviceMonitorCS.Views
                 OutboundRules.Clear();
 
                 // Fetch rules via PowerShell JSON output for reliable parsing
-                string script = "Get-NetFirewallRule | Select-Object Name, DisplayName, DisplayGroup, Direction, Enabled, Action, @{Name='Profile';Expression={$_.Profile}}, Program | ConvertTo-Json -Depth 1";
+                // Fix: Force string conversion for Enums (Direction, Action, Profile) to prevent JSON deserialization errors (converting Int to String)
+                string script = "Get-NetFirewallRule | Select-Object Name, DisplayName, DisplayGroup, @{Name='Direction';Expression={$_.Direction.ToString()}}, Enabled, @{Name='Action';Expression={$_.Action.ToString()}}, @{Name='Profile';Expression={$_.Profile.ToString()}}, Program | ConvertTo-Json -Depth 1";
                 string json = await RunPowershellAsync(script);
 
                 if (string.IsNullOrWhiteSpace(json)) return;
