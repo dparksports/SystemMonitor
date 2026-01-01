@@ -41,6 +41,11 @@ A comprehensive system utility for monitoring, managing, and securing your Windo
     - **UEFI Variables**: View secure boot and other UEFI firmware variables.
     - **BIOS Info**: Detailed BIOS version and release data.
 
+### 🛡️ Firewall Settings
+- **Rule Management**: View all Inbound and Outbound firewall rules.
+- **Toggle Rules**: Enable or disable specific rules instantly.
+- **Reset to Defaults**: One-click reset for Windows Firewall configuration.
+
 ### 🛠️ Settings & Installation
 - **Run at Startup**: Easily install the application as a highly-privileged Scheduled Task to ensure it runs automatically at logon without UAC prompts.
 - **Security Enforcer**: Configurable background scanning interval for enforcing security policies.

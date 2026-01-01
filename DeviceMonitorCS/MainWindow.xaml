@@ -71,6 +71,7 @@
                 <Button x:Name="PerformanceBtn" Content="System Performance" Style="{StaticResource NavButton}"/>
                 <Button x:Name="PrivacyBtn" Content="Privacy Settings" Style="{StaticResource NavButton}"/>
                 <Button x:Name="FirmwareSettingsBtn" Content="Firmware Settings" Style="{StaticResource NavButton}"/>
+                <Button x:Name="FirewallSettingsBtn" Content="Firewall Settings" Style="{StaticResource NavButton}"/>
                 
 
                 <TextBlock Text="TOOLS" Foreground="#808080" FontSize="12" Margin="5,20,0,5" FontWeight="SemiBold"/>
@@ -106,6 +107,7 @@
             
             <!-- Firmware Settings View -->
             <views:FirmwareSettingsView x:Name="FirmwareSettingsView" Visibility="Collapsed"/>
+            <views:FirewallSettingsView x:Name="FirewallSettingsView" Visibility="Collapsed"/>
 
             <!-- Tools Views -->
             <views:HostedNetworkView x:Name="HostedNetworkView" Visibility="Collapsed"/>

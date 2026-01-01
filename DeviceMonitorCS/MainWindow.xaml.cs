@@ -80,6 +80,7 @@ namespace DeviceMonitorCS
             PerformanceBtn.Click += (s, e) => NavigateTo(PerformanceView);
             PrivacyBtn.Click += (s, e) => NavigateTo(PrivacyView);
             FirmwareSettingsBtn.Click += (s, e) => NavigateTo(FirmwareSettingsView);
+            FirewallSettingsBtn.Click += (s, e) => NavigateTo(FirewallSettingsView);
             
             HostedNetworkBtn.Click += (s, e) => NavigateTo(HostedNetworkView);
             WanMiniportBtn.Click += (s, e) => NavigateTo(WanMiniportView);
@@ -617,6 +618,7 @@ namespace DeviceMonitorCS
             ConnectionsView.Visibility = Visibility.Collapsed;
             SettingsView.Visibility = Visibility.Collapsed;
             FirmwareSettingsView.Visibility = Visibility.Collapsed;
+            FirewallSettingsView.Visibility = Visibility.Collapsed;
 
             // Show target
             if (targetView != null)
