@@ -73,6 +73,7 @@ namespace DeviceMonitorCS.Models
         public string Name { get; set; }
         public string TableID { get; set; }
         public string Length { get; set; }
+        public string Description { get; set; }
     }
 
     public class BcdEntry
@@ -82,5 +83,6 @@ namespace DeviceMonitorCS.Models
         public string Description { get; set; }
         public string Device { get; set; }
         public string Path { get; set; }
+        public string AdditionalSettings { get; set; }
     }
 }

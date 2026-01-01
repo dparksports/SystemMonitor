@@ -616,6 +616,7 @@ namespace DeviceMonitorCS
             TasksView.Visibility = Visibility.Collapsed;
             ConnectionsView.Visibility = Visibility.Collapsed;
             SettingsView.Visibility = Visibility.Collapsed;
+            FirmwareSettingsView.Visibility = Visibility.Collapsed;
 
             // Show target
             if (targetView != null)

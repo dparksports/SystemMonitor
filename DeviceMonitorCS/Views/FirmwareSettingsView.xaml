@@ -29,6 +29,7 @@
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Table Name" Binding="{Binding Name}" Width="200"/>
                 <DataGridTextColumn Header="Table ID" Binding="{Binding TableID}" Width="150"/>
+                <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="300"/>
                 <DataGridTextColumn Header="Length (Bytes)" Binding="{Binding Length}" Width="150"/>
             </DataGrid.Columns>
             <DataGrid.Resources>
@@ -40,6 +41,11 @@
                     <Setter Property="BorderBrush" Value="#3E3E42"/>
                 </Style>
             </DataGrid.Resources>
+            <DataGrid.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="Ask AI about this" Click="AskAi_Click"/>
+                </ContextMenu>
+            </DataGrid.ContextMenu>
         </DataGrid>
 
         <!-- Section 2: Boot Configuration Data -->
@@ -54,6 +60,7 @@
                 <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="200"/>
                 <DataGridTextColumn Header="Device" Binding="{Binding Device}" Width="150"/>
                 <DataGridTextColumn Header="Path" Binding="{Binding Path}" Width="*"/>
+                <DataGridTextColumn Header="Additional Settings" Binding="{Binding AdditionalSettings}" Width="300"/>
             </DataGrid.Columns>
             <DataGrid.Resources>
                 <Style TargetType="DataGridColumnHeader">
@@ -64,6 +71,13 @@
                     <Setter Property="BorderBrush" Value="#3E3E42"/>
                 </Style>
             </DataGrid.Resources>
+            <DataGrid.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="Ask AI about this" Click="AskAi_Click"/>
+                    <Separator/>
+                    <MenuItem Header="View Details" Click="ViewDetails_Click"/>
+                </ContextMenu>
+            </DataGrid.ContextMenu>
         </DataGrid>
 
     </Grid>
