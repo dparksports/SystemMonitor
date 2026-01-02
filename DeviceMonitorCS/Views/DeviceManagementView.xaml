@@ -4,62 +4,47 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              mc:Ignorable="d" 
-             d:DesignHeight="600" d:DesignWidth="800">
+             d:DesignHeight="600" d:DesignWidth="900"
+             Loaded="UserControl_Loaded">
     <UserControl.Resources>
-
-         <Style TargetType="DataGrid">
+        <Style TargetType="DataGrid">
             <Setter Property="Background" Value="#1E1E1E"/>
+            <Setter Property="RowBackground" Value="#252526"/>
             <Setter Property="Foreground" Value="#E0E0E0"/>
-            <Setter Property="RowBackground" Value="#1E1E1E"/>
-            <Setter Property="AlternatingRowBackground" Value="#252525"/>
-            <Setter Property="GridLinesVisibility" Value="None"/>
-            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="BorderBrush" Value="#333"/>
+            <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="GridLinesVisibility" Value="None"/>
             <Setter Property="AutoGenerateColumns" Value="False"/>
             <Setter Property="CanUserAddRows" Value="False"/>
-            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="AlternatingRowBackground" Value="#2D2D30"/>
         </Style>
-
         <Style TargetType="DataGridColumnHeader">
-            <Setter Property="Background" Value="#2D2D30"/>
-            <Setter Property="Foreground" Value="#A0A0A0"/>
+            <Setter Property="Background" Value="#333"/>
+            <Setter Property="Foreground" Value="White"/>
             <Setter Property="Padding" Value="10,8"/>
-            <Setter Property="BorderThickness" Value="0,0,0,1"/>
-            <Setter Property="BorderBrush" Value="#404040"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="BorderBrush" Value="#444"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
         </Style>
-        
-        <Style x:Key="GroupHeaderStyle" TargetType="{x:Type GroupItem}">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="{x:Type GroupItem}">
-                        <Expander IsExpanded="True" Background="Transparent">
-                            <Expander.Header>
-                                <Border Background="#2D2D30" Padding="5" CornerRadius="4" Margin="0,2">
-                                     <TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="White" Margin="5,0,0,0" VerticalAlignment="Center"/>
-                                </Border>
-                            </Expander.Header>
-                            <ItemsPresenter />
-                        </Expander>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
         <Style TargetType="DataGridCell">
             <Setter Property="Padding" Value="10,6"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="DataGridCell">
-                        <Border Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
-                            <ContentPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                        <Border Padding="{TemplateBinding Padding}" 
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter VerticalAlignment="Center"/>
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#303050"/>
+                    <Setter Property="Background" Value="#007ACC"/>
                     <Setter Property="Foreground" Value="White"/>
                 </Trigger>
             </Style.Triggers>
@@ -77,231 +62,64 @@
         <Border Grid.Row="0" Padding="25,20,25,10">
             <StackPanel>
                 <TextBlock Text="Device Management" FontSize="26" FontWeight="SemiBold" Foreground="#FFFFFF"/>
-                <TextBlock Text="Inventory and history for all PnP devices." FontSize="14" Foreground="#888888" Margin="0,5,0,0"/>
+                <TextBlock Text="Inventory of Keyboards, Mice, and Monitors via Get-PnpDevice logic." FontSize="14" Foreground="#888888" Margin="0,5,0,0"/>
             </StackPanel>
         </Border>
 
-        <!-- Stats -->
-        <Border Grid.Row="1" Margin="25,0,25,15" Padding="15" Background="#1E1E1E" CornerRadius="8">
-             <StackPanel Orientation="Horizontal">
-                 <StackPanel Margin="0,0,30,0">
-                     <TextBlock Text="Input Devices" Foreground="#888888" FontSize="12"/>
-                     <TextBlock x:Name="TotalDeviceCount" Text="0" Foreground="White" FontSize="24" FontWeight="Bold"/>
-                 </StackPanel>
-                 <StackPanel Margin="0,0,30,0">
-                     <TextBlock Text="Active" Foreground="#888888" FontSize="12"/>
-                     <TextBlock x:Name="ActiveDeviceCount" Text="0" Foreground="White" FontSize="24" FontWeight="Bold"/>
+        <!-- Stats and Controls -->
+        <Border Grid.Row="1" Margin="25,10,25,15" Padding="15" Background="#1E1E1E" CornerRadius="8">
+             <Grid>
+                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                     <StackPanel Margin="0,0,30,0">
+                         <TextBlock Text="Total Tracked" Foreground="#888888" FontSize="12"/>
+                         <TextBlock x:Name="TotalDeviceCount" Text="0" Foreground="Cyan" FontSize="24" FontWeight="Bold">
+                             <TextBlock.Effect>
+                                 <DropShadowEffect Color="Cyan" BlurRadius="5" ShadowDepth="0" Opacity="0.5"/>
+                             </TextBlock.Effect>
+                         </TextBlock>
+                     </StackPanel>
+                     <StackPanel Margin="0,0,30,0">
+                         <TextBlock Text="OK Status" Foreground="#888888" FontSize="12"/>
+                         <TextBlock x:Name="ActiveDeviceCount" Text="0" Foreground="LimeGreen" FontSize="24" FontWeight="Bold"/>
+                     </StackPanel>
                  </StackPanel>
                  
-                 <Button x:Name="RefreshBtn" Content="Refresh" Margin="50,0,0,0" VerticalAlignment="Center" Padding="15,5" Background="#333333" Foreground="White" BorderThickness="0" Click="RefreshBtn_Click"/>
-             </StackPanel>
+                 <Button x:Name="RefreshBtn" Content="Refresh Devices" HorizontalAlignment="Right" Padding="20,8" 
+                         Background="#333333" Foreground="White" BorderThickness="1" BorderBrush="#555" 
+                         Cursor="Hand" Click="RefreshBtn_Click">
+                     <Button.Resources>
+                        <Style TargetType="Border">
+                            <Setter Property="CornerRadius" Value="4"/>
+                        </Style>
+                    </Button.Resources>
+                 </Button>
+             </Grid>
         </Border>
 
-        <!-- Main Content -->
-        <Grid Grid.Row="2" Margin="25,0">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="3*"/> <!-- Inventory -->
-                <RowDefinition Height="5"/>  <!-- Splitter -->
-                <RowDefinition Height="2*"/> <!-- History -->
-            </Grid.RowDefinitions>
-
-            <!-- Master: Inventory -->
-            <Grid Grid.Row="0">
-                <Grid.RowDefinitions>
-                     <RowDefinition Height="Auto"/>
-                     <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                    <TextBlock Text="Inventory" FontSize="16" Foreground="#CCCCCC"/>
-                    <TextBlock Text="(Select a device to view history)" FontSize="12" Foreground="#888888" VerticalAlignment="Bottom" Margin="10,0,0,2"/>
-                </StackPanel>
-                
-                <TabControl Grid.Row="1" Background="Transparent" BorderThickness="0" Margin="-2,0,0,0">
-                    <TabControl.Resources>
-                        <Style TargetType="TabItem">
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="TabItem">
-                                        <Border x:Name="Border" Padding="12,6" Background="Transparent" BorderThickness="0,0,0,2" BorderBrush="Transparent" Margin="0,0,5,0">
-                                            <ContentPresenter ContentSource="Header" TextElement.Foreground="#888888" TextElement.FontSize="13" TextElement.FontWeight="SemiBold"/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsSelected" Value="True">
-                                                <Setter TargetName="Border" Property="BorderBrush" Value="#007ACC"/>
-                                                <Setter TargetName="Border" Property="Background" Value="#252525"/>
-                                                <Setter Property="Foreground" Value="White"/> 
-                                            </Trigger>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="Border" Property="Background" Value="#252525"/>
-                                                <Setter Property="Foreground" Value="#E0E0E0"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </TabControl.Resources>
-
-                    <!-- Tab 1: Input Devices (Connected) -->
-                    <TabItem Header="Input Devices (Connected)">
-                        <Border Background="#1E1E1E" CornerRadius="0,4,4,4" Padding="2">
-                            <DataGrid x:Name="InputDevicesGrid" ItemsSource="{Binding InputDevicesList}" SelectionChanged="InventoryGrid_SelectionChanged">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="150"/>
-                                    <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="300"/>
-                                    <DataGridTextColumn Header="Manufacturer" Binding="{Binding Manufacturer}" Width="200"/>
-                                    <DataGridTextColumn Header="Device ID" Binding="{Binding DeviceId}" Width="*"/>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </Border>
-                    </TabItem>
-
-                    <!-- Tab 2: Unconnected Input Devices -->
-                    <TabItem Header="Unconnected Input">
-                         <Border Background="#1E1E1E" CornerRadius="0,4,4,4" Padding="2">
-                            <DataGrid x:Name="UnconnectedInputGrid" ItemsSource="{Binding UnconnectedInputList}" SelectionChanged="InventoryGrid_SelectionChanged">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="150"/>
-                                    <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="300"/>
-                                    <DataGridTextColumn Header="Manufacturer" Binding="{Binding Manufacturer}" Width="200"/>
-                                    <DataGridTextColumn Header="Device ID" Binding="{Binding DeviceId}" Width="*"/>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </Border>
-                    </TabItem>
-
-                    <!-- Tab 3: Peripherals (Event-Based Status) -->
-                    <TabItem Header="Peripherals (History Inferred)">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="2*"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="2*"/>
-                            </Grid.RowDefinitions>
-                            
-                            <Grid Grid.Row="0" Margin="0,5">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="Connected (Inferred)" Foreground="#888888" FontWeight="SemiBold" Margin="5,0"/>
-                                <TextBlock Grid.Column="1" Text="Disconnected (Inferred)" Foreground="#888888" FontWeight="SemiBold" Margin="5,0"/>
-                            </Grid>
-                            
-                            <Grid Grid.Row="1">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="10"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-
-                                <!-- Connected List -->
-                                <Border Grid.Column="0" Background="#1E1E1E" CornerRadius="4">
-                                    <DataGrid ItemsSource="{Binding PeripheralsConnectedList}">
-                                        <DataGrid.Columns>
-                                            <DataGridTextColumn Header="Friendly Name" Binding="{Binding FriendlyName}" Width="200"/>
-                                            <DataGridTextColumn Header="Device ID" Binding="{Binding DeviceId}" Width="*"/>
-                                            <DataGridTextColumn Header="Last Event" Binding="{Binding LastEvent.Time}" Width="140"/>
-                                        </DataGrid.Columns>
-                                    </DataGrid>
-                                </Border>
-
-                                <!-- Disconnected List -->
-                                <Border Grid.Column="2" Background="#1E1E1E" CornerRadius="4">
-                                     <DataGrid ItemsSource="{Binding PeripheralsDisconnectedList}">
-                                        <DataGrid.Columns>
-                                            <DataGridTextColumn Header="Friendly Name" Binding="{Binding FriendlyName}" Width="200"/>
-                                            <DataGridTextColumn Header="Device ID" Binding="{Binding DeviceId}" Width="*"/>
-                                            <DataGridTextColumn Header="Last Event" Binding="{Binding LastEvent.Time}" Width="140"/>
-                                        </DataGrid.Columns>
-                                    </DataGrid>
-                                </Border>
-                            </Grid>
-
-                            <TextBlock Grid.Row="2" Text="Raw Device Events (Inferred Source)" Foreground="#888888" FontWeight="SemiBold" Margin="5,10,0,5"/>
-
-                             <!-- All Periph Events -->
-                            <Border Grid.Row="3" Background="#1E1E1E" CornerRadius="4">
-                                <DataGrid ItemsSource="{Binding PeripheralsEventsList}">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="140"/>
-                                        <DataGridTextColumn Header="Event" Binding="{Binding EventName}" Width="140"/>
-                                        <DataGridTextColumn Header="Device Name" Binding="{Binding FriendlyName}" Width="250"/>
-                                        <DataGridTextColumn Header="Device ID" Binding="{Binding DeviceId}" Width="*"/>
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                            </Border>
-                        </Grid>
-                    </TabItem>
-
-                    <!-- Tab 4: Full Inventory (Grouped) -->
-                    <TabItem Header="Full Inventory">
-                         <Border Background="#1E1E1E" CornerRadius="0,4,4,4" Padding="2">
-                             <!-- ItemsSource is set in Code-Behind to GroupedInventoryView -->
-                            <DataGrid x:Name="InventoryGrid" SelectionChanged="InventoryGrid_SelectionChanged">
-                                <DataGrid.GroupStyle>
-                                    <GroupStyle ContainerStyle="{StaticResource GroupHeaderStyle}"/>
-                                </DataGrid.GroupStyle>
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="150"/>
-                                    <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="300"/>
-                                    <DataGridTextColumn Header="Manufacturer" Binding="{Binding Manufacturer}" Width="200"/>
-                                     <DataGridTemplateColumn Header="Status" Width="100">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <TextBlock Text="{Binding Status}" FontWeight="Bold">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Setter Property="Foreground" Value="LimeGreen"/>
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding Status}" Value="Inactive">
-                                                                    <Setter Property="Foreground" Value="Gray"/>
-                                                                </DataTrigger>
-                                                                <DataTrigger Binding="{Binding Status}" Value="Disconnected">
-                                                                    <Setter Property="Foreground" Value="#AA4444"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
-                                    <DataGridTextColumn Header="Device ID" Binding="{Binding DeviceId}" Width="*"/>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </Border>
-                    </TabItem>
-                </TabControl>
-            </Grid>
-
-            <!-- Splitter Visual -->
-            <Border Grid.Row="1" Background="Transparent"/>
-
-            <!-- Detail: History -->
-            <Grid Grid.Row="2">
-                <Grid.RowDefinitions>
-                     <RowDefinition Height="Auto"/>
-                     <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                
-                <StackPanel Orientation="Horizontal" Margin="0,15,0,10">
-                     <TextBlock Text="Device History" FontSize="16" Foreground="#CCCCCC"/>
-                     <TextBlock x:Name="SelectedDeviceText" Text="(All Events)" FontSize="14" Foreground="#888888" VerticalAlignment="Center" Margin="10,0,0,0"/>
-                </StackPanel>
-                
-                <Border Grid.Row="1" Background="#1E1E1E" CornerRadius="8" Padding="2">
-                    <DataGrid x:Name="HistoryGrid" ItemsSource="{Binding HistoryList}">
-                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="140"/>
-                            <DataGridTextColumn Header="Event" Binding="{Binding EventName}" Width="120"/>
-                            <DataGridTextColumn Header="Device Name" Binding="{Binding DeviceName}" Width="*"/>
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </Border>
-            </Grid>
-        </Grid>
+        <!-- Inventory List -->
+        <Border Grid.Row="2" Margin="25,0,25,25" Background="#1E1E1E" CornerRadius="8" Padding="2" BorderThickness="1" BorderBrush="#333">
+            <DataGrid x:Name="DeviceGrid" IsReadOnly="True">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Class" Binding="{Binding Class}" Width="150"/>
+                    <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100">
+                         <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="FontWeight" Value="Bold"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Status}" Value="OK">
+                                        <Setter Property="Foreground" Value="LimeGreen"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Status}" Value="Unknown">
+                                        <Setter Property="Foreground" Value="Gray"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="Friendly Name" Binding="{Binding FriendlyName}" Width="300"/>
+                    <DataGridTextColumn Header="Instance ID" Binding="{Binding InstanceId}" Width="*"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
     </Grid>
 </UserControl>
