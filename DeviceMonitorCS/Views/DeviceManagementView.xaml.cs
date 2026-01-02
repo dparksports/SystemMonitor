@@ -7,6 +7,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Linq;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Windows.Data;
 
 namespace DeviceMonitorCS.Views
 {
@@ -17,15 +19,21 @@ namespace DeviceMonitorCS.Views
         public ObservableCollection<DeviceInventoryItem> UnconnectedInputList { get; set; } = new ObservableCollection<DeviceInventoryItem>();
         public ObservableCollection<DeviceHistoryItem> HistoryList { get; set; } = new ObservableCollection<DeviceHistoryItem>();
         
+        // Use ICollectionView for grouping logic in code-behind
+        public ICollectionView GroupedInventoryView { get; set; }
+
         // Cache full history to avoid re-querying log constantly
         private List<DeviceHistoryItem> _fullHistoryCache = new List<DeviceHistoryItem>(); 
 
         public DeviceManagementView()
         {
             InitializeComponent();
-            InventoryGrid.ItemsSource = InventoryList;
             
-            // Note: Other tabs will bind in XAML to InputDevicesList and UnconnectedInputList
+            // Setup Grouping
+            GroupedInventoryView = CollectionViewSource.GetDefaultView(InventoryList);
+            GroupedInventoryView.GroupDescriptions.Add(new PropertyGroupDescription("Category"));
+
+            InventoryGrid.ItemsSource = GroupedInventoryView; // Bind Full Inventory Tab in Code-Behind to ensure grouping
             
             HistoryGrid.ItemsSource = HistoryList;
 
@@ -131,19 +139,18 @@ namespace DeviceMonitorCS.Views
                                 InventoryList.Add(item);
                                 
                                 // Filter for Input Devices (Keyboard, Mouse, Monitor)
-                                // Standard classes: Keyboard, Mouse, Monitor
-                                bool isInput = pnpClass.Equals("Keyboard", StringComparison.OrdinalIgnoreCase) ||
-                                               pnpClass.Equals("Mouse", StringComparison.OrdinalIgnoreCase) ||
-                                               pnpClass.Equals("Monitor", StringComparison.OrdinalIgnoreCase);
+                                // Standard classes: Keyboard, Mouse, Monitor, Display
+                                bool isInput = pnpClass.Contains("Keyboard", StringComparison.OrdinalIgnoreCase) ||
+                                               pnpClass.Contains("Mouse", StringComparison.OrdinalIgnoreCase) ||
+                                               pnpClass.Contains("Monitor", StringComparison.OrdinalIgnoreCase) ||
+                                               pnpClass.Contains("Display", StringComparison.OrdinalIgnoreCase);
 
                                 if (isInput)
                                 {
                                     if (present)
                                     {
                                         InputDevicesList.Add(item);
-                                        inputDeviceCount++; // Only count Connected Input Devices as per request? 
-                                        // "Total Devices, rename it to Input Devices and count only keyboards, mice and monitors."
-                                        // Usually implies connected ones, but I'll count connected ones for the big number.
+                                        inputDeviceCount++; // Only count Connected Input Devices
                                     }
                                     else
                                     {
@@ -163,13 +170,7 @@ namespace DeviceMonitorCS.Views
             });
 
             TotalDeviceCount.Text = inputDeviceCount.ToString();
-            ActiveDeviceCount.Text = activeCount.ToString(); // Keeping global active count? Or active inputs?
-            // "For Total Devices, rename it to Input Devices and count only keyboards, mice and monitors."
-            // I'll assume ActiveDeviceCount stays as global active? Or maybe Active Input?
-            // Let's make ActiveDeviceCount be Global Active for now, and TotalDeviceCount be "Input Devices (Connected?)".
-            // Actually, "Input Devices" usually means all identified inputs.
-            // But if I have a list "Input Devices" (Implied Connected from Step 1) and "Unconnected Input Devices" (Step 2).
-            // I will set TotalDeviceCount to InputDevicesList.Count (Active Inputs).
+            ActiveDeviceCount.Text = activeCount.ToString();
         }
 
         private async Task LoadHistory()

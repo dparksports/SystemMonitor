@@ -6,11 +6,6 @@
              mc:Ignorable="d" 
              d:DesignHeight="600" d:DesignWidth="800">
     <UserControl.Resources>
-        <CollectionViewSource x:Key="CvInventoryList" Source="{Binding InventoryList}">
-            <CollectionViewSource.GroupDescriptions>
-                <PropertyGroupDescription PropertyName="Category"/>
-            </CollectionViewSource.GroupDescriptions>
-        </CollectionViewSource>
 
          <Style TargetType="DataGrid">
             <Setter Property="Background" Value="#1E1E1E"/>
@@ -177,7 +172,8 @@
                     <!-- Tab 3: Full Inventory (Grouped) -->
                     <TabItem Header="Full Inventory">
                          <Border Background="#1E1E1E" CornerRadius="0,4,4,4" Padding="2">
-                            <DataGrid x:Name="InventoryGrid" ItemsSource="{Binding Source={StaticResource CvInventoryList}}" SelectionChanged="InventoryGrid_SelectionChanged">
+                             <!-- ItemsSource is set in Code-Behind to GroupedInventoryView -->
+                            <DataGrid x:Name="InventoryGrid" SelectionChanged="InventoryGrid_SelectionChanged">
                                 <DataGrid.GroupStyle>
                                     <GroupStyle ContainerStyle="{StaticResource {x:Type GroupItem}}"/>
                                 </DataGrid.GroupStyle>
