@@ -125,7 +125,7 @@ namespace DeviceMonitorCS
         }
 
         // Native Device Notification
-        private IntPtr _notificationHandle;
+        private List<IntPtr> _notificationHandles = new List<IntPtr>();
         
         protected override void OnSourceInitialized(EventArgs e)
         {
@@ -139,15 +139,34 @@ namespace DeviceMonitorCS
         {
             try
             {
-                var dbi = new NativeMethods.DEV_BROADCAST_DEVICEINTERFACE();
-                dbi.dbcc_size = Marshal.SizeOf(dbi);
-                dbi.dbcc_devicetype = NativeMethods.DBT_DEVTYP_DEVICEINTERFACE;
-                dbi.dbcc_classguid = NativeMethods.GUID_DEVINTERFACE_USB_DEVICE;
+                var guids = new[]
+                {
+                    NativeMethods.GUID_DEVINTERFACE_USB_DEVICE,
+                    NativeMethods.GUID_DEVINTERFACE_MONITOR,
+                    NativeMethods.GUID_DEVINTERFACE_HID,
+                    NativeMethods.GUID_DEVINTERFACE_NET,
+                    NativeMethods.GUID_DEVINTERFACE_BLUETOOTH,
+                    NativeMethods.GUID_KSCATEGORY_AUDIO,
+                    NativeMethods.GUID_DEVINTERFACE_IMAGE
+                };
 
-                IntPtr buffer = Marshal.AllocHGlobal(dbi.dbcc_size);
-                Marshal.StructureToPtr(dbi, buffer, true);
+                foreach (var guid in guids)
+                {
+                    var dbi = new NativeMethods.DEV_BROADCAST_DEVICEINTERFACE();
+                    dbi.dbcc_size = Marshal.SizeOf(dbi);
+                    dbi.dbcc_devicetype = NativeMethods.DBT_DEVTYP_DEVICEINTERFACE;
+                    dbi.dbcc_classguid = guid;
 
-                _notificationHandle = NativeMethods.RegisterDeviceNotification(windowHandle, buffer, 0);
+                    IntPtr buffer = Marshal.AllocHGlobal(dbi.dbcc_size);
+                    Marshal.StructureToPtr(dbi, buffer, true);
+
+                    IntPtr handle = NativeMethods.RegisterDeviceNotification(windowHandle, buffer, 0);
+                    if (handle != IntPtr.Zero)
+                    {
+                        _notificationHandles.Add(handle);
+                    }
+                    Marshal.FreeHGlobal(buffer);
+                }
             }
             catch (Exception ex)
             {
@@ -497,9 +516,9 @@ namespace DeviceMonitorCS
 
         private void MainWindow_Closed(object sender, EventArgs e)
         {
-            if (_notificationHandle != IntPtr.Zero)
+            foreach (var h in _notificationHandles)
             {
-               NativeMethods.UnregisterDeviceNotification(_notificationHandle);
+               NativeMethods.UnregisterDeviceNotification(h);
             }
             _enforcer?.Stop();
             // _logWatcher?.Enabled = false; // if using watcher
