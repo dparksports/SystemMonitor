@@ -1,5 +1,11 @@
-# Windows System Monitor
+# Windows System Monitor (v2.4.0)
+A robust C# WPF application for advanced real-time system monitoring and security enforcement.
 
+**New in v2.4.0:**
+- **Privacy Dashboard Redesign:** Modern UI with toggle switches and **Tamper Protection** status monitoring.
+- **Native Device Monitoring:** Instant USB/Device detection using Windows API (`RegisterDeviceNotification`) - no more lag!
+- **Firewall Config Drift:** Detects unauthorized firewall changes and prompts to restore your saved settings instantly.
+- **AI-Powered Insights:** Integrated Gemini AI for contextual explanation of system components and firewall rules.
 A comprehensive system utility for monitoring, managing, and securing your Windows environment. This application offers advanced control over network adapters, scheduled tasks, firmware settings, and system privacy, all within a modern, dark-themed UI.
 
 ![Dashboard Preview](DeviceMonitorCS/shield-up-screenshot.jpg)
