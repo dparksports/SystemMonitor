@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics.Eventing.Reader;
+using System;
 using System.Management;
 using System.Threading.Tasks;
 using System.Windows;
@@ -20,6 +21,11 @@ namespace DeviceMonitorCS.Views
         public ObservableCollection<DeviceInventoryItem> UnconnectedInputList { get; set; } = new ObservableCollection<DeviceInventoryItem>();
         public ObservableCollection<DeviceHistoryItem> HistoryList { get; set; } = new ObservableCollection<DeviceHistoryItem>();
         
+        // Peripherals Tab Lists (Event-Based)
+        public ObservableCollection<DeviceStatus> PeripheralsConnectedList { get; set; } = new ObservableCollection<DeviceStatus>();
+        public ObservableCollection<DeviceStatus> PeripheralsDisconnectedList { get; set; } = new ObservableCollection<DeviceStatus>();
+        public ObservableCollection<DeviceHistoryItem> PeripheralsEventsList { get; set; } = new ObservableCollection<DeviceHistoryItem>();
+
         // Use ICollectionView for grouping logic in code-behind
         public ICollectionView GroupedInventoryView { get; set; }
 
@@ -50,12 +56,149 @@ namespace DeviceMonitorCS.Views
         {
             await LoadInventory();
             await LoadHistory(); // Loads full history once
+            await LoadPeripherals(); // Loads Event-Based Peripherals
             
             // Trigger selection update if item selected
             if (InventoryGrid.SelectedItem != null)
                 FilterHistory(InventoryGrid.SelectedItem as DeviceInventoryItem);
             else
                 FilterHistory(null);
+        }
+
+        private async Task LoadPeripherals()
+        {
+            PeripheralsConnectedList.Clear();
+            PeripheralsDisconnectedList.Clear();
+            PeripheralsEventsList.Clear();
+
+            await Task.Run(() =>
+            {
+                try 
+                {
+                   // Logic adapted from PnpHistoryReader
+                   // Query for 400, 410, 420 events
+                   string query = "*[System[(EventID=400 or EventID=410 or EventID=420)]]";
+                   var elq = new EventLogQuery("Microsoft-Windows-Kernel-PnP/Configuration", PathType.LogName, query)
+                   {
+                       ReverseDirection = true // newest first
+                   };
+
+                   var perDevice = new Dictionary<string, List<DeviceHistoryItem>>(StringComparer.OrdinalIgnoreCase);
+                   int readCount = 0;
+                   int maxEvents = 1000;
+
+                   using (var reader = new EventLogReader(elq))
+                   {
+                       EventRecord ev;
+                       while ((ev = reader.ReadEvent()) != null)
+                       {
+                           try
+                           {
+                               if (++readCount > maxEvents) break;
+                               
+                               string xml = ev.ToXml();
+                               var x = XElement.Parse(xml);
+
+                               int eventId = ev.Id;
+                               DateTime timeCreated = ev.TimeCreated ?? DateTime.MinValue;
+                               string rawDesc = ev.FormatDescription() ?? string.Empty;
+
+                               string deviceInstanceId = null;
+                               string friendlyName = null;
+
+                               var dataElements = x.Descendants().Where(n => n.Name.LocalName == "Data");
+                               foreach (var d in dataElements)
+                               {
+                                   var nameAttr = (string)d.Attribute("Name") ?? string.Empty;
+                                   var value = (string)d;
+                                   if (string.IsNullOrEmpty(value)) continue;
+
+                                   if (string.Equals(nameAttr, "DeviceInstanceId", StringComparison.OrdinalIgnoreCase) ||
+                                       string.Equals(nameAttr, "InstanceId", StringComparison.OrdinalIgnoreCase) ||
+                                       string.Equals(nameAttr, "DeviceId", StringComparison.OrdinalIgnoreCase))
+                                   {
+                                       if (string.IsNullOrEmpty(deviceInstanceId)) deviceInstanceId = value.Trim();
+                                   }
+                                   else if (string.Equals(nameAttr, "FriendlyName", StringComparison.OrdinalIgnoreCase) ||
+                                            string.Equals(nameAttr, "Name", StringComparison.OrdinalIgnoreCase))
+                                   {
+                                       if (string.IsNullOrEmpty(friendlyName)) friendlyName = value.Trim();
+                                   }
+                                   else if (string.Equals(nameAttr, "ParentIdPrefix", StringComparison.OrdinalIgnoreCase))
+                                   {
+                                        if (string.IsNullOrEmpty(deviceInstanceId)) deviceInstanceId = value.Trim();
+                                   }
+                               }
+
+                               if (string.IsNullOrEmpty(deviceInstanceId))
+                               {
+                                   deviceInstanceId = !string.IsNullOrEmpty(friendlyName)
+                                       ? friendlyName
+                                       : (rawDesc.Length > 80 ? rawDesc.Substring(0, 80) : rawDesc);
+                               }
+                               
+                               string eventType = "Unknown";
+                               if (eventId == 400) eventType = "Configured";
+                               else if (eventId == 410) eventType = "Started (Connected)";
+                               else if (eventId == 420) eventType = "Deleted (Disconnected)";
+
+                               var item = new DeviceHistoryItem
+                               {
+                                   DeviceId = deviceInstanceId,
+                                   FriendlyName = friendlyName ?? rawDesc,
+                                   EventName = eventType,
+                                   EventId = eventId,
+                                   TimeCreated = timeCreated, // Keep internal, Map to string property
+                                   Time = timeCreated.ToString("yyyy-MM-dd HH:mm:ss"),
+                                   DeviceName = friendlyName ?? rawDesc
+                               };
+
+                               if (!perDevice.TryGetValue(deviceInstanceId, out var list))
+                               {
+                                   list = new List<DeviceHistoryItem>();
+                                   perDevice[deviceInstanceId] = list;
+                               }
+                               list.Add(item);
+                               
+                               Dispatcher.Invoke(() => PeripheralsEventsList.Add(item));
+                           }
+                           catch {}
+                       }
+                   }
+                   
+                   // Build Statuses
+                   var statuses = new List<DeviceStatus>();
+                   foreach (var kvp in perDevice)
+                   {
+                       var deviceId = kvp.Key;
+                       var events = kvp.Value.OrderByDescending(e => e.TimeCreated).ToList();
+                       var last = events.FirstOrDefault();
+
+                       string status;
+                       if (last == null) status = "Unknown";
+                       else if (last.EventId == 420) status = "Disconnected";
+                       else if (last.EventId == 400 || last.EventId == 410) status = "Connected";
+                       else status = "Unknown";
+                       
+                       var ds = new DeviceStatus
+                       {
+                           DeviceId = deviceId,
+                           FriendlyName = last?.FriendlyName,
+                           Status = status,
+                           LastEvent = last
+                       };
+                       
+                       Dispatcher.Invoke(() => {
+                           if (status == "Connected") PeripheralsConnectedList.Add(ds);
+                           else if (status == "Disconnected") PeripheralsDisconnectedList.Add(ds);
+                       });
+                   }
+                }
+                catch
+                {
+                   // Log error or ignore
+                }
+            });
         }
 
         private void InventoryGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -269,7 +412,17 @@ namespace DeviceMonitorCS.Views
         public string Time { get; set; }
         public string EventName { get; set; }
         public string DeviceName { get; set; }
+        public string FriendlyName { get; set; }
         public string DeviceId { get; set; } // For matching
         public int EventId { get; set; } // 400, 410, 420
+        public DateTime TimeCreated { get; set; }
+    }
+
+    public class DeviceStatus
+    {
+        public string DeviceId { get; set; }
+        public string FriendlyName { get; set; }
+        public string Status { get; set; } // "Connected" or "Disconnected" or "Unknown"
+        public DeviceHistoryItem LastEvent { get; set; }
     }
 }

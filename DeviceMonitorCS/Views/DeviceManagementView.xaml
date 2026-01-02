@@ -171,13 +171,78 @@
                         </Border>
                     </TabItem>
 
-                    <!-- Tab 3: Full Inventory (Grouped) -->
+                    <!-- Tab 3: Peripherals (Event-Based Status) -->
+                    <TabItem Header="Peripherals (History Inferred)">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="2*"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="2*"/>
+                            </Grid.RowDefinitions>
+                            
+                            <Grid Grid.Row="0" Margin="0,5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Connected (Inferred)" Foreground="#888888" FontWeight="SemiBold" Margin="5,0"/>
+                                <TextBlock Grid.Column="1" Text="Disconnected (Inferred)" Foreground="#888888" FontWeight="SemiBold" Margin="5,0"/>
+                            </Grid>
+                            
+                            <Grid Grid.Row="1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="10"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Connected List -->
+                                <Border Grid.Column="0" Background="#1E1E1E" CornerRadius="4">
+                                    <DataGrid ItemsSource="{Binding PeripheralsConnectedList}">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Friendly Name" Binding="{Binding FriendlyName}" Width="200"/>
+                                            <DataGridTextColumn Header="Device ID" Binding="{Binding DeviceId}" Width="*"/>
+                                            <DataGridTextColumn Header="Last Event" Binding="{Binding LastEvent.Time}" Width="140"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Border>
+
+                                <!-- Disconnected List -->
+                                <Border Grid.Column="2" Background="#1E1E1E" CornerRadius="4">
+                                     <DataGrid ItemsSource="{Binding PeripheralsDisconnectedList}">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Friendly Name" Binding="{Binding FriendlyName}" Width="200"/>
+                                            <DataGridTextColumn Header="Device ID" Binding="{Binding DeviceId}" Width="*"/>
+                                            <DataGridTextColumn Header="Last Event" Binding="{Binding LastEvent.Time}" Width="140"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Border>
+                            </Grid>
+
+                            <TextBlock Grid.Row="2" Text="Raw Device Events (Inferred Source)" Foreground="#888888" FontWeight="SemiBold" Margin="5,10,0,5"/>
+
+                             <!-- All Periph Events -->
+                            <Border Grid.Row="3" Background="#1E1E1E" CornerRadius="4">
+                                <DataGrid ItemsSource="{Binding PeripheralsEventsList}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="140"/>
+                                        <DataGridTextColumn Header="Event" Binding="{Binding EventName}" Width="140"/>
+                                        <DataGridTextColumn Header="Device Name" Binding="{Binding FriendlyName}" Width="250"/>
+                                        <DataGridTextColumn Header="Device ID" Binding="{Binding DeviceId}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Border>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- Tab 4: Full Inventory (Grouped) -->
                     <TabItem Header="Full Inventory">
                          <Border Background="#1E1E1E" CornerRadius="0,4,4,4" Padding="2">
                              <!-- ItemsSource is set in Code-Behind to GroupedInventoryView -->
                             <DataGrid x:Name="InventoryGrid" SelectionChanged="InventoryGrid_SelectionChanged">
                                 <DataGrid.GroupStyle>
-                                    <GroupStyle ContainerStyle="{StaticResource {x:Type GroupItem}}"/>
+                                    <GroupStyle ContainerStyle="{StaticResource GroupHeaderStyle}"/>
                                 </DataGrid.GroupStyle>
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="150"/>

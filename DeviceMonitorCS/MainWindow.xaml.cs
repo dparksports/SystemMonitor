@@ -130,6 +130,7 @@ namespace DeviceMonitorCS
             TasksBtn.Click += (s, e) => NavigateTo(TasksView);
             ConnectionsBtn.Click += (s, e) => NavigateTo(ConnectionsView);
             SettingsBtn.Click += (s, e) => NavigateTo(SettingsView);
+            MyDevicesBtn.Click += (s, e) => NavigateTo(MyDevicesView);
 
             ClearBtn.Click += (s, e) => 
             {
@@ -583,6 +584,7 @@ namespace DeviceMonitorCS
             DeviceManagementView.Visibility = Visibility.Collapsed;
             FirewallSettingsView.Visibility = Visibility.Collapsed;
             WindowsDefenderView.Visibility = Visibility.Collapsed;
+            MyDevicesView.Visibility = Visibility.Collapsed;
 
             // Show target
             if (targetView != null)
