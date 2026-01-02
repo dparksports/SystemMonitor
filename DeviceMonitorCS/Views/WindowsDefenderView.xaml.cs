@@ -96,7 +96,13 @@ namespace DeviceMonitorCS.Views
             {
                 try 
                 {
-                    string query = "*[System/EventID=5007 or System/EventID=5013 or System/EventID=5014 or System/EventID=5015]";
+                    // Scan: 1000, 1001, 1002, 1005
+                    // Threat: 1006, 1116, 1117
+                    // Update: 2000, 2002
+                    // Critical: 3002, 5001
+                    // Config/Tamper: 5007, 5013, 5014, 5015
+                    string query = @"*[System[(EventID=1000 or EventID=1001 or EventID=1002 or EventID=1005 or EventID=1006 or EventID=1116 or EventID=1117 or EventID=2000 or EventID=2002 or EventID=3002 or EventID=5001 or EventID=5007 or EventID=5013 or EventID=5014 or EventID=5015)]]";
+                    
                     var elq = new EventLogQuery("Microsoft-Windows-Windows Defender/Operational", PathType.LogName, query) { ReverseDirection = true };
                     var reader = new EventLogReader(elq);
 
