@@ -20,10 +20,41 @@ namespace DeviceMonitorCS
         public ObservableCollection<DeviceEvent> DeviceData { get; set; } = new ObservableCollection<DeviceEvent>();
         public ObservableCollection<SecurityEvent> SecurityData { get; set; } = new ObservableCollection<SecurityEvent>();
         
-        // Removed WMI watchers
-        // private ManagementEventWatcher _deviceWatcherAdd;
-        // private ManagementEventWatcher _deviceWatcherRem;
+        // Hybrid Device Monitoring (Native + WMI)
+        private ManagementEventWatcher _deviceWatcherAdd;
+        private ManagementEventWatcher _deviceWatcherRem;
         private string _currentUser;
+        
+        // Dedup Cache: "EventType|Name|Type" -> Timestamp
+        private Dictionary<string, DateTime> _eventDedupCache = new Dictionary<string, DateTime>();
+
+        // Called by BOTH Native WndProc and WMI Handler
+        private void DispatchDeviceEvent(DeviceEvent newEvent)
+        {
+            Dispatcher.Invoke(() => 
+            {
+                // Simple Dedup: Check if same event (Name + Type + Action) occurred in last 2 seconds
+                string key = $"{newEvent.EventType}|{newEvent.Name}|{newEvent.Type}";
+                
+                if (_eventDedupCache.TryGetValue(key, out DateTime lastTime))
+                {
+                    if ((DateTime.Now - lastTime).TotalSeconds < 2)
+                    {
+                        Debug.WriteLine($"Duplicate suppressed: {key}");
+                        return; // Suppress duplicate
+                    }
+                }
+                
+                _eventDedupCache[key] = DateTime.Now;
+                
+                // Add to UI
+                DeviceData.Insert(0, newEvent);
+                if (DeviceData.Count > 100) DeviceData.RemoveAt(DeviceData.Count - 1);
+                
+                // Keep cache clean (remove old entries every 50 events)
+                if (_eventDedupCache.Count > 50) _eventDedupCache.Clear();
+            });
+        }
 
 
         
@@ -126,6 +157,7 @@ namespace DeviceMonitorCS
 
         // Native Device Notification
         private List<IntPtr> _notificationHandles = new List<IntPtr>();
+        private DeviceGuidManager _guidManager = new DeviceGuidManager();
         
         protected override void OnSourceInitialized(EventArgs e)
         {
@@ -139,18 +171,7 @@ namespace DeviceMonitorCS
         {
             try
             {
-                var guids = new[]
-                {
-                    NativeMethods.GUID_DEVINTERFACE_USB_DEVICE,
-                    NativeMethods.GUID_DEVINTERFACE_MONITOR,
-                    NativeMethods.GUID_DEVINTERFACE_HID,
-                    NativeMethods.GUID_DEVINTERFACE_NET,
-                    NativeMethods.GUID_DEVINTERFACE_BLUETOOTH,
-                    NativeMethods.GUID_KSCATEGORY_AUDIO,
-                    NativeMethods.GUID_DEVINTERFACE_IMAGE
-                };
-
-                foreach (var guid in guids)
+                foreach (var guid in _guidManager.GetAllGuids())
                 {
                     var dbi = new NativeMethods.DEV_BROADCAST_DEVICEINTERFACE();
                     dbi.dbcc_size = Marshal.SizeOf(dbi);
@@ -173,6 +194,32 @@ namespace DeviceMonitorCS
                 MessageBox.Show($"Device Watcher Error: {ex.Message}");
             }
         }
+        
+        private void RegisterNewGuid(Guid guid)
+        {
+             try
+             {
+                var source = PresentationSource.FromVisual(this) as HwndSource;
+                if (source == null) return;
+
+                var dbi = new NativeMethods.DEV_BROADCAST_DEVICEINTERFACE();
+                dbi.dbcc_size = Marshal.SizeOf(dbi);
+                dbi.dbcc_devicetype = NativeMethods.DBT_DEVTYP_DEVICEINTERFACE;
+                dbi.dbcc_classguid = guid;
+
+                IntPtr buffer = Marshal.AllocHGlobal(dbi.dbcc_size);
+                Marshal.StructureToPtr(dbi, buffer, true);
+
+                IntPtr handle = NativeMethods.RegisterDeviceNotification(source.Handle, buffer, 0);
+                if (handle != IntPtr.Zero)
+                {
+                    _notificationHandles.Add(handle);
+                    Debug.WriteLine($"Dynamically Registered New Device GUID: {guid}");
+                }
+                Marshal.FreeHGlobal(buffer);
+             }
+             catch { }
+        }
 
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
@@ -192,21 +239,15 @@ namespace DeviceMonitorCS
                          // Clean up name for display
                          name = ParseDeviceName(name);
 
-                         Dispatcher.Invoke(() => 
+                         DispatchDeviceEvent(new DeviceEvent
                          {
-                             DeviceData.Insert(0, new DeviceEvent
-                             {
-                                 Time = DateTime.Now.ToString("HH:mm:ss"),
-                                 EventType = action,
-                                 Name = name,
-                                 Type = "USB Device",
-                                 Initiator = _currentUser // Native events don't have user context easily, use current user or "System"
-                             });
-                             
-                             // Keep lists somewhat clean
-                             if (DeviceData.Count > 100) DeviceData.RemoveAt(DeviceData.Count - 1);
+                             Time = DateTime.Now.ToString("HH:mm:ss"),
+                             EventType = action,
+                             Name = name,
+                             Type = "USB/Device",
+                             Initiator = _currentUser
                          });
-                     }
+                    }
                  }
             }
             return IntPtr.Zero;
@@ -228,8 +269,26 @@ namespace DeviceMonitorCS
             catch { return dbcc_name; }
         }
 
-        /* WMI Removed */
-        // private void StartDeviceMonitoring() ...
+        private void StartDeviceMonitoring()
+        {
+            try
+            {
+                // WMI Fallback for obscure devices not caught by Native Interface GUIDs
+                var query = new WqlEventQuery("__InstanceCreationEvent", new TimeSpan(0, 0, 1), "TargetInstance ISA 'Win32_PnPEntity'");
+                _deviceWatcherAdd = new ManagementEventWatcher(query);
+                _deviceWatcherAdd.EventArrived += (s, e) => Dispatcher.Invoke(() => HandleDeviceEvent(e.NewEvent, "ADDED"));
+                _deviceWatcherAdd.Start();
+
+                var queryRem = new WqlEventQuery("__InstanceDeletionEvent", new TimeSpan(0, 0, 1), "TargetInstance ISA 'Win32_PnPEntity'");
+                _deviceWatcherRem = new ManagementEventWatcher(queryRem);
+                _deviceWatcherRem.EventArrived += (s, e) => Dispatcher.Invoke(() => HandleDeviceEvent(e.NewEvent, "REMOVED"));
+                _deviceWatcherRem.Start();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"WMI Monitor Error: {ex.Message}");
+            }
+        }
 
         private void HandleDeviceEvent(ManagementBaseObject e, string eventType)
         {
@@ -240,8 +299,22 @@ namespace DeviceMonitorCS
 
                 string name = target["Name"]?.ToString() ?? target["Description"]?.ToString();
                 string type = target["PNPClass"]?.ToString() ?? "Device";
+                string classGuid = target["ClassGuid"]?.ToString();
 
-                DeviceData.Insert(0, new DeviceEvent
+                // Learning: checking if we can monitor this type natively next time
+                if (!string.IsNullOrEmpty(classGuid))
+                {
+                    if (_guidManager.AddAndSave(classGuid))
+                    {
+                        // It's a new GUID! Try to register it natively immediately
+                        if (Guid.TryParse(classGuid, out Guid g))
+                        {
+                            Dispatcher.Invoke(() => RegisterNewGuid(g));
+                        }
+                    }
+                }
+
+                DispatchDeviceEvent(new DeviceEvent
                 {
                     Time = DateTime.Now.ToString("HH:mm:ss"),
                     EventType = eventType,
