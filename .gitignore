@@ -49,6 +49,7 @@ apikey.txt
 # Publishing
 *.zip
 publish/
-*.zip
+PublishOutput*/
+*.exe
 publish_v2.3.2/
 DeviceMonitorCS.zip

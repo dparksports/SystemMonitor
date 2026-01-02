@@ -1,108 +1,73 @@
-# Windows System Monitor (v2.7.0)
-A robust C# WPF application for advanced real-time system monitoring and security enforcement.
+# Windows System Monitor (v2.8.1)
+**Advanced Real-Time Security Enforcement & System Analytics**
 
-**New in v2.7.0:**
-- **My Devices (Keyboards, Mice, Monitors):** Comprehensive history and real-time status tracking for peripheral devices using Kernel-PnP events.
-- **Privacy Dashboard Redesign:** Modern UI with toggle switches and **Tamper Protection** status monitoring.
-- **Native Device Monitoring:** Instant USB/Device detection using Windows API (`RegisterDeviceNotification`) - no more lag!
-- **Firewall Config Drift:** Detects unauthorized firewall changes and prompts to restore your saved settings instantly.
-- **AI-Powered Insights:** Integrated Gemini AI for contextual explanation of system components and firewall rules.
-A comprehensive system utility for monitoring, managing, and securing your Windows environment. This application offers advanced control over network adapters, scheduled tasks, firmware settings, and system privacy, all within a modern, dark-themed UI.
+Windows System Monitor is a professional-grade C# WPF application designed for power users and security administrators. It provides deep visibility into system hardware, network traffic, and security events, combined with automated policy enforcement through a robust "Security Enforcer" background engine.
 
 ![Dashboard Preview](DeviceMonitorCS/shield-up-screenshot.jpg)
 
-## [Download Validated Release (v2.7.0.zip)](https://github.com/dparksports/SystemMonitor/releases/download/v2.7.0/DeviceMonitorCS_v2.7.0.zip)
-*Verified Clean - Windows Security Compliant*
+## 🚀 Key Features
 
-## Features
+### 🛡️ Security & Privacy Enforcement
+*   **Real-Time Monitoring**: Direct integration with the Windows Security Event Log to track logons, process creations, and privilege escalations.
+*   **Security Enforcer**: A background engine that monitors system state and enforces security policies (e.g., ensuring kernel debug is disabled).
+*   **Privacy Guard**: Toggle Windows telemetry, data collection, and diagnostic reporting with a single click.
+*   **AI Insights**: Integrated Gemini AI allows you to query specific system events or components to understand potential threats.
 
-### 🖥️ Dashboard & System Control
-- **Quick Toggles**: Instantly enable/disable critical system features:
-    - **VPN Services**: Toggle background VPN services.
-    - **WiFi Direct**: Manage WiFi Direct capabilities.
-    - **Kernel Debug**: Enable/disable kernel debugging networking.
-    - **Usage Data**: Toggle Windows telemetry and data collection.
-- **Event Log**: Real-time monitoring of system and security events.
+### ⌨️ Advanced Device Management
+*   **Peripheral Tracking**: Advanced monitoring for Keyboards, Mice, and Monitors.
+*   **Auto-Load Logic**: View status and history immediately upon navigation.
+*   **Event History**: Detailed timestamps for when devices were **Started** and **Configured**, extracted directly from Kernel-PnP logs.
+*   **Status Indicators**: Clear visual distinction between Connected (OK) and Disconnected/Error states.
 
-### 📊 System Performance
-- **Real-time Monitoring**: Visualize system resource usage.
-    - **CPU & RAM**: Live usage stats with graphical bars.
-    - **Network**: Real-time upload and download speeds.
-    - **GPU**: Detailed GPU memory and utilization stats.
-    - **Disk**: Read/Write speeds for all active drives.
+### 📊 Performance & Analytics
+*   **Live Metrics**: High-fidelity monitoring of CPU, RAM, GPU utilization, and Disk I/O.
+*   **Network Intelligence**: 
+    *   **Active Connections**: Monitor every application currently communicating over the network.
+    *   **Muted Traffic**: Dedicated view for restricted or blocked network attempts.
+    *   **Adapter Control**: Inspect and manage physical and virtual network adapters.
+*   **Firmware Explorer**: Inspect ACPI tables, UEFI secure boot variables, and BIOS metadata.
 
-### 🔒 Privacy Manager
-- **Shield Up Status**: Prominent "Shield Up" visual indicator on the dashboard confirming active privacy protection.
-- **Telemetry Control**: Deep control over Windows diagnostic data sent to Microsoft.
-- **AI Integration**: Ask Gemini AI about specific system components (e.g., "What does UsageDataReceiver do?") directly from the app.
+### 🛠️ System Control Tools
+*   **Firewall Manager**: View and toggle inbound/outbound rules with one-click reset capabilities.
+*   **Scheduled Tasks**: Full management (Start/Stop/Delete) of Windows Scheduled Tasks.
+*   **Hosted Network**: Manage Wi-Fi Hotspots and WAN Miniport adapters.
 
-### 📡 Network Management
-- **Hosted Network Manager**: Create, stop, and manage Windows Hosted Networks (Hotspots).
-- **Network Adapters**: View all physical and virtual network adapters, with options to disable/enable them.
-- **WAN Miniports**: robust management of WAN Miniport drivers.
-- **Connections Monitor**:
-    - **Active Connections**: See what apps are connecting to the internet.
-    - **Muted Connections**: View blocked or muted restricted traffic.
+---
 
-### ⚙️ System Tools
-- **Scheduled Tasks Manager**: View, stop, start, and delete Windows Scheduled Tasks.
-- **Firmware Explorer**:
-    - **ACPI Tables**: Dump and inspect system ACPI tables.
-    - **UEFI Variables**: View secure boot and other UEFI firmware variables.
-    - **BIOS Info**: Detailed BIOS version and release data.
+## 📦 Installation & Setup
 
-### ⌨️ My Devices
-- **Peripheral Tracking**: Dedicated view for Keyboards, Mice, and Monitors.
-- **Connection History**: Detailed history of when devices were started, configured, or removed.
-- **Real-time Status**: Instant visibility of whether a device is currently connected or disconnected.
+### Requirements
+*   **OS**: Windows 10 or 11 (64-bit)
+*   **Privileges**: **Administrator rights** are mandatory for system-level monitoring and enforcement.
+*   **AI Features**: Create an `apikey.txt` file in the executable directory and paste your Gemini API key inside.
 
-### 🛡️ Firewall Settings
-- **Rule Management**: View all Inbound and Outbound firewall rules.
-- **Toggle Rules**: Enable or disable specific rules instantly.
-- **Reset to Defaults**: One-click reset for Windows Firewall configuration.
+### Quick Start
+1.  **Download**: Get the latest release from the [Releases](https://github.com/dparksports/SystemMonitor/releases) page.
+2.  **Run**: Launch `DeviceMonitorCS.exe` as Administrator.
+3.  **Install (Recommended)**: Go to **Settings** and click **"Install to Scheduled Tasks"** to enable UAC-bypass auto-start at login.
 
-### 🛠️ Settings & Installation
-- **Run at Startup**: Easily install the application as a highly-privileged Scheduled Task to ensure it runs automatically at logon without UAC prompts.
-- **Security Enforcer**: Configurable background scanning interval for enforcing security policies.
+---
 
-## Installation
+## 📜 Release History
 
-### Method 1: Portable Run
-1. Download the latest release.
-2. Unzip the archive.
-3. Run `DeviceMonitorCS.exe` as Administrator.
+### v2.8.1 (Latest)
+*   **Consolidation**: Merged peripheral tracking into a unified, auto-loading Device Management view.
+*   **Reliability**: Implemented XML-based PnP event parsing for 100% accurate device history.
 
-### Method 2: Auto-Start Installation
-1. Run the application as Administrator.
-2. Navigate to **Settings**.
-3. Under "Startup Behavior", click **"Install to Scheduled Tasks"**.
-4. The app will now start automatically when you log in.
+### v2.8.0
+*   **Device History**: Added "Last Started" and "Last Configured" columns using hardware event log analysis.
 
-## Release
+### v2.7.3
+*   **Security**: Hardened release by removing bundled API keys and enforcing manual setup via `apikey.txt`.
 
-- **Version:** v2.7.0
-- **Release Date:** 2026-01-01
-- Download: [DeviceMonitorCS v2.7.0](https://github.com/dparksports/SystemMonitor/releases/tag/v2.7.0)
+---
 
+## 🛠️ Building from Source
+1.  Clone the repository.
+2.  Open in **Visual Studio 2022** and restore NuGet packages.
+3.  Build for **Release | win-x64**.
 
-- **Version:** v2.3.2
-- **Release Date:** 2026-01-01
-- Download: [DeviceMonitorCS v2.3.2](https://github.com/dparksports/SystemMonitor/releases/tag/v2.3.2)
-
-
-## Requirements
-- **OS**: Windows 10/11 (64-bit recommended)
-- **Runtime**: .NET Framework 4.8 or .NET 6+ (depending on build variant)
-- **Privileges**: Administrator rights are required for most features (managing drivers, services, and tasks).
-
-
-## Building from Source
-
-1. Clone the repository.
-2. Open the solution in Visual Studio 2022.
-3. Restore NuGet packages.
-4. Build the solution (Release mode recommended).
-
+---
 
 ## License
 Apache License 2.0

@@ -113,7 +113,9 @@
                                     </Style>
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
-                            <DataGridTextColumn Header="Friendly Name" Binding="{Binding FriendlyName}" Width="300"/>
+                            <DataGridTextColumn Header="Friendly Name" Binding="{Binding FriendlyName}" Width="250"/>
+                            <DataGridTextColumn Header="Started" Binding="{Binding LastStarted, StringFormat=\{0:g\}}" Width="140"/>
+                            <DataGridTextColumn Header="Configured" Binding="{Binding LastConfigured, StringFormat=\{0:g\}}" Width="140"/>
                             <DataGridTextColumn Header="Instance ID" Binding="{Binding InstanceId}" Width="*"/>
                         </DataGrid.Columns>
                     </DataGrid>
@@ -145,7 +147,10 @@
                                     </Style>
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
-                            <DataGridTextColumn Header="Friendly Name" Binding="{Binding FriendlyName}" Width="300"/>
+                            <DataGridTextColumn Header="Friendly Name" Binding="{Binding FriendlyName}" Width="250"/>
+                            <DataGridTextColumn Header="Started" Binding="{Binding LastStarted, StringFormat=\{0:g\}}" Width="140"/>
+                            <DataGridTextColumn Header="Configured" Binding="{Binding LastConfigured, StringFormat=\{0:g\}}" Width="140"/>
+                            <DataGridTextColumn Header="Other Events" Binding="{Binding OtherEvents}" Width="150"/>
                             <DataGridTextColumn Header="Instance ID" Binding="{Binding InstanceId}" Width="*"/>
                         </DataGrid.Columns>
                     </DataGrid>

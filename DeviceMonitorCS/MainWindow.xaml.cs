@@ -117,7 +117,11 @@ namespace DeviceMonitorCS
             PrivacyBtn.Click += (s, e) => NavigateTo(PrivacyView);
             DefenderBtn.Click += (s, e) => NavigateTo(WindowsDefenderView);
             FirmwareSettingsBtn.Click += (s, e) => NavigateTo(FirmwareSettingsView);
-            DeviceManagementBtn.Click += (s, e) => NavigateTo(DeviceManagementView);
+            DeviceManagementBtn.Click += (s, e) => 
+            {
+                NavigateTo(DeviceManagementView);
+                DeviceManagementView.InitializeAndLoad();
+            };
             FirewallSettingsBtn.Click += (s, e) => 
             {
                 NavigateTo(FirewallSettingsView);
@@ -130,7 +134,7 @@ namespace DeviceMonitorCS
             TasksBtn.Click += (s, e) => NavigateTo(TasksView);
             ConnectionsBtn.Click += (s, e) => NavigateTo(ConnectionsView);
             SettingsBtn.Click += (s, e) => NavigateTo(SettingsView);
-            MyDevicesBtn.Click += (s, e) => NavigateTo(MyDevicesView);
+
 
             ClearBtn.Click += (s, e) => 
             {
@@ -584,7 +588,7 @@ namespace DeviceMonitorCS
             DeviceManagementView.Visibility = Visibility.Collapsed;
             FirewallSettingsView.Visibility = Visibility.Collapsed;
             WindowsDefenderView.Visibility = Visibility.Collapsed;
-            MyDevicesView.Visibility = Visibility.Collapsed;
+
 
             // Show target
             if (targetView != null)

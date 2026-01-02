@@ -162,43 +162,49 @@ namespace DeviceMonitorCS
                     return;
                 }
 
-                // PowerShell SDK Execution
+                // Shell Execution for PowerShell to avoid SDK SingleFile compatibility issues
                 ResponseBox.Text += "\n\n--- Executing PowerShell Command... ---";
                 
-                await System.Threading.Tasks.Task.Run(() =>
+                await Task.Run(() =>
                 {
                     try
                     {
-                        using (var ps = System.Management.Automation.PowerShell.Create())
+                        // Use EncodedCommand to safely pass multi-line scripts to powershell.exe
+                        byte[] scriptBytes = System.Text.Encoding.Unicode.GetBytes(code);
+                        string encodedScript = Convert.ToBase64String(scriptBytes);
+
+                        var startInfo = new ProcessStartInfo
                         {
-                            ps.AddScript(code);
-                            var results = ps.Invoke();
+                            FileName = "powershell.exe",
+                            Arguments = $"-NoProfile -ExecutionPolicy Bypass -EncodedCommand {encodedScript}",
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true,
+                            UseShellExecute = false,
+                            CreateNoWindow = true
+                        };
 
-                            string output = "";
-                            foreach (var result in results)
-                            {
-                                output += result.ToString() + "\n";
-                            }
+                        using (var process = Process.Start(startInfo))
+                        {
+                            string output = process.StandardOutput.ReadToEnd();
+                            string error = process.StandardError.ReadToEnd();
+                            process.WaitForExit();
 
-                            if (ps.Streams.Error.Count > 0)
+                            string combinedOutput = output;
+                            if (!string.IsNullOrWhiteSpace(error))
                             {
-                                output += "\nerrors:\n";
-                                foreach (var err in ps.Streams.Error)
-                                {
-                                    output += err.ToString() + "\n";
-                                }
+                                combinedOutput += $"\nerrors:\n{error}";
                             }
 
                             Dispatcher.Invoke(() => 
                             { 
-                                ResponseBox.Text += $"\n{output}\n--- Execution Complete ---";
+                                ResponseBox.Text += $"\n{combinedOutput}\n--- Execution Complete ---";
                                 ResponseBox.ScrollToEnd();
                             });
                         }
                     }
                     catch (Exception ex)
                     {
-                        Dispatcher.Invoke(() => MessageBox.Show($"PowerShell Error: {ex.Message}", "Execution Failed", MessageBoxButton.OK, MessageBoxImage.Error));
+                        Dispatcher.Invoke(() => MessageBox.Show($"PowerShell Execution Failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error));
                     }
                 });
             }

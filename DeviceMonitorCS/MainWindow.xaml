@@ -74,7 +74,7 @@
                 <Button x:Name="FirmwareSettingsBtn" Content="Firmware Settings" Style="{StaticResource NavButton}"/>
                 <Button x:Name="DeviceManagementBtn" Content="Device Management" Style="{StaticResource NavButton}"/>
                 <Button x:Name="FirewallSettingsBtn" Content="Firewall Settings" Style="{StaticResource NavButton}"/>
-                <Button x:Name="MyDevicesBtn" Content="My Devices" Style="{StaticResource NavButton}"/>
+
                 
 
                 <TextBlock Text="TOOLS" Foreground="#808080" FontSize="12" Margin="5,20,0,5" FontWeight="SemiBold"/>
@@ -115,7 +115,7 @@
             <views:TasksView x:Name="TasksView" Visibility="Collapsed"/>
             <views:ConnectionsView x:Name="ConnectionsView" Visibility="Collapsed"/>
             <views:SettingsView x:Name="SettingsView" Visibility="Collapsed"/>
-            <views:MyDevicesView x:Name="MyDevicesView" Visibility="Collapsed"/>
+
 
 
         </Grid>
