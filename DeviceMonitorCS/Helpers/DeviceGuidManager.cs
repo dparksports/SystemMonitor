@@ -12,7 +12,16 @@ namespace DeviceMonitorCS.Helpers
 
         public DeviceGuidManager()
         {
-            _filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "monitored_guids.txt");
+            // Store Compliance: Use LocalAppData instead of BaseDirectory
+            string appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string folderInfo = Path.Combine(appData, "DeviceMonitorCS");
+            
+            if (!Directory.Exists(folderInfo))
+            {
+                Directory.CreateDirectory(folderInfo);
+            }
+
+            _filePath = Path.Combine(folderInfo, "monitored_guids.txt");
             LoadDefaults();
             LoadCustom();
         }

@@ -10,7 +10,7 @@ A comprehensive system utility for monitoring, managing, and securing your Windo
 
 ![Dashboard Preview](DeviceMonitorCS/shield-up-screenshot.jpg)
 
-## [Download Validated Release (v2.5.1.zip)](https://github.com/dparksports/DeviceMonitor/releases/download/v2.5.1/DeviceMonitorCS_v2.5.1.zip)
+## [Download Validated Release (v2.5.2.zip)](https://github.com/dparksports/DeviceMonitor/releases/download/v2.5.2/DeviceMonitorCS_v2.5.2.zip)
 *Verified Clean - Windows Security Compliant*
 
 ## Features
