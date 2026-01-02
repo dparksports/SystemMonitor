@@ -27,6 +27,8 @@ namespace DeviceMonitorCS.Views
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
 
+        private bool _isInitialized = false;
+
         public FirewallSettingsView()
         {
             InitializeComponent();
@@ -34,7 +36,14 @@ namespace DeviceMonitorCS.Views
             // Ideally we should use a proper ViewModel, but for this refactor we keep code-behind pattern
             // However, the UserControl itself doesn't need to be DataContext if we use RelativeSource in XAML (which we did).
             
-            Loaded += async (s, e) => await LoadRules();
+            // Loaded += async (s, e) => await LoadRules(); // REMOVED for Lazy Loading
+        }
+
+        public async void InitializeAndLoad()
+        {
+            if (_isInitialized) return;
+            _isInitialized = true;
+            await LoadRules();
         }
 
         private async void RefreshBtn_Click(object sender, RoutedEventArgs e)

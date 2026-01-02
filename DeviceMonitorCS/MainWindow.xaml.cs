@@ -85,7 +85,11 @@ namespace DeviceMonitorCS
             PerformanceBtn.Click += (s, e) => NavigateTo(PerformanceView);
             PrivacyBtn.Click += (s, e) => NavigateTo(PrivacyView);
             FirmwareSettingsBtn.Click += (s, e) => NavigateTo(FirmwareSettingsView);
-            FirewallSettingsBtn.Click += (s, e) => NavigateTo(FirewallSettingsView);
+            FirewallSettingsBtn.Click += (s, e) => 
+            {
+                NavigateTo(FirewallSettingsView);
+                FirewallSettingsView.InitializeAndLoad();
+            };
             
             HostedNetworkBtn.Click += (s, e) => NavigateTo(HostedNetworkView);
             WanMiniportBtn.Click += (s, e) => NavigateTo(WanMiniportView);
