@@ -3,49 +3,46 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:ctrl="clr-namespace:DeviceMonitorCS.Controls"
              mc:Ignorable="d" 
-             d:DesignHeight="600" d:DesignWidth="800"
+             d:DesignHeight="700" d:DesignWidth="1000"
              Background="#1E1E1E">
     <Grid Margin="20">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/> <!-- Header -->
+            <RowDefinition Height="Auto"/> <!-- Filters -->
+            <RowDefinition Height="120"/>  <!-- Histogram -->
+            <RowDefinition Height="5"/>    <!-- Spacer -->
+            <RowDefinition Height="*"/>    <!-- Data & Details -->
+            <RowDefinition Height="Auto"/> <!-- Status -->
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <TextBlock Text="System Timeline" FontSize="28" FontWeight="Bold" Foreground="Cyan" Grid.Row="0" Margin="0,0,0,20">
+        <TextBlock Text="System Timeline" FontSize="28" FontWeight="Bold" Foreground="Cyan" Grid.Row="0" Margin="0,0,0,10">
             <TextBlock.Effect>
                 <DropShadowEffect Color="Cyan" BlurRadius="15" ShadowDepth="0" Opacity="0.4"/>
             </TextBlock.Effect>
         </TextBlock>
 
         <!-- Filters -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,15">
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
             <TextBlock Text="Filter Date:" Foreground="White" VerticalAlignment="Center" Margin="0,0,10,0"/>
             <DatePicker x:Name="EventDatePicker" Width="150" VerticalAlignment="Center"/>
             
-            <Button x:Name="RefreshBtn" Content="Refresh Events" Width="120" Height="30" Margin="20,0,0,0" ToolTip="Reload events" Click="RefreshBtn_Click">
-                <Button.Style>
+            <Button x:Name="RefreshBtn" Content="Refresh" Width="100" Height="25" Margin="20,0,0,0" Click="RefreshBtn_Click">
+                 <Button.Style>
                     <Style TargetType="Button">
                         <Setter Property="Background" Value="#007ACC"/>
                         <Setter Property="Foreground" Value="White"/>
-                        <Setter Property="BorderThickness" Value="0"/>
                         <Setter Property="Template">
                             <Setter.Value>
                                 <ControlTemplate TargetType="Button">
-                                    <Border Background="{TemplateBinding Background}" CornerRadius="3" Padding="5">
+                                    <Border Background="{TemplateBinding Background}" CornerRadius="3">
                                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Border>
                                 </ControlTemplate>
                             </Setter.Value>
                         </Setter>
-                        <Style.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#009DFF"/>
-                            </Trigger>
-                        </Style.Triggers>
                     </Style>
                 </Button.Style>
             </Button>
@@ -53,29 +50,62 @@
             <CheckBox x:Name="ShowAllDates" Content="Show All Time" Foreground="White" VerticalAlignment="Center" Margin="20,0,0,0" Click="ShowAllDates_Click"/>
         </StackPanel>
 
-        <!-- Data Results -->
-        <DataGrid x:Name="EventsGrid" Grid.Row="2" AutoGenerateColumns="False" HeadersVisibility="Column" 
+        <!-- Histogram -->
+        <ctrl:ActivityHistogram x:Name="ActivityHistogram" Grid.Row="2" Margin="0,0,0,0"/>
+
+        <!-- Split View: Data & Details -->
+        <Grid Grid.Row="4" Margin="0,10,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="5"/>
+                <ColumnDefinition Width="300" MaxWidth="500" MinWidth="200"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Event List -->
+            <DataGrid x:Name="EventsGrid" Grid.Column="0" AutoGenerateColumns="False" HeadersVisibility="Column" 
                   Background="#252526" RowBackground="#252526" AlternatingRowBackground="#2D2D30" 
                   Foreground="White" BorderBrush="#3E3E42" GridLinesVisibility="Horizontal" MinRowHeight="25" IsReadOnly="True"
-                  ScrollViewer.CanContentScroll="True">
-            <DataGrid.Resources>
-                <Style TargetType="DataGridColumnHeader">
-                    <Setter Property="Background" Value="#333"/>
-                    <Setter Property="Foreground" Value="White"/>
-                    <Setter Property="Padding" Value="10,5"/>
-                </Style>
-            </DataGrid.Resources>
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="Timestamp" Binding="{Binding Timestamp, StringFormat=\{0:yyyy-MM-dd HH:mm:ss\}}" Width="160"/>
-                <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="180"/>
-                <DataGridTextColumn Header="Event ID" Binding="{Binding EventId}" Width="80"/>
-                <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="150"/>
-                <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
-            </DataGrid.Columns>
-        </DataGrid>
+                  SelectionMode="Single" SelectionChanged="EventsGrid_SelectionChanged">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Timestamp" Binding="{Binding Timestamp, StringFormat=\{0:HH:mm:ss\}}" Width="80"/>
+                    <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="140"/>
+                    <DataGridTextColumn Header="ID" Binding="{Binding EventId}" Width="60"/>
+                    <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="120"/>
+                    <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
+                </DataGrid.Columns>
+            </DataGrid>
 
+            <!-- Splitter -->
+            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Center" Background="#3E3E42"/>
+
+            <!-- Detail Panel -->
+            <Border Grid.Column="2" Background="#252526" BorderBrush="#3E3E42" BorderThickness="1" CornerRadius="3" Margin="5,0,0,0" Padding="10">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="Event Details" FontWeight="Bold" Foreground="White" FontSize="16" Margin="0,0,0,10"/>
+                    
+                    <StackPanel Grid.Row="1" x:Name="DetailMetaPanel" Visibility="Hidden">
+                        <TextBlock x:Name="DetailTime" Text="10:00:00" Foreground="Cyan" FontSize="14" Margin="0,0,0,5"/>
+                        <TextBlock x:Name="DetailCategory" Text="Login Failed" Foreground="Red" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,15"/>
+                    </StackPanel>
+
+                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                        <TextBlock x:Name="DetailDescription" Text="Select an event to view details." 
+                                   Foreground="#CCCCCC" TextWrapping="Wrap" FontSize="13" LineHeight="20"/>
+                    </ScrollViewer>
+                    
+                </Grid>
+            </Border>
+        </Grid>
+        
         <!-- Status Bar -->
-        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,10,0,0">
+        <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,10,0,0">
             <TextBlock x:Name="StatusText" Text="Ready" Foreground="Gray"/>
             <ProgressBar x:Name="LoadingBar" Width="100" Height="10" Margin="10,0,0,0" IsIndeterminate="True" Visibility="Collapsed"/>
         </StackPanel>
