@@ -85,4 +85,13 @@ namespace DeviceMonitorCS.Models
         public string Path { get; set; }
         public string AdditionalSettings { get; set; }
     }
+
+    public class TimelineEvent
+    {
+        public DateTime Timestamp { get; set; }
+        public string Category { get; set; }
+        public int EventId { get; set; }
+        public string Source { get; set; }
+        public string Description { get; set; }
+    }
 }

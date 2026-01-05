@@ -115,6 +115,7 @@ namespace DeviceMonitorCS
             NavDashboardBtn.Click += (s, e) => NavigateTo(DashboardView);
             PerformanceBtn.Click += (s, e) => NavigateTo(PerformanceView);
             PrivacyBtn.Click += (s, e) => NavigateTo(PrivacyView);
+            TimelineBtn.Click += (s, e) => NavigateTo(TimelineView);
             DefenderBtn.Click += (s, e) => NavigateTo(WindowsDefenderView);
             FirmwareSettingsBtn.Click += (s, e) => NavigateTo(FirmwareSettingsView);
             DeviceManagementBtn.Click += (s, e) => 
@@ -578,6 +579,7 @@ namespace DeviceMonitorCS
             DashboardView.Visibility = Visibility.Collapsed;
             PerformanceView.Visibility = Visibility.Collapsed;
             PrivacyView.Visibility = Visibility.Collapsed;
+            TimelineView.Visibility = Visibility.Collapsed;
             HostedNetworkView.Visibility = Visibility.Collapsed;
             WanMiniportView.Visibility = Visibility.Collapsed;
             NetworkAdaptersView.Visibility = Visibility.Collapsed;

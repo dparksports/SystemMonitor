@@ -70,6 +70,7 @@
                 <Button x:Name="NavDashboardBtn" Content="Dashboard" Style="{StaticResource NavButton}"/>
                 <Button x:Name="PerformanceBtn" Content="System Performance" Style="{StaticResource NavButton}"/>
                 <Button x:Name="PrivacyBtn" Content="Privacy Settings" Style="{StaticResource NavButton}"/>
+                <Button x:Name="TimelineBtn" Content="System Timeline" Style="{StaticResource NavButton}"/>
                 <Button x:Name="DefenderBtn" Content="Windows Defender" Style="{StaticResource NavButton}"/>
                 <Button x:Name="FirmwareSettingsBtn" Content="Firmware Settings" Style="{StaticResource NavButton}"/>
                 <Button x:Name="DeviceManagementBtn" Content="Device Management" Style="{StaticResource NavButton}"/>
@@ -101,6 +102,7 @@
             
             <!-- Privacy View -->
             <views:PrivacyView x:Name="PrivacyView" Visibility="Collapsed"/>
+            <views:TimelineView x:Name="TimelineView" Visibility="Collapsed"/>
             <views:WindowsDefenderView x:Name="WindowsDefenderView" Visibility="Collapsed"/>
             
             <!-- Firmware Settings View -->
