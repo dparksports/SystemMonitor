@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
 using System.Windows.Media;
 using DeviceMonitorCS.Helpers;
 using DeviceMonitorCS.Models;
@@ -19,7 +18,10 @@ namespace DeviceMonitorCS.Views
         {
             InitializeComponent();
             EventDatePicker.SelectedDate = DateTime.Today;
-            ActivityHistogram.TimeRangeSelected += OnHistogramTimeRangeSelected;
+            MainTimelineCanvas.EventClicked += OnEventClicked;
+            
+            // Subscribe to filters
+            TimelineFilterControl.FiltersChanged += OnFiltersChanged;
         }
 
         private async void RefreshBtn_Click(object sender, RoutedEventArgs e)
@@ -31,30 +33,22 @@ namespace DeviceMonitorCS.Views
         {
             try
             {
-                StatusText.Text = "Loading events... This may take a moment.";
+                StatusText.Text = "Loading events...";
                 LoadingBar.Visibility = Visibility.Visible;
                 RefreshBtn.IsEnabled = false;
 
-                DateTime? filterDate = null;
-                if (ShowAllDates.IsChecked == false)
-                {
-                    filterDate = EventDatePicker.SelectedDate ?? DateTime.Today;
-                }
+                DateTime date = EventDatePicker.SelectedDate ?? DateTime.Today;
 
-                _loadedEvents = await EventLogHelper.GetTimelineEventsAsync(filterDate);
+                _loadedEvents = await EventLogHelper.GetTimelineEventsAsync(date);
                 
-                // Bind DataGrid
-                EventsGrid.ItemsSource = _loadedEvents;
-                
-                // Load Histogram
-                ActivityHistogram.LoadData(_loadedEvents, filterDate ?? DateTime.Today);
+                ApplyFilters(); // Apply filters initially
 
                 StatusText.Text = $"Loaded {_loadedEvents.Count} events.";
             }
             catch (Exception ex)
             {
                 StatusText.Text = "Error loading events.";
-                MessageBox.Show($"Error querying Event Log: {ex.Message}\nNote: Some logs require Administrator privileges.");
+                MessageBox.Show($"Error: {ex.Message}");
             }
             finally
             {
@@ -62,46 +56,71 @@ namespace DeviceMonitorCS.Views
                 RefreshBtn.IsEnabled = true;
             }
         }
-
-        private void ShowAllDates_Click(object sender, RoutedEventArgs e)
-        {
-            EventDatePicker.IsEnabled = ShowAllDates.IsChecked == false;
-        }
         
-        private void OnHistogramTimeRangeSelected(DateTime start, DateTime end)
+        private void OnFiltersChanged()
         {
-            // Filter the DataGrid
-            if (_loadedEvents != null)
-            {
-                var filtered = _loadedEvents.Where(ev => ev.Timestamp >= start && ev.Timestamp < end).ToList();
-                EventsGrid.ItemsSource = filtered;
-                StatusText.Text = $"Showing {filtered.Count} events from {start:HH:mm} to {end:HH:mm}";
-            }
+            ApplyFilters();
         }
 
-        private void EventsGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void ApplyFilters()
         {
-            if (EventsGrid.SelectedItem is TimelineEvent evt)
-            {
-                DetailMetaPanel.Visibility = Visibility.Visible;
-                DetailTime.Text = evt.Timestamp.ToString("yyyy-MM-dd HH:mm:ss");
-                DetailCategory.Text = $"{evt.Category} ({evt.EventId})";
-                DetailCategory.Foreground = GetBrushForCategory(evt);
-                
-                DetailDescription.Text = $"Source: {evt.Source}\n\n{evt.Description}";
-            }
-            else
-            {
-                DetailMetaPanel.Visibility = Visibility.Hidden;
-                DetailDescription.Text = "Select an event to view details.";
-            }
+            if (_loadedEvents == null) return;
+
+            var selectedCats = TimelineFilterControl.GetSelectedCategories();
+            var filtered = _loadedEvents.Where(ev => 
+                selectedCats.Any(cat => ev.Category.Contains(cat)) || 
+                (selectedCats.Contains("Defender") && ev.Source.Contains("Defender"))
+            ).ToList();
+
+            MainTimelineCanvas.LoadEvents(filtered);
+            
+            // Update Metrics
+            MetricTotal.Text = filtered.Count.ToString();
+            MetricErrors.Text = filtered.Count(ev => ev.Category.Contains("Error") || ev.EventId == 4625).ToString();
         }
-        
-        private Brush GetBrushForCategory(TimelineEvent evt)
+
+        private void OnEventClicked(TimelineEvent evt)
         {
-             if (evt.Category.Contains("Error") || evt.Category.Contains("Fail")) return Brushes.Red;
-             if (evt.Category.Contains("Warning") || evt.Category.Contains("Change")) return Brushes.Yellow;
-             return Brushes.Cyan;
+            // Populate Detail Panel
+            DetailPanelContent.Children.Clear();
+
+            // Time & Category
+            var header = new TextBlock 
+            { 
+                Text = $"{evt.Timestamp:HH:mm:ss} - {evt.Category}", 
+                FontSize = 16, 
+                FontWeight = FontWeights.Bold,
+                Foreground = Brushes.Cyan,
+                 Margin = new Thickness(0,0,0,10)
+            };
+            DetailPanelContent.Children.Add(header);
+
+            // Properties
+            AddDetailItem("Event ID", evt.EventId.ToString());
+            AddDetailItem("Source", evt.Source);
+            
+            // Separator
+             var sep = new Border { Height=1, Background=Brushes.Gray, Margin=new Thickness(0,10,0,10) };
+             DetailPanelContent.Children.Add(sep);
+
+            // Description
+            var desc = new TextBlock 
+            { 
+                Text = evt.Description, 
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = Brushes.LightGray,
+                FontSize = 13,
+                LineHeight = 20
+            };
+            DetailPanelContent.Children.Add(desc);
+        }
+
+        private void AddDetailItem(string label, string value)
+        {
+            var sp = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0,2,0,2) };
+            sp.Children.Add(new TextBlock { Text = label + ": ", FontWeight = FontWeights.Bold, Foreground = Brushes.Gray, Width = 80 });
+            sp.Children.Add(new TextBlock { Text = value, Foreground = Brushes.White });
+            DetailPanelContent.Children.Add(sp);
         }
     }
 }

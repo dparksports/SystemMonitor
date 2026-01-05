@@ -5,109 +5,93 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:ctrl="clr-namespace:DeviceMonitorCS.Controls"
              mc:Ignorable="d" 
-             d:DesignHeight="700" d:DesignWidth="1000"
+             d:DesignHeight="768" d:DesignWidth="1366"
              Background="#1E1E1E">
-    <Grid Margin="20">
+    <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/> <!-- Header -->
-            <RowDefinition Height="Auto"/> <!-- Filters -->
-            <RowDefinition Height="120"/>  <!-- Histogram -->
-            <RowDefinition Height="5"/>    <!-- Spacer -->
-            <RowDefinition Height="*"/>    <!-- Data & Details -->
-            <RowDefinition Height="Auto"/> <!-- Status -->
+            <RowDefinition Height="Auto"/> <!-- Header Dashboard (120px) -->
+            <RowDefinition Height="*"/>    <!-- Main Content -->
+            <RowDefinition Height="Auto"/> <!-- Footer (40px) -->
         </Grid.RowDefinitions>
 
-        <!-- Header -->
-        <TextBlock Text="System Timeline" FontSize="28" FontWeight="Bold" Foreground="Cyan" Grid.Row="0" Margin="0,0,0,10">
-            <TextBlock.Effect>
-                <DropShadowEffect Color="Cyan" BlurRadius="15" ShadowDepth="0" Opacity="0.4"/>
-            </TextBlock.Effect>
-        </TextBlock>
+        <!-- A. HEADER & DASHBOARD -->
+        <Border Grid.Row="0" Background="#252526" BorderBrush="#3E3E42" BorderThickness="0,0,0,1" Padding="20">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- Title & Date -->
+                <StackPanel Orientation="Horizontal" Visibility="Visible">
+                     <TextBlock Text="SYSTEM TIMELINE" FontSize="18" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" Margin="0,0,20,0"/>
+                     <DatePicker x:Name="EventDatePicker" Width="150" VerticalAlignment="Center"/>
+                     <Button x:Name="RefreshBtn" Content="↻ Refresh" Margin="10,0,0,0" Padding="10,5" Click="RefreshBtn_Click"/>
+                </StackPanel>
+                
+                <!-- Metrics (Placeholders for now) -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <!-- Metric Card 1 -->
+                    <Border Background="#333" CornerRadius="5" Padding="15,5" Margin="5">
+                        <StackPanel>
+                            <TextBlock Text="TOTAL EVENTS" FontSize="10" Foreground="Gray"/>
+                            <TextBlock x:Name="MetricTotal" Text="0" FontSize="20" FontWeight="Bold" Foreground="White"/>
+                        </StackPanel>
+                    </Border>
+                    <!-- Metric Card 2 -->
+                    <Border Background="#333" CornerRadius="5" Padding="15,5" Margin="5">
+                        <StackPanel>
+                            <TextBlock Text="ERRORS" FontSize="10" Foreground="Gray"/>
+                            <TextBlock x:Name="MetricErrors" Text="0" FontSize="20" FontWeight="Bold" Foreground="#FF5555"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </Border>
 
-        <!-- Filters -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
-            <TextBlock Text="Filter Date:" Foreground="White" VerticalAlignment="Center" Margin="0,0,10,0"/>
-            <DatePicker x:Name="EventDatePicker" Width="150" VerticalAlignment="Center"/>
-            
-            <Button x:Name="RefreshBtn" Content="Refresh" Width="100" Height="25" Margin="20,0,0,0" Click="RefreshBtn_Click">
-                 <Button.Style>
-                    <Style TargetType="Button">
-                        <Setter Property="Background" Value="#007ACC"/>
-                        <Setter Property="Foreground" Value="White"/>
-                        <Setter Property="Template">
-                            <Setter.Value>
-                                <ControlTemplate TargetType="Button">
-                                    <Border Background="{TemplateBinding Background}" CornerRadius="3">
-                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Border>
-                                </ControlTemplate>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-                </Button.Style>
-            </Button>
-            
-            <CheckBox x:Name="ShowAllDates" Content="Show All Time" Foreground="White" VerticalAlignment="Center" Margin="20,0,0,0" Click="ShowAllDates_Click"/>
-        </StackPanel>
-
-        <!-- Histogram -->
-        <ctrl:ActivityHistogram x:Name="ActivityHistogram" Grid.Row="2" Margin="0,0,0,0"/>
-
-        <!-- Split View: Data & Details -->
-        <Grid Grid.Row="4" Margin="0,10,0,0">
+        <!-- B. C. D. MAIN CONTENT (Holy Grail) -->
+        <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="5"/>
-                <ColumnDefinition Width="300" MaxWidth="500" MinWidth="200"/>
+                <ColumnDefinition Width="250"/> <!-- Sidebar -->
+                <ColumnDefinition Width="*"/>   <!-- Canvas -->
+                <ColumnDefinition Width="350"/> <!-- Detail -->
             </Grid.ColumnDefinitions>
 
-            <!-- Event List -->
-            <DataGrid x:Name="EventsGrid" Grid.Column="0" AutoGenerateColumns="False" HeadersVisibility="Column" 
-                  Background="#252526" RowBackground="#252526" AlternatingRowBackground="#2D2D30" 
-                  Foreground="White" BorderBrush="#3E3E42" GridLinesVisibility="Horizontal" MinRowHeight="25" IsReadOnly="True"
-                  SelectionMode="Single" SelectionChanged="EventsGrid_SelectionChanged">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="Timestamp" Binding="{Binding Timestamp, StringFormat=\{0:HH:mm:ss\}}" Width="80"/>
-                    <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="140"/>
-                    <DataGridTextColumn Header="ID" Binding="{Binding EventId}" Width="60"/>
-                    <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="120"/>
-                    <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
-                </DataGrid.Columns>
-            </DataGrid>
+            <!-- B. LEFT SIDEBAR (Filters) -->
+            <ctrl:TimelineFilter x:Name="TimelineFilterControl" Grid.Column="0"/>
 
-            <!-- Splitter -->
-            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Center" Background="#3E3E42"/>
+            <!-- C. PRIMARY TIMELINE CANVAS -->
+            <Border Grid.Column="1" Background="#111" ClipToBounds="True">
+                <ctrl:TimelineCanvas x:Name="MainTimelineCanvas"/>
+            </Border>
 
-            <!-- Detail Panel -->
-            <Border Grid.Column="2" Background="#252526" BorderBrush="#3E3E42" BorderThickness="1" CornerRadius="3" Margin="5,0,0,0" Padding="10">
-                <Grid>
+            <!-- D. RIGHT DETAIL PANEL -->
+            <Border Grid.Column="2" Background="#252526" BorderBrush="#3E3E42" BorderThickness="1,0,0,0">
+                <Grid Margin="15">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-
-                    <TextBlock Text="Event Details" FontWeight="Bold" Foreground="White" FontSize="16" Margin="0,0,0,10"/>
                     
-                    <StackPanel Grid.Row="1" x:Name="DetailMetaPanel" Visibility="Hidden">
-                        <TextBlock x:Name="DetailTime" Text="10:00:00" Foreground="Cyan" FontSize="14" Margin="0,0,0,5"/>
-                        <TextBlock x:Name="DetailCategory" Text="Login Failed" Foreground="Red" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,15"/>
-                    </StackPanel>
-
-                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-                        <TextBlock x:Name="DetailDescription" Text="Select an event to view details." 
-                                   Foreground="#CCCCCC" TextWrapping="Wrap" FontSize="13" LineHeight="20"/>
+                    <TextBlock Text="EVENT DETAILS" FontWeight="Bold" Foreground="Gray" Margin="0,0,0,10"/>
+                    
+                    <!-- Content -->
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="DetailPanelContent">
+                            <TextBlock Text="Select an event to inspect." Foreground="#666" FontStyle="Italic"/>
+                        </StackPanel>
                     </ScrollViewer>
-                    
                 </Grid>
             </Border>
         </Grid>
-        
-        <!-- Status Bar -->
-        <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,10,0,0">
-            <TextBlock x:Name="StatusText" Text="Ready" Foreground="Gray"/>
-            <ProgressBar x:Name="LoadingBar" Width="100" Height="10" Margin="10,0,0,0" IsIndeterminate="True" Visibility="Collapsed"/>
-        </StackPanel>
+
+        <!-- E. FOOTER -->
+        <Border Grid.Row="2" Background="#007ACC" Padding="10,5">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock x:Name="StatusText" Text="Ready" Foreground="White" FontWeight="SemiBold"/>
+                <ProgressBar x:Name="LoadingBar" Width="100" Height="10" Margin="10,0,0,0" IsIndeterminate="True" Visibility="Collapsed"/>
+            </StackPanel>
+        </Border>
     </Grid>
 </UserControl>
