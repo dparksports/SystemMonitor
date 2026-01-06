@@ -1,4 +1,4 @@
-# Windows System Monitor (v2.8.1)
+# Windows System Monitor (v3.1.0)
 **Advanced Real-Time Security Enforcement & System Analytics**
 
 Windows System Monitor is a professional-grade C# WPF application designed for power users and security administrators. It provides deep visibility into system hardware, network traffic, and security events, combined with automated policy enforcement through a robust "Security Enforcer" background engine.
@@ -30,6 +30,9 @@ Windows System Monitor is a professional-grade C# WPF application designed for p
 ### 🛠️ System Control Tools
 *   **Firewall Manager**: View and toggle inbound/outbound rules with one-click reset capabilities.
 *   **Scheduled Tasks**: Full management (Start/Stop/Delete) of Windows Scheduled Tasks.
+*   **Cold Boots**: Analyze system boot history, uptime, and crash events.
+*   **True Shutdown**: Bypass Fast Startup for a complete system power cycle.
+*   **Hibernation**: Toggle hibernation availability to save disk space.
 *   **Hosted Network**: Manage Wi-Fi Hotspots and WAN Miniport adapters.
 
 ---
@@ -50,7 +53,11 @@ Windows System Monitor is a professional-grade C# WPF application designed for p
 
 ## 📜 Release History
 
-### v2.8.1 (Latest)
+### v3.1.0 (Latest)
+*   **Cold Boots View**: New view to track boot performance and history.
+*   **Power Tools**: Added "True Shutdown" and Hibernation toggle controls.
+
+### v2.8.1
 *   **Consolidation**: Merged peripheral tracking into a unified, auto-loading Device Management view.
 *   **Reliability**: Implemented XML-based PnP event parsing for 100% accurate device history.
 
