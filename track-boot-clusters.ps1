@@ -1,14 +1,22 @@
-# --- Date Range ---
+# ============================
+# CONFIG
+# ============================
+
 $start = (Get-Date).AddDays(-90)
 
-# Expected boot events (REAL BOOT ONLY)
+# Expected boot events for your system
 $expectedBootEvents = @(
     @{ Provider = 'Microsoft-Windows-Kernel-General'; Id = 12 },
     @{ Provider = 'Microsoft-Windows-Wininit'; Id = 12 },
-    @{ Provider = 'Microsoft-Windows-Security-Auditing'; Id = 4608 }
+    @{ Provider = 'Microsoft-Windows-Security-Auditing'; Id = 4608 },
+    @{ Provider = 'EventLog'; Id = 6005 }
 )
 
-# --- Collect ONLY REAL boot events ---
+
+# ============================
+# COLLECT BOOT EVENTS
+# ============================
+
 $rawBoots = @()
 
 # Kernel-General 12
@@ -21,14 +29,24 @@ $rawBoots += Get-WinEvent -FilterHashtable @{
     LogName = 'System'; Id = 12; ProviderName = 'Microsoft-Windows-Wininit'; StartTime = $start
 } -ErrorAction SilentlyContinue | Select TimeCreated, Id, ProviderName
 
+# EventLog 6005
+$rawBoots += Get-WinEvent -FilterHashtable @{
+    LogName = 'System'; Id = 6005; StartTime = $start
+} -ErrorAction SilentlyContinue | Select TimeCreated, Id, ProviderName
+
 # Security 4608
 $rawBoots += Get-WinEvent -FilterHashtable @{
     LogName = 'Security'; Id = 4608; StartTime = $start
 } -ErrorAction SilentlyContinue | Select TimeCreated, Id, ProviderName
 
+# Sort all boot events
 $rawBoots = $rawBoots | Sort-Object TimeCreated
 
-# --- Cluster boot events ---
+
+# ============================
+# CLUSTER BOOT EVENTS
+# ============================
+
 $clusters = @()
 $currentCluster = @()
 
@@ -41,6 +59,7 @@ foreach ($evt in $rawBoots) {
 
     $last = $currentCluster[-1]
 
+    # Same cluster if within 10 seconds
     if (($evt.TimeCreated - $last.TimeCreated).TotalSeconds -le 10) {
         $currentCluster += $evt
     }
@@ -54,7 +73,11 @@ if ($currentCluster.Count -gt 0) {
     $clusters += , @($currentCluster)
 }
 
-# Convert clusters into boot objects
+
+# ============================
+# BUILD CLUSTER OBJECTS
+# ============================
+
 $boots = foreach ($cluster in $clusters) {
 
     $clusterEvents = $cluster | Select ProviderName, Id, TimeCreated
@@ -69,11 +92,21 @@ $boots = foreach ($cluster in $clusters) {
         }
     }
 
+    # Readable event summary
+    $eventSummary = ($clusterEvents |
+        Sort-Object TimeCreated |
+        ForEach-Object {
+            "{0} {1} @ {2}" -f `
+            ($_.ProviderName -replace 'Microsoft-Windows-', ''), `
+                $_.Id, `
+                $_.TimeCreated.ToString("HH:mm:ss")
+        }) -join "; "
+
     [PSCustomObject]@{
-        BootTime      = ($cluster | Select-Object -First 1).TimeCreated
-        Events        = $clusterEvents
-        MissingEvents = if ($missing.Count -gt 0) { $missing -join ", " } else { "" }
+        BootTime      = ($cluster | Select-Object -First 1).TimeCreated.ToString("yyyy-MM-dd HH:mm:ss")
+        EventSummary  = $eventSummary
+        MissingEvents = $missing -join ", "
     }
 }
 
-$boots = $boots | Sort-Object BootTime
+$boots | Sort-Object BootTime
