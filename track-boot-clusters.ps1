@@ -14,32 +14,84 @@ $expectedBootEvents = @(
 
 
 # ============================
-# COLLECT BOOT EVENTS
+# COLLECT BOOT-RELATED EVENTS
+# ============================
+
+# Kernel-General 12 (anchor)
+$kernelBoots = Get-WinEvent -FilterHashtable @{
+    LogName = 'System'; Id = 12; ProviderName = 'Microsoft-Windows-Kernel-General'; StartTime = $start
+} -ErrorAction SilentlyContinue |
+Select TimeCreated, Id, ProviderName |
+Sort-Object TimeCreated
+
+if (-not $kernelBoots) {
+    Write-Host "No Kernel-General 12 boot events found."
+    return
+}
+
+# Wininit 12
+$wininit = Get-WinEvent -FilterHashtable @{
+    LogName = 'System'; Id = 12; ProviderName = 'Microsoft-Windows-Wininit'; StartTime = $start
+} -ErrorAction SilentlyContinue |
+Select TimeCreated, Id, ProviderName
+
+# EventLog 6005
+$event6005 = Get-WinEvent -FilterHashtable @{
+    LogName = 'System'; Id = 6005; StartTime = $start
+} -ErrorAction SilentlyContinue |
+Select TimeCreated, Id, ProviderName
+
+# Security 4608
+$sec4608 = Get-WinEvent -FilterHashtable @{
+    LogName = 'Security'; Id = 4608; StartTime = $start
+} -ErrorAction SilentlyContinue |
+Select TimeCreated, Id, ProviderName
+
+
+# ============================
+# AUTO-DETECT CLUSTERING WINDOW
+# ============================
+
+$gaps = @()
+
+foreach ($kg in $kernelBoots) {
+    $t = $kg.TimeCreated
+
+    $nextWininit = $wininit  | Where-Object { $_.TimeCreated -ge $t } | Select-Object -First 1
+    $next6005 = $event6005 | Where-Object { $_.TimeCreated -ge $t } | Select-Object -First 1
+    $next4608 = $sec4608  | Where-Object { $_.TimeCreated -ge $t } | Select-Object -First 1
+
+    foreach ($evt in @($nextWininit, $next6005, $next4608)) {
+        if ($evt) {
+            $gap = ($evt.TimeCreated - $t).TotalSeconds
+            if ($gap -gt 0 -and $gap -lt 300) {
+                # ignore huge gaps
+                $gaps += $gap
+            }
+        }
+    }
+}
+
+if ($gaps.Count -gt 0) {
+    $clusteringWindow = [math]::Ceiling(($gaps | Measure-Object -Maximum).Maximum + 5)
+}
+else {
+    $clusteringWindow = 30
+}
+
+Write-Host "Auto-detected clustering window: $clusteringWindow seconds"
+
+
+# ============================
+# BUILD RAW BOOT EVENT LIST
 # ============================
 
 $rawBoots = @()
+$rawBoots += $kernelBoots
+$rawBoots += $wininit
+$rawBoots += $event6005
+$rawBoots += $sec4608
 
-# Kernel-General 12
-$rawBoots += Get-WinEvent -FilterHashtable @{
-    LogName = 'System'; Id = 12; ProviderName = 'Microsoft-Windows-Kernel-General'; StartTime = $start
-} -ErrorAction SilentlyContinue | Select TimeCreated, Id, ProviderName
-
-# Wininit 12
-$rawBoots += Get-WinEvent -FilterHashtable @{
-    LogName = 'System'; Id = 12; ProviderName = 'Microsoft-Windows-Wininit'; StartTime = $start
-} -ErrorAction SilentlyContinue | Select TimeCreated, Id, ProviderName
-
-# EventLog 6005
-$rawBoots += Get-WinEvent -FilterHashtable @{
-    LogName = 'System'; Id = 6005; StartTime = $start
-} -ErrorAction SilentlyContinue | Select TimeCreated, Id, ProviderName
-
-# Security 4608
-$rawBoots += Get-WinEvent -FilterHashtable @{
-    LogName = 'Security'; Id = 4608; StartTime = $start
-} -ErrorAction SilentlyContinue | Select TimeCreated, Id, ProviderName
-
-# Sort all boot events
 $rawBoots = $rawBoots | Sort-Object TimeCreated
 
 
@@ -59,8 +111,7 @@ foreach ($evt in $rawBoots) {
 
     $last = $currentCluster[-1]
 
-    # Same cluster if within 10 seconds
-    if (($evt.TimeCreated - $last.TimeCreated).TotalSeconds -le 10) {
+    if (($evt.TimeCreated - $last.TimeCreated).TotalSeconds -le $clusteringWindow) {
         $currentCluster += $evt
     }
     else {
@@ -82,7 +133,6 @@ $boots = foreach ($cluster in $clusters) {
 
     $clusterEvents = $cluster | Select ProviderName, Id, TimeCreated
 
-    # Determine missing events
     $missing = foreach ($exp in $expectedBootEvents) {
         $found = $clusterEvents | Where-Object {
             $_.ProviderName -eq $exp.Provider -and $_.Id -eq $exp.Id
@@ -92,7 +142,6 @@ $boots = foreach ($cluster in $clusters) {
         }
     }
 
-    # Readable event summary
     $eventSummary = ($clusterEvents |
         Sort-Object TimeCreated |
         ForEach-Object {
