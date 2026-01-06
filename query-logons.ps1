@@ -1,33 +1,38 @@
 # --- Date Range (change as needed) ---
-# Last 30 days:
-$start = (Get-Date).AddDays(-30)
-
-# If you want ALL history, comment out the line above and use:
-# $start = $null
+# Last 90 days:
+$start = (Get-Date).AddDays(-90)
 
 
 # --- Collect events ---
 
-# Boot events (4608)
+# Boot events (Kernel-General 12 — reliable)
 $boots = Get-WinEvent -FilterHashtable @{
-    LogName   = 'Security'
-    Id        = 4608
+    LogName   = 'System'
+    Id        = 12
     StartTime = $start
-} | Select-Object TimeCreated
+} -ErrorAction SilentlyContinue |
+Select-Object TimeCreated
+
+if (-not $boots) {
+    Write-Host "No boot events found." -ForegroundColor Yellow
+    return
+}
 
 # Shutdown events (4609, 6006)
 $shutdowns = Get-WinEvent -FilterHashtable @{
     LogName   = 'System'
     Id        = @(4609, 6006)
     StartTime = $start
-} | Select-Object TimeCreated
+} -ErrorAction SilentlyContinue |
+Select-Object TimeCreated
 
 # Logon events (4624)
 $logons = Get-WinEvent -FilterHashtable @{
     LogName   = 'Security'
     Id        = 4624
     StartTime = $start
-} | Where-Object {
+} -ErrorAction SilentlyContinue |
+Where-Object {
     $_.Properties[8].Value -in 2, 10 -and
     $_.Properties[5].Value -notmatch '^DWM-' -and
     $_.Properties[5].Value -notmatch '^UMFD-' -and
@@ -43,16 +48,19 @@ $logons = Get-WinEvent -FilterHashtable @{
 }
 
 # Deduplicate unlock events (same LogonID)
-$logons = $logons |
-Group-Object LogonID |
-ForEach-Object { $_.Group | Sort-Object TimeCreated | Select-Object -First 1 }
+if ($logons) {
+    $logons = $logons |
+    Group-Object LogonID |
+    ForEach-Object { $_.Group | Sort-Object TimeCreated | Select-Object -First 1 }
+}
 
 # Logoff events (4634)
 $logoffs = Get-WinEvent -FilterHashtable @{
     LogName   = 'Security'
     Id        = 4634
     StartTime = $start
-} | Select-Object TimeCreated, @{
+} -ErrorAction SilentlyContinue |
+Select-Object TimeCreated, @{
     Name = 'LogonID'; Expression = { $_.Properties[0].Value }
 }
 

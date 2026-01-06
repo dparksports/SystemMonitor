@@ -1,228 +1,155 @@
 # ============================
 # CONFIG
 # ============================
-
 $start = (Get-Date).AddDays(-90)
-
-# Expected events for a clustered boot
-$expectedBootEvents = @(
-    @{ Provider = 'Microsoft-Windows-Kernel-General'; Id = 12 },
-    @{ Provider = 'Microsoft-Windows-Wininit'; Id = 12 },
-    @{ Provider = 'Microsoft-Windows-Security-Auditing'; Id = 4608 }
-)
-
+$MaxSecondsDiff = 300 # Tolerance for matching 4608 to Boot
 
 # ============================
-# COLLECT BOOT-RELATED EVENTS
+# 1. COLLECT DATA (PATCHED)
 # ============================
+Write-Host "1. Querying Event Logs..."
 
-# Kernel-General 12 (anchor)
-$kg12 = Get-WinEvent -FilterHashtable @{
-    LogName      = 'System'
-    Id           = 12
-    ProviderName = 'Microsoft-Windows-Kernel-General'
-    StartTime    = $start
-} -ErrorAction SilentlyContinue |
-Select TimeCreated, Id, ProviderName
+# A. System Events (Standard Time Filter works here)
+$sysEvents = Get-WinEvent -FilterHashtable @{
+    LogName = 'System'; Id = @(12, 6006, 1074); StartTime = $start
+} -ErrorAction SilentlyContinue | Select-Object TimeCreated, Id, ProviderName
 
-if (-not $kg12 -or $kg12.Count -eq 0) {
-    Write-Host "No Kernel-General 12 events found in the last 90 days." -ForegroundColor Yellow
-    return
+# B. Security Events (PATCH: Use MaxEvents instead of StartTime)
+#    We fetch the last 500 boot events. This bypasses the StartTime bug while keeping performance high.
+try {
+    $secBootEvents = Get-WinEvent -FilterHashtable @{
+        LogName = 'Security'; Id = 4608
+    } -MaxEvents 500 -ErrorAction Stop | Select-Object TimeCreated, Id, ProviderName
+}
+catch {
+    Write-Warning "Failed to read Security Log 4608. Ensure you are running as ADMIN."
+    $secBootEvents = @()
 }
 
-# Wininit 12
-$wininit12 = Get-WinEvent -FilterHashtable @{
-    LogName      = 'System'
-    Id           = 12
-    ProviderName = 'Microsoft-Windows-Wininit'
-    StartTime    = $start
-} -ErrorAction SilentlyContinue |
-Select TimeCreated, Id, ProviderName
-
-# Security 4608
-$sec4608 = Get-WinEvent -FilterHashtable @{
-    LogName   = 'Security'
-    Id        = 4608
-    StartTime = $start
-} -ErrorAction SilentlyContinue |
-Select TimeCreated, Id, ProviderName
-
-# Combine all boot-related events
-$rawBoots = @()
-$rawBoots += $kg12
-$rawBoots += $wininit12
-$rawBoots += $sec4608
-
-$rawBoots = $rawBoots | Sort-Object TimeCreated
-
+# C. Security Shutdowns (4609) - Also using MaxEvents for safety
+$secShutdownEvents = Get-WinEvent -FilterHashtable @{
+    LogName = 'Security'; Id = 4609
+} -MaxEvents 500 -ErrorAction SilentlyContinue | Select-Object TimeCreated, Id, ProviderName
 
 # ============================
-# AUTO-DETECT CLUSTER WINDOW
+# 2. PREPARE SEARCH ARRAYS
 # ============================
 
-$gaps = @()
+# Filter Master Boots (Kernel-General 12)
+$boots = @($sysEvents | Where-Object { $_.ProviderName -match 'Kernel-General' -and $_.Id -eq 12 } | Sort-Object TimeCreated)
 
-foreach ($kg in $kg12) {
-    $t = $kg.TimeCreated
+# Searchable List of 4608s (Sorted for Binary Search)
+$all4608s = @($secBootEvents | Sort-Object TimeCreated)
 
-    $nextWininit = $wininit12 | Where-Object { $_.TimeCreated -ge $t } | Select-Object -First 1
-    $next4608 = $sec4608   | Where-Object { $_.TimeCreated -ge $t } | Select-Object -First 1
+# Searchable List of Shutdowns (Combined)
+$allShutdowns = @(($sysEvents + $secShutdownEvents) | Where-Object { $_.Id -ne 12 } | Sort-Object TimeCreated)
 
-    foreach ($evt in @($nextWininit, $next4608)) {
-        if ($evt) {
-            $gap = ($evt.TimeCreated - $t).TotalSeconds
-            if ($gap -gt 0 -and $gap -lt 300) {
-                $gaps += $gap
-            }
+Write-Host "   Stats: $($boots.Count) Boots | $($all4608s.Count) 4608 Events | $($allShutdowns.Count) Shutdowns"
+
+# ============================
+# 3. BINARY SEARCH FUNCTION
+# ============================
+function Find-NearestEvent {
+    param (
+        [datetime]$TargetTime,
+        [array]$SortedEvents
+    )
+
+    if (-not $SortedEvents -or $SortedEvents.Count -eq 0) { return $null }
+
+    $left = 0
+    $right = $SortedEvents.Count - 1
+
+    # Binary Search
+    while ($left -le $right) {
+        $mid = [math]::Floor(($left + $right) / 2)
+        $midTime = $SortedEvents[$mid].TimeCreated
+
+        if ($midTime -eq $TargetTime) { return $SortedEvents[$mid] }
+        elseif ($midTime -lt $TargetTime) { $left = $mid + 1 }
+        else { $right = $mid - 1 }
+    }
+
+    # $left is the insertion point. Check neighbors ($left) and ($left - 1)
+    $c1 = if ($left -lt $SortedEvents.Count) { $SortedEvents[$left] } else { $null }
+    $c2 = if (($left - 1) -ge 0) { $SortedEvents[$left - 1] } else { $null }
+
+    $diff1 = if ($c1) { [math]::Abs(($c1.TimeCreated - $TargetTime).TotalSeconds) } else { [double]::MaxValue }
+    $diff2 = if ($c2) { [math]::Abs(($c2.TimeCreated - $TargetTime).TotalSeconds) } else { [double]::MaxValue }
+
+    # Return the closest neighbor
+    return if ($diff1 -lt $diff2) { $c1 } else { $c2 }
+}
+
+# ============================
+# 4. PROCESS SESSIONS
+# ============================
+$results = @()
+
+for ($i = 0; $i -lt $boots.Count; $i++) {
+    $boot = $boots[$i]
+    $bootTime = $boot.TimeCreated
+
+    # --- MATCH 4608 (BINARY SEARCH) ---
+    $nearest4608 = Find-NearestEvent -TargetTime $bootTime -SortedEvents $all4608s
+    
+    # Validation: Is it close enough? (within 5 mins)
+    $valid4608 = $null
+    if ($nearest4608) {
+        $secondsDiff = ($nearest4608.TimeCreated - $bootTime).TotalSeconds
+        if ([math]::Abs($secondsDiff) -le $MaxSecondsDiff) {
+            $valid4608 = $nearest4608
         }
     }
-}
 
-$clusterWindow = if ($gaps.Count -gt 0) {
-    [math]::Ceiling(($gaps | Measure-Object -Maximum).Maximum + 5)
-}
-else {
-    20
-}
+    # --- FIND END OF SESSION ---
+    $nextBootTime = if ($i -lt ($boots.Count - 1)) { $boots[$i + 1].TimeCreated } else { Get-Date }
+    
+    $shutdown = $allShutdowns | Where-Object { 
+        $_.TimeCreated -gt $bootTime -and $_.TimeCreated -lt $nextBootTime 
+    } | Select-Object -Last 1
 
-Write-Host "Auto-detected clustering window: $clusterWindow seconds"
-
-
-# ============================
-# CLUSTER EVENTS
-# ============================
-
-$clusters = @()
-$current = @()
-
-foreach ($evt in $rawBoots) {
-
-    if ($current.Count -eq 0) {
-        $current += $evt
-        continue
-    }
-
-    $last = $current[-1]
-
-    if (($evt.TimeCreated - $last.TimeCreated).TotalSeconds -le $clusterWindow) {
-        $current += $evt
+    if ($i -lt ($boots.Count - 1)) {
+        if ($shutdown) {
+            $endTime = $shutdown.TimeCreated
+            $status = "Clean"
+        }
+        else {
+            $endTime = $nextBootTime
+            $status = "Dirty/Crash"
+        }
     }
     else {
-        $clusters += , @($current)
-        $current = @($evt)
-    }
-}
-
-if ($current.Count -gt 0) {
-    $clusters += , @($current)
-}
-
-
-# ============================
-# BUILD BOOT CLUSTERS (ONLY THOSE WITH KERNEL-GENERAL 12)
-# ============================
-
-$bootClusters = foreach ($cluster in $clusters) {
-
-    $events = $cluster | Select ProviderName, Id, TimeCreated
-
-    $hasKernel12 = $events | Where-Object {
-        $_.ProviderName -eq 'Microsoft-Windows-Kernel-General' -and $_.Id -eq 12
-    }
-
-    if ($hasKernel12) {
-
-        # Determine missing expected events
-        $missing = foreach ($exp in $expectedBootEvents) {
-            $found = $events | Where-Object {
-                $_.ProviderName -eq $exp.Provider -and $_.Id -eq $exp.Id
-            }
-            if (-not $found) {
-                "$($exp.Provider) ID $($exp.Id)"
-            }
+        if ($shutdown) {
+            $endTime = $shutdown.TimeCreated
+            $status = "Clean (Ended)"
         }
-
-        # Build readable summary
-        $eventSummary = ($events |
-            Sort-Object TimeCreated |
-            ForEach-Object {
-                "{0} {1} @ {2}" -f `
-                ($_.ProviderName -replace 'Microsoft-Windows-', ''), `
-                    $_.Id, `
-                    $_.TimeCreated.ToString("HH:mm:ss")
-            }) -join "; "
-
-        # Boot time = earliest Kernel-General 12 in cluster
-        $bootTime = ($events |
-            Where-Object { $_.ProviderName -eq 'Microsoft-Windows-Kernel-General' -and $_.Id -eq 12 } |
-            Sort-Object TimeCreated |
-            Select-Object -First 1).TimeCreated
-
-        [PSCustomObject]@{
-            BootTime      = $bootTime
-            Events        = $events
-            EventSummary  = $eventSummary
-            MissingEvents = $missing -join ", "
+        else {
+            $endTime = Get-Date
+            $status = "Running"
         }
     }
-}
 
-if (-not $bootClusters -or $bootClusters.Count -eq 0) {
-    Write-Host ""
-    Write-Host "No boot clusters with Kernel-General 12 found." -ForegroundColor Yellow
-    return
-}
+    # --- FORMAT ---
+    $uptime = New-TimeSpan -Start $bootTime -End $endTime
+    $fmtUptime = "{0:dd}d {0:hh}h {0:mm}m" -f $uptime
 
-$bootClusters = $bootClusters | Sort-Object BootTime
+    $missing = @()
+    if (-not $valid4608) { $missing += "Sec(4608)" }
 
-
-# ============================
-# SHUTDOWN EVENTS
-# ============================
-
-$shutdowns = Get-WinEvent -FilterHashtable @{
-    LogName   = 'System'
-    Id        = @(4609, 6006)
-    StartTime = $start
-} -ErrorAction SilentlyContinue |
-Select TimeCreated
-
-
-# ============================
-# CALCULATE UPTIME PER BOOT
-# ============================
-
-$results = foreach ($i in 0..($bootClusters.Count - 1)) {
-
-    $boot = $bootClusters[$i].BootTime
-
-    $nextBoot = if ($i -lt $bootClusters.Count - 1) {
-        $bootClusters[$i + 1].BootTime
-    }
-    else {
-        $null
-    }
-
-    $shutdown = $shutdowns |
-    Where-Object { $_.TimeCreated -ge $boot } |
-    Select-Object -First 1
-
-    if ($shutdown -and $nextBoot) {
-        $end = if ($shutdown.TimeCreated -lt $nextBoot) { $shutdown.TimeCreated } else { $nextBoot }
-    }
-    elseif ($shutdown) { $end = $shutdown.TimeCreated }
-    elseif ($nextBoot) { $end = $nextBoot }
-    else { $end = $null }
-
-    $uptime = if ($end) { $end - $boot } else { $null }
-
-    [PSCustomObject]@{
-        BootTime      = $boot.ToString("yyyy-MM-dd HH:mm:ss")
-        ShutdownTime  = if ($end) { $end.ToString("yyyy-MM-dd HH:mm:ss") } else { "" }
-        Uptime        = if ($uptime) { $uptime.ToString() } else { "" }
-        EventSummary  = $bootClusters[$i].EventSummary
-        MissingEvents = $bootClusters[$i].MissingEvents
+    $results += [PSCustomObject]@{
+        BootTime      = $bootTime.ToString("yyyy-MM-dd HH:mm:ss")
+        ShutdownTime  = $endTime.ToString("yyyy-MM-dd HH:mm:ss")
+        Status        = $status
+        Uptime        = $fmtUptime
+        KG12          = $bootTime.ToString("HH:mm:ss")
+        Sec4608       = if ($valid4608) { 
+            # Display time and diff (e.g., +9s)
+            "{0} ({1:N0}s)" -f $valid4608.TimeCreated.ToString("HH:mm:ss"), ($valid4608.TimeCreated - $bootTime).TotalSeconds 
+        }
+        else { "---" }
+        MissingEvents = $missing -join ", "
     }
 }
 
-$results | Sort-Object BootTime
+$results | Sort-Object BootTime | Format-Table -AutoSize
