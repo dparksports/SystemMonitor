@@ -128,12 +128,22 @@ namespace DeviceMonitorCS
                 NavigateTo(FirewallSettingsView);
                 FirewallSettingsView.InitializeAndLoad();
             };
+            ColdBootsBtn.Click += (s, e) => 
+            {
+                NavigateTo(ColdBootsView);
+                ColdBootsView.InitializeAndLoad();
+            };
             
             HostedNetworkBtn.Click += (s, e) => NavigateTo(HostedNetworkView);
             WanMiniportBtn.Click += (s, e) => NavigateTo(WanMiniportView);
             NetworkAdaptersBtn.Click += (s, e) => NavigateTo(NetworkAdaptersView);
             TasksBtn.Click += (s, e) => NavigateTo(TasksView);
             ConnectionsBtn.Click += (s, e) => NavigateTo(ConnectionsView);
+            TrueShutdownBtn.Click += (s, e) => 
+            {
+                NavigateTo(TrueShutdownView);
+                TrueShutdownView.InitializeAndLoad();
+            };
             SettingsBtn.Click += (s, e) => NavigateTo(SettingsView);
 
 
@@ -585,10 +595,12 @@ namespace DeviceMonitorCS
             NetworkAdaptersView.Visibility = Visibility.Collapsed;
             TasksView.Visibility = Visibility.Collapsed;
             ConnectionsView.Visibility = Visibility.Collapsed;
+            TrueShutdownView.Visibility = Visibility.Collapsed;
             SettingsView.Visibility = Visibility.Collapsed;
             FirmwareSettingsView.Visibility = Visibility.Collapsed;
             DeviceManagementView.Visibility = Visibility.Collapsed;
             FirewallSettingsView.Visibility = Visibility.Collapsed;
+            ColdBootsView.Visibility = Visibility.Collapsed;
             WindowsDefenderView.Visibility = Visibility.Collapsed;
 
 

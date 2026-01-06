@@ -75,6 +75,7 @@
                 <Button x:Name="FirmwareSettingsBtn" Content="Firmware Settings" Style="{StaticResource NavButton}"/>
                 <Button x:Name="DeviceManagementBtn" Content="Device Management" Style="{StaticResource NavButton}"/>
                 <Button x:Name="FirewallSettingsBtn" Content="Firewall Settings" Style="{StaticResource NavButton}"/>
+                <Button x:Name="ColdBootsBtn" Content="Cold Boots" Style="{StaticResource NavButton}"/>
 
                 
 
@@ -84,6 +85,7 @@
                 <Button x:Name="NetworkAdaptersBtn" Content="Network Adapters" Style="{StaticResource NavButton}"/>
                 <Button x:Name="TasksBtn" Content="Scheduled Tasks" Style="{StaticResource NavButton}"/>
                 <Button x:Name="ConnectionsBtn" Content="Connections" Style="{StaticResource NavButton}"/>
+                <Button x:Name="TrueShutdownBtn" Content="True Shutdown" Style="{StaticResource NavButton}"/>
 
                 <Separator Background="#3E3E42" Margin="0,20"/>
                 <Button x:Name="SettingsBtn" Content="Settings" Style="{StaticResource NavButton}"/>
@@ -109,6 +111,7 @@
             <views:FirmwareSettingsView x:Name="FirmwareSettingsView" Visibility="Collapsed"/>
              <views:DeviceManagementView x:Name="DeviceManagementView" Visibility="Collapsed"/>
             <views:FirewallSettingsView x:Name="FirewallSettingsView" Visibility="Collapsed"/>
+            <views:ColdBootsView x:Name="ColdBootsView" Visibility="Collapsed"/>
 
             <!-- Tools Views -->
             <views:HostedNetworkView x:Name="HostedNetworkView" Visibility="Collapsed"/>
@@ -116,6 +119,7 @@
             <views:NetworkAdaptersView x:Name="NetworkAdaptersView" Visibility="Collapsed"/>
             <views:TasksView x:Name="TasksView" Visibility="Collapsed"/>
             <views:ConnectionsView x:Name="ConnectionsView" Visibility="Collapsed"/>
+            <views:TrueShutdownView x:Name="TrueShutdownView" Visibility="Collapsed"/>
             <views:SettingsView x:Name="SettingsView" Visibility="Collapsed"/>
 
 
