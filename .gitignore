@@ -48,10 +48,8 @@ apikey.txt
 
 # Publishing
 *.zip
-publish/
-PublishOutput*/
 *.exe
-publish_v*/
+publish*
 DeviceMonitorCS.zip
 
 # Secrets
