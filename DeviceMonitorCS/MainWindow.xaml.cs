@@ -162,6 +162,7 @@ namespace DeviceMonitorCS
                 NavigateTo(TrueShutdownView);
                 TrueShutdownView.InitializeAndLoad();
             };
+            SubscriptionBtn.Click += (s, e) => NavigateTo(SubscriptionView);
             SettingsBtn.Click += (s, e) => NavigateTo(SettingsView);
 
 
@@ -642,7 +643,7 @@ namespace DeviceMonitorCS
             FirewallSettingsView.Visibility = Visibility.Collapsed;
             ColdBootsView.Visibility = Visibility.Collapsed;
             WindowsDefenderView.Visibility = Visibility.Collapsed;
-
+            SubscriptionView.Visibility = Visibility.Collapsed;
 
             // Show target
             if (targetView != null)

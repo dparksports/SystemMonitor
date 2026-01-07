@@ -92,6 +92,7 @@
                     <Button x:Name="TrueShutdownBtn" Content="True Shutdown" Style="{StaticResource NavButton}"/>
 
                     <Separator Background="#3E3E42" Margin="0,20"/>
+                    <Button x:Name="SubscriptionBtn" Content="Subscription (Pro)" Style="{StaticResource NavButton}" Foreground="#6366F1" FontWeight="SemiBold"/>
                     <Button x:Name="SettingsBtn" Content="Settings" Style="{StaticResource NavButton}"/>
                     <Button x:Name="ClearBtn" Content="Clear Logs" Style="{StaticResource NavButton}" Foreground="#FF6B6B"/>
                 </StackPanel>
@@ -132,6 +133,7 @@
             <views:TasksView x:Name="TasksView" Visibility="Collapsed"/>
             <views:ConnectionsView x:Name="ConnectionsView" Visibility="Collapsed"/>
             <views:TrueShutdownView x:Name="TrueShutdownView" Visibility="Collapsed"/>
+            <views:SubscriptionView x:Name="SubscriptionView" Visibility="Collapsed"/>
             <views:SettingsView x:Name="SettingsView" Visibility="Collapsed"/>
 
 
