@@ -51,9 +51,16 @@ apikey.txt
 publish/
 PublishOutput*/
 *.exe
-publish_v2.3.2/
+publish_v*/
 DeviceMonitorCS.zip
 
 # Secrets
 DeviceMonitorCS/firebase_config.json
 firebase_config.json
+
+# Azure Functions
+local.settings.json
+Functions/local.settings.json
+Functions/bin/
+Functions/obj/
+.funcignore
