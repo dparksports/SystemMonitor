@@ -90,7 +90,7 @@ namespace DeviceMonitorCS
 
             if (IsAdministrator())
             {
-                Title = $"Windows System Monitor (Administrator) - User: {_currentUser}";
+                Title = $"GodMode (Administrator) - User: {_currentUser}";
                 StartSecurityMonitoring(); // Device monitoring now handled by OnSourceInitialized
                 
                 _enforcer = new SecurityEnforcer(HandleThreatDetected);
@@ -103,7 +103,7 @@ namespace DeviceMonitorCS
             }
             else
             {
-                Title = $"Windows System Monitor (User: {_currentUser}) - LIMITED MODE";
+                Title = $"GodMode (User: {_currentUser}) - LIMITED MODE";
                 MessageBox.Show("Please run as Administrator for full functionality.", "Restricted", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
 

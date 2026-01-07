@@ -1,7 +1,7 @@
-# Windows System Monitor (v3.2.0)
+# GodMode (v3.3.0)
 **Advanced Real-Time Security Enforcement & System Analytics**
 
-Windows System Monitor is a professional-grade C# WPF application designed for power users and security administrators. It provides deep visibility into system hardware, network traffic, and security events, combined with automated policy enforcement through a robust "Security Enforcer" background engine.
+GodMode is a professional-grade C# WPF application designed for power users and security administrators. It provides deep visibility into system hardware, network traffic, and security events, combined with automated policy enforcement through a robust "Security Enforcer" background engine.
 
 ![Dashboard Preview](DeviceMonitorCS/shield-up-screenshot.jpg)
 
@@ -47,14 +47,18 @@ Windows System Monitor is a professional-grade C# WPF application designed for p
 
 ### Quick Start
 1.  **Download**: Get the latest release from the [Releases](https://github.com/dparksports/SystemMonitor/releases) page.
-2.  **Run**: Launch `DeviceMonitorCS.exe` as Administrator.
+2.  **Run**: Launch `GodMode.exe` as Administrator.
 3.  **Install (Recommended)**: Go to **Settings** and click **"Install to Scheduled Tasks"** to enable UAC-bypass auto-start at login.
 
 ---
 
 ## 📜 Release History
 
-### v3.2.0 (Latest)
+### v3.3.0 (Latest)
+*   **Rebranding**: Application officially renamed to **GodMode**.
+*   **Naming**: Executable updated to `GodMode.exe`.
+
+### v3.2.0
 *   **App Telemetry**: Integrated Firebase-based usage tracking (App Start, Screen Views, Interaction).
 *   **UI Updates**: Added App Version and Copyright footer to the sidebar.
 *   **Cleanup**: Removed legacy artifacts and optimized build output.
