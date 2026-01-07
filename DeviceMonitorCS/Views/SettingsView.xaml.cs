@@ -65,5 +65,51 @@ namespace DeviceMonitorCS.Views
                  System.Windows.MessageBox.Show($"An error occurred:\n{ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
             }
         }
+        private void UninstallTaskBtn_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            try
+            {
+                string taskName = "DeviceMonitorAutoStart";
+                string command = $"/delete /tn \"{taskName}\" /f";
+
+                var startInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "schtasks.exe",
+                    Arguments = command,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+
+                using (var process = System.Diagnostics.Process.Start(startInfo))
+                {
+                    process.WaitForExit();
+                    string output = process.StandardOutput.ReadToEnd();
+                    string error = process.StandardError.ReadToEnd();
+
+                    if (process.ExitCode == 0)
+                    {
+                        System.Windows.MessageBox.Show("Successfully uninstalled from Scheduled Tasks.", "Success", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                    }
+                    else
+                    {
+                        // Check if error is 'The specified task name was not found' (common case)
+                        if (error.Contains("not found"))
+                        {
+                             System.Windows.MessageBox.Show("Task was not found. It might already be uninstalled.", "Info", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                        }
+                        else
+                        {
+                             System.Windows.MessageBox.Show($"Failed to uninstall task.\nError: {error}\nOutput: {output}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                 System.Windows.MessageBox.Show($"An error occurred:\n{ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            }
+        }
     }
 }

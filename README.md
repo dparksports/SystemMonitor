@@ -1,4 +1,4 @@
-# GodMode (v3.3.0)
+# GodMode (v3.3.1)
 **Advanced Real-Time Security Enforcement & System Analytics**
 
 GodMode is a professional-grade C# WPF application designed for power users and security administrators. It provides deep visibility into system hardware, network traffic, and security events, combined with automated policy enforcement through a robust "Security Enforcer" background engine.
@@ -54,7 +54,10 @@ GodMode is a professional-grade C# WPF application designed for power users and 
 
 ## 📜 Release History
 
-### v3.3.0 (Latest)
+### v3.3.1 (Latest)
+*   **Settings**: Added "Uninstall Task" button to easily remove the auto-start scheduled task.
+
+### v3.3.0
 *   **Rebranding**: Application officially renamed to **GodMode**.
 *   **Naming**: Executable updated to `GodMode.exe`.
 

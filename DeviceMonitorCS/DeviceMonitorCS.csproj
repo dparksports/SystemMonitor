@@ -6,7 +6,7 @@
     <Nullable>disable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>3.3.0</Version>
+    <Version>3.3.1</Version>
     <ApplicationIcon>app_icon.ico</ApplicationIcon>
     <AssemblyName>GodMode</AssemblyName>
     <Product>GodMode</Product>
