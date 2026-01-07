@@ -1,4 +1,4 @@
-# Windows System Monitor (v3.1.0)
+# Windows System Monitor (v3.2.0)
 **Advanced Real-Time Security Enforcement & System Analytics**
 
 Windows System Monitor is a professional-grade C# WPF application designed for power users and security administrators. It provides deep visibility into system hardware, network traffic, and security events, combined with automated policy enforcement through a robust "Security Enforcer" background engine.
@@ -18,6 +18,7 @@ Windows System Monitor is a professional-grade C# WPF application designed for p
 *   **Auto-Load Logic**: View status and history immediately upon navigation.
 *   **Event History**: Detailed timestamps for when devices were **Started** and **Configured**, extracted directly from Kernel-PnP logs.
 *   **Status Indicators**: Clear visual distinction between Connected (OK) and Disconnected/Error states.
+*   **Telemetry**: Built-in analytics for application usage tracking (optional).
 
 ### 📊 Performance & Analytics
 *   **Live Metrics**: High-fidelity monitoring of CPU, RAM, GPU utilization, and Disk I/O.
@@ -53,7 +54,12 @@ Windows System Monitor is a professional-grade C# WPF application designed for p
 
 ## 📜 Release History
 
-### v3.1.0 (Latest)
+### v3.2.0 (Latest)
+*   **App Telemetry**: Integrated Firebase-based usage tracking (App Start, Screen Views, Interaction).
+*   **UI Updates**: Added App Version and Copyright footer to the sidebar.
+*   **Cleanup**: Removed legacy artifacts and optimized build output.
+
+### v3.1.0
 *   **Cold Boots View**: New view to track boot performance and history.
 *   **Power Tools**: Added "True Shutdown" and Hibernation toggle controls.
 

@@ -12,6 +12,10 @@ using System.Runtime.InteropServices;
 using System.Windows.Interop;
 using DeviceMonitorCS.Helpers;
 using DeviceMonitorCS.Models;
+using DeviceMonitorCS.Services;
+using System.Collections.Generic;
+using System.Windows.Controls;
+using System.Windows.Media;
 
 namespace DeviceMonitorCS
 {
@@ -60,10 +64,24 @@ namespace DeviceMonitorCS
         
         private SecurityEnforcer _enforcer;
         private PerformanceMonitor _perfMonitor;
+        private FirebaseTelemetryService _telemetryService;
 
         public MainWindow()
         {
             InitializeComponent();
+            
+            // Initialize Telemetry
+            _telemetryService = new FirebaseTelemetryService();
+            _ = _telemetryService.SendEventAsync("app_start", new Dictionary<string, object> 
+            { 
+               { "app_version", System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString() }
+            });
+
+            // Set Footer Version
+            AppVersionText.Text = $"v{System.Reflection.Assembly.GetExecutingAssembly().GetName().Version}";
+
+            // Global Button Click Tracking
+            this.AddHandler(Button.ClickEvent, new RoutedEventHandler(Global_ButtonClick));
 
 
 
@@ -171,6 +189,28 @@ namespace DeviceMonitorCS
                 }
             };
             perfTimer.Start();
+        }
+
+        private void Global_ButtonClick(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (e.OriginalSource is Button btn)
+                {
+                    string btnName = btn.Name;
+                    string btnContent = btn.Content?.ToString() ?? "Icon/Image";
+                    
+                    if (string.IsNullOrEmpty(btnName)) btnName = "UnnamedButton";
+
+                    _ = _telemetryService.SendEventAsync("ui_interaction", new Dictionary<string, object>
+                    {
+                        { "element_type", "button" },
+                        { "element_name", btnName },
+                        { "element_content", btnContent }
+                    });
+                }
+            }
+            catch { }
         }
 
         // Native Device Notification
@@ -608,6 +648,19 @@ namespace DeviceMonitorCS
             if (targetView != null)
             {
                 targetView.Visibility = Visibility.Visible;
+                
+                // Track Screen View
+                if (targetView is FrameworkElement fe)
+                {
+                    string viewName = fe.Name;
+                    if (string.IsNullOrEmpty(viewName)) viewName = targetView.GetType().Name;
+                    
+                    _ = _telemetryService.SendEventAsync("screen_view", new Dictionary<string, object>
+                    {
+                        { "screen_name", viewName },
+                        { "screen_class", targetView.GetType().Name }
+                    });
+                }
             }
         }
 
