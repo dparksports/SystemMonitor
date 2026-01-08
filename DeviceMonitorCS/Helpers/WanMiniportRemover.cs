@@ -42,10 +42,20 @@ namespace DeviceMonitorCS.Helpers
 
         public static List<string> Execute()
         {
+            return ExecuteInternal(null);
+        }
+
+        public static List<string> RemoveWifiDirect()
+        {
+            return ExecuteInternal("MS_VWIFI"); // MicroSoft Virtual WIFI
+        }
+
+        private static List<string> ExecuteInternal(string specificPattern = null)
+        {
             var results = new List<string>();
             Guid guid = NetworkClassGuid; // Local copy for ref
             
-            // Flags = 0 to include "Phantom" devices (SWD Miniports often appear this way or are filtered by present)
+            // Flags = 0 to include "Phantom" devices
             IntPtr hDevInfo = SetupDiGetClassDevs(ref guid, IntPtr.Zero, IntPtr.Zero, 0); 
 
             if (hDevInfo == IntPtr.Zero)
@@ -65,7 +75,17 @@ namespace DeviceMonitorCS.Helpers
                     bool removed = false;
                     string instanceId = GetDeviceInstanceId(hDevInfo, devInfo);
                     
-                    if (IsWanMiniport(instanceId))
+                    bool match = false;
+                    if (specificPattern != null)
+                    {
+                        match = instanceId != null && instanceId.Contains(specificPattern);
+                    }
+                    else
+                    {
+                        match = IsWanMiniport(instanceId);
+                    }
+
+                    if (match)
                     {
                         try
                         {
@@ -121,7 +141,8 @@ namespace DeviceMonitorCS.Helpers
                    instanceId.Contains("MS_NDISWANIP") || 
                    instanceId.Contains("MS_NDISWANIPV6") ||
                    instanceId.Contains("MS_PPPOEMINIPORT") ||
-                   instanceId.Contains("MS_NDISWANBH"); // Network Monitor
+                   instanceId.Contains("MS_NDISWANBH") || // Network Monitor
+                   instanceId.Contains("MS_VWIFI"); // WiFi Direct Virtual Adapter
         }
     }
 }
