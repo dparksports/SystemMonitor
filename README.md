@@ -1,96 +1,58 @@
-# Auto Command (v3.3.1)
-**Advanced Real-Time Security Enforcement & System Analytics**
+# Auto Command
 
-Auto Command is a professional-grade C# WPF application designed for power users and security administrators. It provides deep visibility into system hardware, network traffic, and security events, combined with automated policy enforcement through a robust "Security Enforcer" background engine.
+**Advanced System Management & Security Hardening**
 
-![Dashboard Preview](DeviceMonitorCS/shield-up-screenshot.jpg)
+Auto Command is a powerful, unified tool designed for Windows administrators and power users who need granular control over their system's security posture and underlying hardware. Built with a modern, darkened aesthetic and high-performance native integrations, it streamlines complex administrative tasks into a single, cohesive dashboard.
+
+---
 
 ## 🚀 Key Features
 
-### 🛡️ Security & Privacy Enforcement
-*   **Real-Time Monitoring**: Direct integration with the Windows Security Event Log to track logons, process creations, and privilege escalations.
-*   **Security Enforcer**: A background engine that monitors system state and enforces security policies (e.g., ensuring kernel debug is disabled).
-*   **Privacy Guard**: Toggle Windows telemetry, data collection, and diagnostic reporting with a single click.
-*   **AI Insights**: Integrated Gemini AI allows you to query specific system events or components to understand potential threats.
+### 🛡️ Unified Command Panel
+The heart of Auto Command, providing one-click management for critical system interfaces often exploited as "Security Holes."
+- **Network Hole Management**: Instantly toggle and natively uninstall WAN Miniports, WiFi Direct Virtual Adapters, and Kernel Debug Network Adapters (KDNET).
+- **Privacy Toggles**: Global control over background VPN services, wireless entry points, and Windows flighting/telemetry tasks.
+- **Real-time Monitoring**: Integrated status checks for Windows Defender Tamper Protection and boot configuration flags.
 
-### ⌨️ Advanced Device Management
-*   **Peripheral Tracking**: Advanced monitoring for Keyboards, Mice, and Monitors.
-*   **Auto-Load Logic**: View status and history immediately upon navigation.
-*   **Event History**: Detailed timestamps for when devices were **Started** and **Configured**, extracted directly from Kernel-PnP logs.
-*   **Status Indicators**: Clear visual distinction between Connected (OK) and Disconnected/Error states.
-*   **Telemetry**: Built-in analytics for application usage tracking (optional).
+### 🔍 Advanced Diagnostics
+- **Firmware Explorer**: Deep dive into ACPI tables and UEFI variables with detailed byte-level views.
+- **Security Timeline**: Track historical system events to identify suspicious patterns or configuration changes.
+- **Device Management**: A high-performance replacement for Device Manager with advanced property enumeration and native uninstallation capabilities.
 
-### 📊 Performance & Analytics
-*   **Live Metrics**: High-fidelity monitoring of CPU, RAM, GPU utilization, and Disk I/O.
-*   **Network Intelligence**: 
-    *   **Active Connections**: Monitor every application currently communicating over the network.
-    *   **Muted Traffic**: Dedicated view for restricted or blocked network attempts.
-    *   **Adapter Control**: Inspect and manage physical and virtual network adapters.
-*   **Firmware Explorer**: Inspect ACPI tables, UEFI secure boot variables, and BIOS metadata.
-
-### 🛠️ System Control Tools
-*   **Firewall Manager**: View and toggle inbound/outbound rules with one-click reset capabilities.
-*   **Scheduled Tasks**: Full management (Start/Stop/Delete) of Windows Scheduled Tasks.
-*   **Cold Boots**: Analyze system boot history, uptime, and crash events.
-*   **True Shutdown**: Bypass Fast Startup for a complete system power cycle.
-*   **Hibernation**: Toggle hibernation availability to save disk space.
-*   **Hosted Network**: Manage Wi-Fi Hotspots and WAN Miniport adapters.
+### ⚙️ System Tools
+- **Scheduled Tasks**: Browse and audit Windows tasks with an intuitive interface.
+- **Network Connections**: High-visibility monitoring of active network sockets and traffic.
+- **True Shutdown**: Bypass Windows "Fast Startup" to perform a complete hardware power-off, ensuring a fresh state on the next boot.
+- **Firewall Controls**: Streamlined management of profiles and rule sets.
 
 ---
 
-## 📦 Installation & Setup
+## 🛠️ Technology Stack
 
-### Requirements
-*   **OS**: Windows 10 or 11 (64-bit)
-*   **Privileges**: **Administrator rights** are mandatory for system-level monitoring and enforcement.
-*   **AI Features**: Create an `apikey.txt` file in the executable directory and paste your Gemini API key inside.
-
-### Quick Start
-1.  **Download**: Get the latest release from the [Releases](https://github.com/dparksports/SystemMonitor/releases) page.
-2.  **Run**: Launch `AutoCommand.exe` as Administrator.
-3.  **Install (Recommended)**: Go to **Settings** and click **"Install to Scheduled Tasks"** to enable UAC-bypass auto-start at login.
+- **Core Framework**: .NET 8.0 (WPF)
+- **Languages**: C#, XAML, PowerShell
+- **System APIs**: 
+    - **WMI** (`System.Management`) for advanced hardware queries.
+    - **SetupDi API** (P/Invoke) for native device management and driver uninstallation.
+    - **BCDedit** for boot configuration management.
+- **UI Design**: Modern, dark-mode focused UI with accent-driven typography and micro-animations.
 
 ---
 
-## 📜 Release History
+## 📥 Getting Started
 
-### v3.3.1 (Latest)
-*   **Settings**: Added "Uninstall Task" button to easily remove the auto-start scheduled task.
+### Prerequisites
+- .NET 8.0 SDK
+- Windows 10/11 (with Administrative privileges for tool execution)
 
-### v3.3.0
-*   **Rebranding**: Application officially renamed to **Auto Command**.
-*   **Naming**: Executable updated to `AutoCommand.exe`.
-
-### v3.2.0
-*   **App Telemetry**: Integrated Firebase-based usage tracking (App Start, Screen Views, Interaction).
-*   **UI Updates**: Added App Version and Copyright footer to the sidebar.
-*   **Cleanup**: Removed legacy artifacts and optimized build output.
-
-### v3.1.0
-*   **Cold Boots View**: New view to track boot performance and history.
-*   **Power Tools**: Added "True Shutdown" and Hibernation toggle controls.
-
-### v2.8.1
-*   **Consolidation**: Merged peripheral tracking into a unified, auto-loading Device Management view.
-*   **Reliability**: Implemented XML-based PnP event parsing for 100% accurate device history.
-
-### v2.8.0
-*   **Device History**: Added "Last Started" and "Last Configured" columns using hardware event log analysis.
-
-### v2.7.3
-*   **Security**: Hardened release by removing bundled API keys and enforcing manual setup via `apikey.txt`.
+### Installation
+1. Clone the repository.
+2. Open the solution in Visual Studio or your preferred C# IDE.
+3. Build the project using the **Release** configuration for optimal performance.
+4. Run `AutoCommand.exe`.
 
 ---
 
-## 🛠️ Building from Source
-1.  Clone the repository.
-2.  Open in **Visual Studio 2022** and restore NuGet packages.
-3.  Build for **Release | win-x64**.
+## ⚖️ License
 
----
-
-## License
-Apache License 2.0
-
----
-*Made with ❤️ in California*
+Created with ❤️ in California. Designed for professionals who take system integrity seriously.
