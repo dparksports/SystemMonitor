@@ -173,8 +173,7 @@ namespace DeviceMonitorCS
                 SecurityData.Clear();
             };
             
-            // Bind Dashboard (New Unified Grid)
-            DashboardView.BindData(SecurityData, DeviceData);
+            // Dashboard now self-initializes on load - no binding needed
 
             // Start Monitoring
 
@@ -649,6 +648,12 @@ namespace DeviceMonitorCS
             {
                 targetView.Visibility = Visibility.Visible;
                 
+                // Refresh Dashboard if navigating to it
+                if (targetView is DashboardView dv)
+                {
+                    _ = dv.LoadAllDataAsync();
+                }
+
                 // Track Screen View
                 if (targetView is FrameworkElement fe)
                 {

@@ -99,7 +99,7 @@
 
                 <!-- Footer -->
                 <StackPanel Grid.Row="1" Margin="5,20,0,5">
-                    <TextBlock x:Name="AppVersionText" Text="v3.4" Foreground="#808080" FontSize="11" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="AppVersionText" Text="v3.5" Foreground="#808080" FontSize="11" Margin="0,0,0,2"/>
                     <TextBlock Text="© 2026 Auto Command" Foreground="#666666" FontSize="10" Margin="0,0,0,2"/>
                     <TextBlock Text="Made with ❤️ in California" Foreground="#666666" FontSize="10"/>
                 </StackPanel>
