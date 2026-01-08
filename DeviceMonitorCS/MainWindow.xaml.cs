@@ -157,9 +157,6 @@ namespace DeviceMonitorCS
                 CommandPanelView.InitializeAndLoad();
             };
             
-            HostedNetworkBtn.Click += (s, e) => NavigateTo(HostedNetworkView);
-            WanMiniportBtn.Click += (s, e) => NavigateTo(WanMiniportView);
-            NetworkAdaptersBtn.Click += (s, e) => NavigateTo(NetworkAdaptersView);
             TasksBtn.Click += (s, e) => NavigateTo(TasksView);
             ConnectionsBtn.Click += (s, e) => NavigateTo(ConnectionsView);
             TrueShutdownBtn.Click += (s, e) => 
@@ -635,9 +632,6 @@ namespace DeviceMonitorCS
             PerformanceView.Visibility = Visibility.Collapsed;
             PrivacyView.Visibility = Visibility.Collapsed;
             TimelineView.Visibility = Visibility.Collapsed;
-            HostedNetworkView.Visibility = Visibility.Collapsed;
-            WanMiniportView.Visibility = Visibility.Collapsed;
-            NetworkAdaptersView.Visibility = Visibility.Collapsed;
             TasksView.Visibility = Visibility.Collapsed;
             ConnectionsView.Visibility = Visibility.Collapsed;
             TrueShutdownView.Visibility = Visibility.Collapsed;

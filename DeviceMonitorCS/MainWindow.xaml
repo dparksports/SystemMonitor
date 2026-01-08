@@ -85,9 +85,9 @@
                     <Button x:Name="CommandPanelBtn" Content="Command Panel" Style="{StaticResource NavButton}"/>
 
                     <TextBlock Text="TOOLS" Foreground="#808080" FontSize="12" Margin="5,20,0,5" FontWeight="SemiBold"/>
-                    <Button x:Name="HostedNetworkBtn" Content="Hosted Network" Style="{StaticResource NavButton}"/>
-                    <Button x:Name="WanMiniportBtn" Content="WAN Miniports" Style="{StaticResource NavButton}"/>
-                    <Button x:Name="NetworkAdaptersBtn" Content="Network Adapters" Style="{StaticResource NavButton}"/>
+                    <Button x:Name="HostedNetworkBtn" Visibility="Collapsed" Content="Hosted Network" Style="{StaticResource NavButton}"/>
+                    <Button x:Name="WanMiniportBtn" Visibility="Collapsed" Content="WAN Miniports" Style="{StaticResource NavButton}"/>
+                    <Button x:Name="NetworkAdaptersBtn" Visibility="Collapsed" Content="Network Adapters" Style="{StaticResource NavButton}"/>
                     <Button x:Name="TasksBtn" Content="Scheduled Tasks" Style="{StaticResource NavButton}"/>
                     <Button x:Name="ConnectionsBtn" Content="Connections" Style="{StaticResource NavButton}"/>
                     <Button x:Name="TrueShutdownBtn" Content="True Shutdown" Style="{StaticResource NavButton}"/>
@@ -128,9 +128,6 @@
             <views:CommandPanelView x:Name="CommandPanelView" Visibility="Collapsed"/>
 
             <!-- Tools Views -->
-            <views:HostedNetworkView x:Name="HostedNetworkView" Visibility="Collapsed"/>
-            <views:WanMiniportView x:Name="WanMiniportView" Visibility="Collapsed"/>
-            <views:NetworkAdaptersView x:Name="NetworkAdaptersView" Visibility="Collapsed"/>
             <views:TasksView x:Name="TasksView" Visibility="Collapsed"/>
             <views:ConnectionsView x:Name="ConnectionsView" Visibility="Collapsed"/>
             <views:TrueShutdownView x:Name="TrueShutdownView" Visibility="Collapsed"/>
