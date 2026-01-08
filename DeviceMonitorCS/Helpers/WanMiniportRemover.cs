@@ -52,7 +52,7 @@ namespace DeviceMonitorCS.Helpers
 
         public static List<string> RemoveKdnet()
         {
-            return ExecuteInternal("MS_KDNIC"); // Microsoft Kernel Debug Network Adapter
+            return ExecuteInternal("KDNIC"); // Microsoft Kernel Debug Network Adapter (ROOT\KDNIC\0000)
         }
 
         private static List<string> ExecuteInternal(string specificPattern = null)
@@ -148,7 +148,7 @@ namespace DeviceMonitorCS.Helpers
                    instanceId.Contains("MS_PPPOEMINIPORT") ||
                    instanceId.Contains("MS_NDISWANBH") || // Network Monitor
                    instanceId.Contains("MS_VWIFI") || // WiFi Direct Virtual Adapter
-                   instanceId.Contains("MS_KDNIC"); // Microsoft Kernel Debug Network Adapter
+                   instanceId.Contains("KDNIC"); // Microsoft Kernel Debug Network Adapter
         }
     }
 }

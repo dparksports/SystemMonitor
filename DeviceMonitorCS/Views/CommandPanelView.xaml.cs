@@ -33,6 +33,12 @@ namespace DeviceMonitorCS.Views
         private void RefreshBtn_Click(object sender, RoutedEventArgs e)
         {
             RefreshData();
+            // Brief visual feedback that refresh happened
+            var originalBackground = RefreshBtn.Background;
+            RefreshBtn.Background = Brushes.Green;
+            var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+            timer.Tick += (s, ev) => { RefreshBtn.Background = originalBackground; timer.Stop(); };
+            timer.Start();
         }
 
         private void RefreshData()
@@ -229,7 +235,7 @@ namespace DeviceMonitorCS.Views
                     WifiDirectDevices.Add(new NetworkAdapterItem
                     {
                         Name = obj["Name"]?.ToString(),
-                        Status = GetNetConnStatusString(obj["NetConnectionStatus"]?.ToString()),
+                        Status = GetNetConnStatusString(obj["NetConnectionStatus"]?.ToString(), obj["ConfigManagerErrorCode"]?.ToString()),
                         DeviceID = obj["PNPDeviceID"]?.ToString()
                     });
                 }
@@ -240,9 +246,12 @@ namespace DeviceMonitorCS.Views
             }
         }
 
-        private string GetNetConnStatusString(string code)
+        private string GetNetConnStatusString(string code, string configErrorCode = null)
         {
-            if (string.IsNullOrEmpty(code)) return "Enabled/Ready";
+            // If ConfigManagerErrorCode is 22, it's disabled.
+            if (configErrorCode == "22") return "Disabled";
+
+            if (string.IsNullOrEmpty(code)) return "Stale/Disabled";
             switch (code)
             {
                 case "0": return "Disconnected";
@@ -360,7 +369,7 @@ namespace DeviceMonitorCS.Views
                     KdnetDevices.Add(new NetworkAdapterItem
                     {
                         Name = obj["Name"]?.ToString(),
-                        Status = GetNetConnStatusString(obj["NetConnectionStatus"]?.ToString()),
+                        Status = GetNetConnStatusString(obj["NetConnectionStatus"]?.ToString(), obj["ConfigManagerErrorCode"]?.ToString()),
                         DeviceID = obj["PNPDeviceID"]?.ToString()
                     });
                 }
@@ -380,6 +389,8 @@ namespace DeviceMonitorCS.Views
                 {
                     // Disable and Uninstall
                     RunPowerShellCommand("Get-PnpDevice -FriendlyName '*Kernel Debug Network*' | Disable-PnpDevice -Confirm:$false", "Disable KDNET");
+                    
+                    // Native Uninstall
                     DeviceMonitorCS.Helpers.WanMiniportRemover.RemoveKdnet();
                 }
                 else
@@ -388,6 +399,9 @@ namespace DeviceMonitorCS.Views
                     RunPowerShellCommand("bcdedit /set privatedbg yes; bcdedit /debug on", "Enable KDNET via BCD");
                     MessageBox.Show("KDNET enabled via BCD. A reboot may be required to see the adapter.", "Reboot Required", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
+                
+                // Wait a moment for OS to reflect changes
+                System.Threading.Thread.Sleep(500);
                 RefreshData();
             }
             catch (Exception ex)
