@@ -64,7 +64,6 @@
                                     </Button.Resources>
                                 </Button>
                             </Grid>
-                            <Button x:Name="UninstallSstpBtn" Content="Uninstall WAN Miniport (SSTP)" Margin="0,10,0,0" Padding="10,5" Background="#2D2D30" Foreground="#FF6B6B" BorderBrush="#3E3E42" Click="UninstallSstpBtn_Click"/>
                         </StackPanel>
                     </Border>
 
@@ -72,7 +71,6 @@
                     <DockPanel Grid.Row="1">
                         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,5">
                              <TextBlock Text="WAN Miniports" Foreground="#CCCCCC" FontSize="12" Margin="0,0,0,2"/>
-                             <Button x:Name="UninstallAllWanNativeBtn" Content="Uninstall All WAN Miniports (Native)" Padding="10,5" Background="#2D2D30" Foreground="#FF6B6B" BorderBrush="#3E3E42" Click="UninstallAllWanNativeBtn_Click" HorizontalAlignment="Left"/>
                         </StackPanel>
                         <DataGrid x:Name="WanMiniportGrid" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                                   Background="#252526" RowBackground="#252526" AlternatingRowBackground="#2D2D30" Foreground="White"
