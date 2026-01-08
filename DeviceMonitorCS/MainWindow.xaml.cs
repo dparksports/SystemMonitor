@@ -90,7 +90,7 @@ namespace DeviceMonitorCS
 
             if (IsAdministrator())
             {
-                Title = $"GodMode (Administrator) - User: {_currentUser}";
+                Title = $"Auto Command (Administrator) - User: {_currentUser}";
                 StartSecurityMonitoring(); // Device monitoring now handled by OnSourceInitialized
                 
                 _enforcer = new SecurityEnforcer(HandleThreatDetected);
@@ -103,7 +103,7 @@ namespace DeviceMonitorCS
             }
             else
             {
-                Title = $"GodMode (User: {_currentUser}) - LIMITED MODE";
+                Title = $"Auto Command (User: {_currentUser}) - LIMITED MODE";
                 MessageBox.Show("Please run as Administrator for full functionality.", "Restricted", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
 
@@ -151,6 +151,11 @@ namespace DeviceMonitorCS
                 NavigateTo(ColdBootsView);
                 ColdBootsView.InitializeAndLoad();
             };
+            CommandPanelBtn.Click += (s, e) => 
+            {
+                NavigateTo(CommandPanelView);
+                CommandPanelView.InitializeAndLoad();
+            };
             
             HostedNetworkBtn.Click += (s, e) => NavigateTo(HostedNetworkView);
             WanMiniportBtn.Click += (s, e) => NavigateTo(WanMiniportView);
@@ -162,7 +167,6 @@ namespace DeviceMonitorCS
                 NavigateTo(TrueShutdownView);
                 TrueShutdownView.InitializeAndLoad();
             };
-            SubscriptionBtn.Click += (s, e) => NavigateTo(SubscriptionView);
             SettingsBtn.Click += (s, e) => NavigateTo(SettingsView);
 
 
@@ -642,8 +646,9 @@ namespace DeviceMonitorCS
             DeviceManagementView.Visibility = Visibility.Collapsed;
             FirewallSettingsView.Visibility = Visibility.Collapsed;
             ColdBootsView.Visibility = Visibility.Collapsed;
+            CommandPanelView.Visibility = Visibility.Collapsed;
             WindowsDefenderView.Visibility = Visibility.Collapsed;
-            SubscriptionView.Visibility = Visibility.Collapsed;
+
 
             // Show target
             if (targetView != null)

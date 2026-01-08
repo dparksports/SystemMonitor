@@ -1,7 +1,7 @@
-# GodMode (v3.3.1)
+# Auto Command (v3.3.1)
 **Advanced Real-Time Security Enforcement & System Analytics**
 
-GodMode is a professional-grade C# WPF application designed for power users and security administrators. It provides deep visibility into system hardware, network traffic, and security events, combined with automated policy enforcement through a robust "Security Enforcer" background engine.
+Auto Command is a professional-grade C# WPF application designed for power users and security administrators. It provides deep visibility into system hardware, network traffic, and security events, combined with automated policy enforcement through a robust "Security Enforcer" background engine.
 
 ![Dashboard Preview](DeviceMonitorCS/shield-up-screenshot.jpg)
 
@@ -47,7 +47,7 @@ GodMode is a professional-grade C# WPF application designed for power users and 
 
 ### Quick Start
 1.  **Download**: Get the latest release from the [Releases](https://github.com/dparksports/SystemMonitor/releases) page.
-2.  **Run**: Launch `GodMode.exe` as Administrator.
+2.  **Run**: Launch `AutoCommand.exe` as Administrator.
 3.  **Install (Recommended)**: Go to **Settings** and click **"Install to Scheduled Tasks"** to enable UAC-bypass auto-start at login.
 
 ---
@@ -58,8 +58,8 @@ GodMode is a professional-grade C# WPF application designed for power users and 
 *   **Settings**: Added "Uninstall Task" button to easily remove the auto-start scheduled task.
 
 ### v3.3.0
-*   **Rebranding**: Application officially renamed to **GodMode**.
-*   **Naming**: Executable updated to `GodMode.exe`.
+*   **Rebranding**: Application officially renamed to **Auto Command**.
+*   **Naming**: Executable updated to `AutoCommand.exe`.
 
 ### v3.2.0
 *   **App Telemetry**: Integrated Firebase-based usage tracking (App Start, Screen Views, Interaction).

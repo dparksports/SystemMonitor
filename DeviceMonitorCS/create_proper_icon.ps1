@@ -1,7 +1,7 @@
 Add-Type -AssemblyName System.Drawing
 
-$sourcePng = "C:\Users\honey\mydevices\DeviceMonitorCS\temp_icon.png"
-$targetIco = "c:\Users\honey\mydevices\DeviceMonitorCS\app_icon.ico"
+$sourcePng = Join-Path $PSScriptRoot "temp_icon.png"
+$targetIco = Join-Path $PSScriptRoot "app_icon.ico"
 
 function Convert-PngToIco {
     param ($pngPath, $icoPath)

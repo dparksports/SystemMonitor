@@ -1,5 +1,5 @@
 # Install.ps1
-# Installs Windows System Monitor and configures UAC bypass via Scheduled Task.
+# Installs Auto Command and configures UAC bypass via Scheduled Task.
 
 # Self-elevation check
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -10,11 +10,10 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 }
 
 $ErrorActionPreference = "Stop"
-$appName = "DeviceMonitor"
+$appName = "AutoCommand"
 $installDir = "$env:ProgramFiles\$appName"
-$scriptName = "DeviceMonitorGUI.ps1"
-$taskName = "DeviceMonitorTask"
-$sourceScript = Join-Path $PSScriptRoot $scriptName
+$sourceDir = Join-Path $PSScriptRoot "DeviceMonitorCS\bin\Release\net8.0-windows"
+$exeName = "AutoCommand.exe"
 
 Write-Host "Installing $appName..." -ForegroundColor Cyan
 
@@ -25,7 +24,7 @@ try {
         Write-Host "Created installation directory: $installDir" -ForegroundColor Green
     }
     
-    Copy-Item -Path $sourceScript -Destination $installDir -Force
+    Copy-Item -Path "$sourceDir\*" -Destination $installDir -Recurse -Force
     Write-Host "Copied application files." -ForegroundColor Green
 }
 catch {
@@ -38,7 +37,7 @@ try {
     # Delete existing task if any
     Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
 
-    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$installDir\$scriptName`""
+    $action = New-ScheduledTaskAction -Execute "$installDir\$exeName"
     # $trigger = New-ScheduledTaskTrigger -AtLogOn # Optional, but we mainly want on-demand
     
     # "Run with highest privileges" is the key for UAC bypass
@@ -58,7 +57,7 @@ catch {
 # 3. Create Desktop Shortcut
 try {
     $wshShell = New-Object -ComObject WScript.Shell
-    $shortcutPath = "$env:USERPROFILE\Desktop\Windows System Monitor.lnk"
+    $shortcutPath = "$env:USERPROFILE\Desktop\Auto Command.lnk"
     $shortcut = $wshShell.CreateShortcut($shortcutPath)
     
     # The shortcut runs schtasks to trigger the elevated task
@@ -66,8 +65,8 @@ try {
     $shortcut.Arguments = "/run /tn `"$taskName`""
     
     # Set icon to PowerShell or a generic monitor icon
-    $shortcut.IconLocation = "C:\Windows\System32\dmdskres.dll,0" # Monitor icon
-    $shortcut.Description = "Launch Windows System Monitor (Admin)"
+    $shortcut.IconLocation = "$installDir\$exeName,0"
+    $shortcut.Description = "Launch Auto Command (Admin)"
     $shortcut.Save()
     
     Write-Host "Created Desktop Shortcut: $shortcutPath" -ForegroundColor Green
@@ -79,4 +78,4 @@ catch {
 
 Write-Host "`nInstallation Complete!" -ForegroundColor Cyan
 Write-Host "You can now launch the app from your Desktop without UAC prompts." -ForegroundColor White
-Read-Host "Press Enter to exit..."
+# Read-Host "Press Enter to exit..."

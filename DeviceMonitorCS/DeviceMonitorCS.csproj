@@ -2,20 +2,20 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>disable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <Version>3.3.1</Version>
     <ApplicationIcon>app_icon.ico</ApplicationIcon>
-    <AssemblyName>GodMode</AssemblyName>
-    <Product>GodMode</Product>
+    <AssemblyName>AutoCommand</AssemblyName>
+    <Product>AutoCommand</Product>
   </PropertyGroup>
 
   <ItemGroup>
 
-    <PackageReference Include="System.Management" Version="10.0.1" />
-    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.1" />
+    <PackageReference Include="System.Management" Version="8.0.0" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>

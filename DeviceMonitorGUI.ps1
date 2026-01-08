@@ -9,7 +9,7 @@ Add-Type -AssemblyName System.ServiceProcess
 $xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Windows System Monitor" Height="600" Width="1000" WindowStartupLocation="CenterScreen">
+        Title="Auto Command" Height="600" Width="1000" WindowStartupLocation="CenterScreen">
     <Window.Resources>
         <Style TargetType="DataGrid">
             <Setter Property="AutoGenerateColumns" Value="False"/>
@@ -587,7 +587,7 @@ $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent().Name
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
 if ($isAdmin) {
-    $window.Title = "Windows System Monitor (Administrator) - User: $currentUser"
+    $window.Title = "Auto Command (Administrator) - User: $currentUser"
     
     # Initialize Toggles
     $vpnToggle.IsChecked = Update-VpnStatus
@@ -641,7 +641,7 @@ if ($isAdmin) {
 
 }
 else {
-    $window.Title = "Windows System Monitor (User) - User: $currentUser"
+    $window.Title = "Auto Command (User) - User: $currentUser"
     $vpnToggle.IsEnabled = $false
     $wifiToggle.IsEnabled = $false
     $debugToggle.IsEnabled = $false
