@@ -15,12 +15,14 @@ namespace DeviceMonitorCS.Views
     {
         public ObservableCollection<NetworkAdapterItem> WanMiniports { get; set; } = new ObservableCollection<NetworkAdapterItem>();
         public ObservableCollection<NetworkAdapterItem> WifiDirectDevices { get; set; } = new ObservableCollection<NetworkAdapterItem>();
+        public ObservableCollection<NetworkAdapterItem> KdnetDevices { get; set; } = new ObservableCollection<NetworkAdapterItem>();
 
         public CommandPanelView()
         {
             InitializeComponent();
             WanMiniportGrid.ItemsSource = WanMiniports;
             WifiDirectGrid.ItemsSource = WifiDirectDevices;
+            KdnetGrid.ItemsSource = KdnetDevices;
         }
 
         public void InitializeAndLoad()
@@ -39,6 +41,8 @@ namespace DeviceMonitorCS.Views
             LoadWanMiniports();
             LoadWifiDirectStatus();
             LoadWifiDirectDevices();
+            LoadKdnetStatus();
+            LoadKdnetDevices();
         }
 
         // --- Microsoft VPN Hole (SSTP) ---
@@ -308,6 +312,87 @@ namespace DeviceMonitorCS.Views
                 {
                     MessageBox.Show($"Error: {ex.Message}");
                 }
+            }
+        }
+
+        // --- Microsoft Kernel Debug Network Hole ---
+
+        private void LoadKdnetStatus()
+        {
+            try
+            {
+                bool exists = false;
+                var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_PnPEntity WHERE Name LIKE '%Kernel Debug Network%'");
+                foreach (ManagementObject obj in searcher.Get())
+                {
+                    exists = true;
+                    break;
+                }
+
+                KdnetStatusText.Text = exists ? "Status: Device Exists" : "Status: Peripheral Not Found";
+                
+                if (exists)
+                {
+                    KdnetToggleBtn.Content = "Disable & Uninstall";
+                    KdnetToggleBtn.Background = new SolidColorBrush(Color.FromRgb(255, 107, 107));
+                }
+                else
+                {
+                    KdnetToggleBtn.Content = "Enable (bcdedit)";
+                    KdnetToggleBtn.Background = new SolidColorBrush(Color.FromRgb(0, 122, 204));
+                }
+            }
+            catch (Exception ex)
+            {
+                KdnetStatusText.Text = "Error reading status";
+                Debug.WriteLine($"KDNET Status Error: {ex.Message}");
+            }
+        }
+
+        private void LoadKdnetDevices()
+        {
+            try
+            {
+                KdnetDevices.Clear();
+                var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_NetworkAdapter WHERE Name LIKE '%Kernel Debug Network%'");
+                foreach (ManagementObject obj in searcher.Get())
+                {
+                    KdnetDevices.Add(new NetworkAdapterItem
+                    {
+                        Name = obj["Name"]?.ToString(),
+                        Status = GetNetConnStatusString(obj["NetConnectionStatus"]?.ToString()),
+                        DeviceID = obj["PNPDeviceID"]?.ToString()
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading KDNET devices: {ex.Message}");
+            }
+        }
+
+        private void KdnetToggleBtn_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                string content = KdnetToggleBtn.Content.ToString();
+                if (content.Contains("Disable"))
+                {
+                    // Disable and Uninstall
+                    RunPowerShellCommand("Get-PnpDevice -FriendlyName '*Kernel Debug Network*' | Disable-PnpDevice -Confirm:$false", "Disable KDNET");
+                    DeviceMonitorCS.Helpers.WanMiniportRemover.RemoveKdnet();
+                }
+                else
+                {
+                    // Enable (usually requires bcdedit and reboot, but we'll try to trigger the command)
+                    RunPowerShellCommand("bcdedit /set privatedbg yes; bcdedit /debug on", "Enable KDNET via BCD");
+                    MessageBox.Show("KDNET enabled via BCD. A reboot may be required to see the adapter.", "Reboot Required", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                RefreshData();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error toggling KDNET: {ex.Message}");
             }
         }
     }

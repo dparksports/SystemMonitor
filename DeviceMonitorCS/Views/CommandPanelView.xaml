@@ -129,9 +129,48 @@
                 </Grid>
             </GroupBox>
 
-            <!-- Quarter 3 (Bottom-Left): Placeholder -->
-            <GroupBox Grid.Row="1" Grid.Column="0" Header="Placeholder Q3" Margin="0,10,10,0" BorderBrush="#3E3E42" Foreground="White" Opacity="0.5">
-                <TextBlock Text="Future Command Section" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#666666"/>
+            <!-- Quarter 3 (Bottom-Left): Microsoft Kernel Debug Network Hole -->
+            <GroupBox Grid.Row="1" Grid.Column="0" Header="Microsoft Kernel Debug Network Hole" Margin="0,10,10,0" BorderBrush="#3E3E42" Foreground="White" Padding="10">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Status & Control -->
+                        <RowDefinition Height="*"/>    <!-- Virtual Adapters -->
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="#252526" CornerRadius="4" Padding="10" Margin="0,0,0,10">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Kernel Debug Adapter (KDNET)" FontWeight="SemiBold" Foreground="White"/>
+                                    <TextBlock x:Name="KdnetStatusText" Text="Loading..." Foreground="#AAAAAA" FontSize="11" Margin="0,2,0,0"/>
+                                </StackPanel>
+                                <Button x:Name="KdnetToggleBtn" Grid.Column="1" Content="Toggle" Padding="15,5" Background="#007ACC" Foreground="White" BorderThickness="0" Click="KdnetToggleBtn_Click">
+                                    <Button.Resources>
+                                        <Style TargetType="Border">
+                                            <Setter Property="CornerRadius" Value="4"/>
+                                        </Style>
+                                    </Button.Resources>
+                                </Button>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <DockPanel Grid.Row="1">
+                        <TextBlock DockPanel.Dock="Top" Text="Debug Network Adapters" Foreground="#CCCCCC" FontSize="12" Margin="0,0,0,5"/>
+                        <DataGrid x:Name="KdnetGrid" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                  Background="#252526" RowBackground="#252526" AlternatingRowBackground="#2D2D30" Foreground="White"
+                                  GridLinesVisibility="Horizontal" HeadersVisibility="Column" BorderThickness="0">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*"/>
+                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="80"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Grid>
             </GroupBox>
 
             <!-- Quarter 4 (Bottom-Right): Placeholder -->

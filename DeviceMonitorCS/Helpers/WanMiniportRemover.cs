@@ -50,6 +50,11 @@ namespace DeviceMonitorCS.Helpers
             return ExecuteInternal("MS_VWIFI"); // MicroSoft Virtual WIFI
         }
 
+        public static List<string> RemoveKdnet()
+        {
+            return ExecuteInternal("MS_KDNIC"); // Microsoft Kernel Debug Network Adapter
+        }
+
         private static List<string> ExecuteInternal(string specificPattern = null)
         {
             var results = new List<string>();
@@ -142,7 +147,8 @@ namespace DeviceMonitorCS.Helpers
                    instanceId.Contains("MS_NDISWANIPV6") ||
                    instanceId.Contains("MS_PPPOEMINIPORT") ||
                    instanceId.Contains("MS_NDISWANBH") || // Network Monitor
-                   instanceId.Contains("MS_VWIFI"); // WiFi Direct Virtual Adapter
+                   instanceId.Contains("MS_VWIFI") || // WiFi Direct Virtual Adapter
+                   instanceId.Contains("MS_KDNIC"); // Microsoft Kernel Debug Network Adapter
         }
     }
 }
