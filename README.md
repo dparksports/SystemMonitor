@@ -41,15 +41,21 @@ The heart of Auto Command, providing one-click management for critical system in
 
 ## 📥 Getting Started
 
-### Prerequisites
-- .NET 8.0 SDK
-- Windows 10/11 (with Administrative privileges for tool execution)
+### ⚡ Quick Start
+The easiest way to get started is to download the latest production bundle:
+- **[Download Auto Command v3.4 (.zip)](https://github.com/dparksports/SystemMonitor/releases/download/v3.4/AutoCommand_v3.4.zip)**
+- Or browse all **[Releases](https://github.com/dparksports/SystemMonitor/releases)**
 
-### Installation
+### Build from Source
+If you prefer to build it yourself:
 1. Clone the repository.
 2. Open the solution in Visual Studio or your preferred C# IDE.
-3. Build the project using the **Release** configuration for optimal performance.
-4. Run `AutoCommand.exe`.
+3. Build the project using the **Release** configuration.
+4. Run `AutoCommand.exe` from the output directory.
+
+### Prerequisites
+- .NET 8.0 Runtime (for running) or SDK (for building).
+- Windows 10/11 with Administrative privileges.
 
 ---
 
