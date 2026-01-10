@@ -4,7 +4,7 @@
 
 [![Download v3.8.1](https://img.shields.io/badge/Download-v3.8.1-00F0FF?style=for-the-badge&logo=windows)](https://github.com/dparksports/SystemMonitor/releases/download/v3.8.1/AutoCommand.exe)
 
-![Auto Command Dashboard](file:///C:/Users/honey/.gemini/antigravity/brain/dd6eed55-9e6b-479d-82bb-0975e0b2df85/uploaded_image_1768036417854.png)
+![Auto Command Dashboard](dashboard_preview.png)
 
 ## 🚀 Key Features
 
