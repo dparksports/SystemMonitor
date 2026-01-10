@@ -4,7 +4,16 @@
         xmlns:local="clr-namespace:DeviceMonitorCS"
         xmlns:views="clr-namespace:DeviceMonitorCS.Views"
         Title="Auto Command" Height="720" Width="1180" WindowStartupLocation="CenterScreen"
-        Icon="app_icon.ico">
+        Icon="app_icon.ico"
+        WindowStyle="None"
+        AllowsTransparency="True">
+    
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="32" 
+                      ResizeBorderThickness="5" 
+                      GlassFrameThickness="-1" 
+                      CornerRadius="0" />
+    </WindowChrome.WindowChrome>
     
     <Window.Background>
         <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
@@ -131,83 +140,143 @@
             <Setter Property="Foreground" Value="#E2E8F0"/>
             <Setter Property="BorderBrush" Value="#33FFFFFF"/>
         </Style>
+
+        <!-- Window Control Button Style -->
+        <Style TargetType="Button" x:Key="WindowControlBtn">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#94A3B8"/>
+            <Setter Property="Width" Value="46"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="WindowChrome.IsHitTestVisibleInChrome" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}">
+                            <TextBlock Text="{TemplateBinding Content}" 
+                                       FontFamily="Segoe MDL2 Assets" 
+                                       FontSize="10" 
+                                       HorizontalAlignment="Center" 
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#1AFFFFFF"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="Button" x:Key="CloseBtn" BasedOn="{StaticResource WindowControlBtn}">
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#E81123"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </Style>
     </Window.Resources>
     
     <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32"/> <!-- Custom Title Bar -->
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
 
-        <!-- Sidebar (Glass Effect) -->
-        <Border x:Name="SidebarPane" Grid.Column="0" Width="120" HorizontalAlignment="Left" Background="#990F172A" BorderBrush="#1FFFFFFF" BorderThickness="0,0,1,0">
-            <Grid Margin="0,10,0,20">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/> <!-- Toggle -->
-                    <RowDefinition Height="Auto"/> <!-- Header -->
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
+        <!-- Integrated Title Bar UI -->
+        <Grid Grid.Row="0" Background="Transparent">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
+                <Image Source="app_icon.ico" Width="16" Height="16" Margin="0,0,10,0"/>
+                <TextBlock Text="Auto Command" Foreground="#94A3B8" FontSize="12" VerticalAlignment="Center" FontWeight="SemiBold"/>
+            </StackPanel>
 
-                <!-- Toggle Button (Hamburger) -->
-                <Button x:Name="HamburgerBtn" Grid.Row="0" Style="{StaticResource ToggleBtn}" HorizontalAlignment="Center" Margin="0,0,0,10" Click="HamburgerBtn_Click">
-                    <TextBlock Text="&#xE700;" FontFamily="Segoe MDL2 Assets" FontSize="20"/>
-                </Button>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                <Button Content="&#xE921;" Style="{StaticResource WindowControlBtn}" Click="MinimizeBtn_Click"/>
+                <Button Content="&#xE922;" Style="{StaticResource WindowControlBtn}" Click="MaximizeBtn_Click"/>
+                <Button Content="&#xE8BB;" Style="{StaticResource CloseBtn}" Click="CloseBtn_Click"/>
+            </StackPanel>
+        </Grid>
 
-                <!-- App Header -->
-                <StackPanel x:Name="SidebarHeader" Grid.Row="1" Margin="0,5,0,20" Visibility="Visible">
-                    <!-- Simple Logo or Icon for Sidebar -->
-                    <TextBlock Text="&#xF410;" FontFamily="Segoe MDL2 Assets" FontSize="24" Foreground="#00F0FF" HorizontalAlignment="Center"/>
-                    <TextBlock Text="AUTO COMMAND" FontSize="10" FontWeight="Black" Foreground="#00F0FF" HorizontalAlignment="Center" Margin="0,5,0,0"/>
-                </StackPanel>
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
-                <!-- Navigation -->
-                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Hidden">
-                    <StackPanel>
-                        <Button x:Name="NavDashboardBtn" Style="{StaticResource NavButton}" Tag="Selected">
-                            <StackPanel>
-                                <TextBlock Text="&#xEA8A;" FontFamily="Segoe MDL2 Assets" FontSize="28" HorizontalAlignment="Center"/>
-                                <TextBlock x:Name="LabelDashboard" Text="Dashboard" Margin="0,5,0,0" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" Visibility="Visible"/>
-                            </StackPanel>
-                        </Button>
+            <!-- Sidebar (Glass Effect) -->
+            <Border x:Name="SidebarPane" Grid.Column="0" Width="120" HorizontalAlignment="Left" Background="#990F172A" BorderBrush="#1FFFFFFF" BorderThickness="0,0,1,0">
+                <Grid Margin="0,10,0,20">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Toggle -->
+                        <RowDefinition Height="Auto"/> <!-- Header -->
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
 
-                        <Button x:Name="NavSecurityBtn" Style="{StaticResource NavButton}">
-                            <StackPanel>
-                                <TextBlock Text="&#xE727;" FontFamily="Segoe MDL2 Assets" FontSize="28" HorizontalAlignment="Center"/>
-                                <TextBlock x:Name="LabelSecurity" Text="Security" Margin="0,5,0,0" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" Visibility="Visible"/>
-                            </StackPanel>
-                        </Button>
-
-                        <Button x:Name="NavDiagnosticsBtn" Style="{StaticResource NavButton}">
-                            <StackPanel>
-                                <TextBlock Text="&#xE9D2;" FontFamily="Segoe MDL2 Assets" FontSize="28" HorizontalAlignment="Center"/>
-                                <TextBlock x:Name="LabelDiagnostics" Text="Diagnostics" Margin="0,5,0,0" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" Visibility="Visible"/>
-                            </StackPanel>
-                        </Button>
-                    </StackPanel>
-                </ScrollViewer>
-
-                <!-- Footer -->
-                <StackPanel Grid.Row="3" Margin="5,20,5,0">
-                    <Separator Background="#1FFFFFFF" Margin="0,0,0,10"/>
-                    <Button x:Name="SettingsBtn" Style="{StaticResource NavButton}">
-                        <StackPanel>
-                            <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="24" HorizontalAlignment="Center"/>
-                            <TextBlock x:Name="LabelSettings" Text="Settings" Margin="0,5,0,0" FontSize="12" HorizontalAlignment="Center" Visibility="Visible"/>
-                        </StackPanel>
+                    <!-- Toggle Button (Hamburger) -->
+                    <Button x:Name="HamburgerBtn" Grid.Row="0" Style="{StaticResource ToggleBtn}" HorizontalAlignment="Center" Margin="0,0,0,10" Click="HamburgerBtn_Click">
+                        <TextBlock Text="&#xE700;" FontFamily="Segoe MDL2 Assets" FontSize="20"/>
                     </Button>
-                    
-                    <StackPanel x:Name="SidebarFooter" Margin="0,15,0,0" Visibility="Visible">
-                        <TextBlock x:Name="AppVersionText" Text="v3.7.3" Foreground="#475569" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center"/>
-                        <TextBlock Text="ACTIVE" Foreground="#00F0FF" FontSize="8" Margin="0,2,0,0" Opacity="0.7" HorizontalAlignment="Center"/>
-                    </StackPanel>
-                </StackPanel>
-            </Grid>
-        </Border>
 
-        <!-- Content Area -->
-        <Border Grid.Column="1" Margin="0,20,20,20" Style="{StaticResource GlassPanel}">
-             <ContentControl x:Name="MainContentArea"/>
-        </Border>
+                    <!-- App Header -->
+                    <StackPanel x:Name="SidebarHeader" Grid.Row="1" Margin="0,5,0,20" Visibility="Visible">
+                        <!-- Simple Logo or Icon for Sidebar -->
+                        <TextBlock Text="&#xF410;" FontFamily="Segoe MDL2 Assets" FontSize="24" Foreground="#00F0FF" HorizontalAlignment="Center"/>
+                        <TextBlock Text="AUTO COMMAND" FontSize="10" FontWeight="Black" Foreground="#00F0FF" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                    </StackPanel>
+
+                    <!-- Navigation -->
+                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Hidden">
+                        <StackPanel>
+                            <Button x:Name="NavDashboardBtn" Style="{StaticResource NavButton}" Tag="Selected">
+                                <StackPanel>
+                                    <TextBlock Text="&#xEA8A;" FontFamily="Segoe MDL2 Assets" FontSize="28" HorizontalAlignment="Center"/>
+                                    <TextBlock x:Name="LabelDashboard" Text="Dashboard" Margin="0,5,0,0" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" Visibility="Visible"/>
+                                </StackPanel>
+                            </Button>
+
+                            <Button x:Name="NavSecurityBtn" Style="{StaticResource NavButton}">
+                                <StackPanel>
+                                    <TextBlock Text="&#xE727;" FontFamily="Segoe MDL2 Assets" FontSize="28" HorizontalAlignment="Center"/>
+                                    <TextBlock x:Name="LabelSecurity" Text="Security" Margin="0,5,0,0" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" Visibility="Visible"/>
+                                </StackPanel>
+                            </Button>
+
+                            <Button x:Name="NavDiagnosticsBtn" Style="{StaticResource NavButton}">
+                                <StackPanel>
+                                    <TextBlock Text="&#xE9D2;" FontFamily="Segoe MDL2 Assets" FontSize="28" HorizontalAlignment="Center"/>
+                                    <TextBlock x:Name="LabelDiagnostics" Text="Diagnostics" Margin="0,5,0,0" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" Visibility="Visible"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- Footer -->
+                    <StackPanel Grid.Row="3" Margin="5,20,5,0">
+                        <Separator Background="#1FFFFFFF" Margin="0,0,0,10"/>
+                        <Button x:Name="SettingsBtn" Style="{StaticResource NavButton}">
+                            <StackPanel>
+                                <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="24" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="LabelSettings" Text="Settings" Margin="0,5,0,0" FontSize="12" HorizontalAlignment="Center" Visibility="Visible"/>
+                            </StackPanel>
+                        </Button>
+                        
+                        <StackPanel x:Name="SidebarFooter" Margin="0,15,0,0" Visibility="Visible">
+                            <TextBlock x:Name="AppVersionText" Text="v3.7.3" Foreground="#475569" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                            <TextBlock Text="ACTIVE" Foreground="#00F0FF" FontSize="8" Margin="0,2,0,0" Opacity="0.7" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Content Area -->
+            <Border Grid.Column="1" Margin="0,10,20,20" Style="{StaticResource GlassPanel}">
+                 <ContentControl x:Name="MainContentArea"/>
+            </Border>
+        </Grid>
     </Grid>
 </Window>

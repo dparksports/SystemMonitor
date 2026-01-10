@@ -204,10 +204,10 @@ namespace DeviceMonitorCS
             _telemetryService = new FirebaseTelemetryService();
             _ = _telemetryService.SendEventAsync("app_start", new Dictionary<string, object> 
             { 
-               { "app_version", System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString() }
+               { "app_version", "3.7.4" }
             });
 
-            AppVersionText.Text = $"v{System.Reflection.Assembly.GetExecutingAssembly().GetName().Version}";
+            AppVersionText.Text = "v3.7.4";
             this.AddHandler(Button.ClickEvent, new RoutedEventHandler(Global_ButtonClick));
 
             _currentUser = System.Security.Principal.WindowsIdentity.GetCurrent().Name;
@@ -684,6 +684,15 @@ namespace DeviceMonitorCS
 
         // Old NavigateTo removed in favor of Generic Lazy Load version
 
+
+        private void MinimizeBtn_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+
+        private void MaximizeBtn_Click(object sender, RoutedEventArgs e)
+        {
+            WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+        }
+
+        private void CloseBtn_Click(object sender, RoutedEventArgs e) => Close();
 
         private void MainWindow_Closed(object sender, EventArgs e)
         {
