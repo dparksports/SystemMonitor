@@ -7,6 +7,7 @@ using System.Windows.Threading;
 using System.Diagnostics;
 using System.Windows.Shapes;
 using System.Collections.Generic;
+using System.Management;
 
 namespace DeviceMonitorCS.Views
 {
@@ -15,6 +16,7 @@ namespace DeviceMonitorCS.Views
         private DispatcherTimer _timer;
         private PerformanceCounter _cpuCounter;
         private PerformanceCounter _ramCounter;
+        private double _totalRamMB;
         public ObservableCollection<TimelineItem> RecentEvents { get; set; }
 
         public DashboardView()
@@ -36,6 +38,14 @@ namespace DeviceMonitorCS.Views
             {
                 _cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
                 _ramCounter = new PerformanceCounter("Memory", "Available MBytes");
+
+                // Get Total RAM via WMI
+                var searcher = new ManagementObjectSearcher("SELECT TotalVisibleMemorySize FROM Win32_OperatingSystem");
+                foreach (var obj in searcher.Get())
+                {
+                    _totalRamMB = Convert.ToDouble(obj["TotalVisibleMemorySize"]) / 1024.0; // KB to MB
+                }
+
                 _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
                 _timer.Tick += Timer_Tick;
                 _timer.Start();
@@ -61,14 +71,18 @@ namespace DeviceMonitorCS.Views
             if (_cpuCounter != null)
             {
                 float cpu = _cpuCounter.NextValue();
-                float ram = _ramCounter.NextValue();
+                float ramAvailableMB = _ramCounter.NextValue();
                 
-                CpuText.Text = $"{cpu:0}%";
-                MemText.Text = $"{ram:0} MB Free";
+                double usedMB = _totalRamMB - ramAvailableMB;
+                double usedGB = usedMB / 1024.0;
+                if (usedGB < 0) usedGB = 0;
 
-                // Scale: Mockup shows 60 as top label, let's use 80 as max Y for better fit
-                UpdateGraphSmoothed(_cpuHistory, cpu, CpuPath, 80);
-                UpdateGraphSmoothed(_ramHistory, ram, MemPath, 32000); 
+                CpuText.Text = $"{cpu:0}%";
+                MemText.Text = $"{usedGB:0.1} GB Used";
+
+                // Scale: CPU max 100, RAM max TotalRamGB
+                UpdateGraphSmoothed(_cpuHistory, cpu, CpuPath, 100);
+                UpdateGraphSmoothed(_ramHistory, usedGB, MemPath, _totalRamMB / 1024.0); 
             }
         }
 
