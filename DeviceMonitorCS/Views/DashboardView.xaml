@@ -205,10 +205,10 @@
                 <!-- Windows Defender -->
                 <Border Grid.Row="0" Style="{StaticResource MetricCard}" Margin="0,0,0,5">
                     <Grid>
-                        <!-- Inner Radiant Glow (Dead-Center, Narrow) -->
+                        <!-- Inner Radiant Glow (Top-Center, Narrow) -->
                         <Border CornerRadius="10">
                             <Border.Background>
-                                <RadialGradientBrush Center="0.5,0.5" GradientOrigin="0.5,0.5" RadiusX="0.5" RadiusY="0.5">
+                                <RadialGradientBrush Center="0.5,0" GradientOrigin="0.5,0" RadiusX="0.5" RadiusY="0.7">
                                     <GradientStop Color="#504ADE80" Offset="0"/>
                                     <GradientStop Color="Transparent" Offset="1"/>
                                 </RadialGradientBrush>
@@ -257,10 +257,10 @@
                 <!-- Firewall -->
                 <Border Grid.Row="1" Style="{StaticResource MetricCard}" Margin="0,5,0,0">
                     <Grid>
-                        <!-- Inner Radiant Glow (Dead-Center, Narrow) -->
+                        <!-- Inner Radiant Glow (Top-Center, Narrow) -->
                         <Border CornerRadius="10">
                             <Border.Background>
-                                <RadialGradientBrush Center="0.5,0.5" GradientOrigin="0.5,0.5" RadiusX="0.5" RadiusY="0.5">
+                                <RadialGradientBrush Center="0.5,0" GradientOrigin="0.5,0" RadiusX="0.5" RadiusY="0.7">
                                     <GradientStop Color="#50F59E0B" Offset="0"/>
                                     <GradientStop Color="Transparent" Offset="1"/>
                                 </RadialGradientBrush>
