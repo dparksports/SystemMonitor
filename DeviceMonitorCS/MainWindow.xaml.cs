@@ -204,30 +204,52 @@ namespace DeviceMonitorCS
             _telemetryService = new FirebaseTelemetryService();
             _ = _telemetryService.SendEventAsync("app_start", new Dictionary<string, object> 
             { 
-               { "app_version", "3.9.0" }
+               { "app_version", "3.9.1" }
             });
 
-            AppVersionText.Text = "v3.9.0";
+            AppVersionText.Text = "v3.9.1";
             this.AddHandler(Button.ClickEvent, new RoutedEventHandler(Global_ButtonClick));
 
-            _currentUser = System.Security.Principal.WindowsIdentity.GetCurrent().Name;
+            // FAST Identity retrieval
+            _currentUser = WindowsIdentity.GetCurrent().Name;
             Title = $"Auto Command (Administrator) - User: {_currentUser}";
-            StartSecurityMonitoring();
             
-            _enforcer = new SecurityEnforcer(HandleThreatDetected);
-            _enforcer.StatusChanged += (status, color) => 
+            // Defer heavy initializations to background threads to keep UI instant
+            Task.Run(() => 
             {
-                 Dispatcher.Invoke(() => 
-                 {
-                     if (_viewCache.TryGetValue(typeof(Views.OverviewView), out var view))
-                     {
-                         ((Views.OverviewView)view).UpdateLiveStatus(status, color);
-                     }
-                 });
-            };
-            
-            _enforcer.ConfigurationDriftDetected += (driftItems) => Dispatcher.Invoke(() => HandleFirewallDrift(driftItems));
-            _enforcer.Start();
+                Dispatcher.Invoke(() => 
+                {
+                    StartSecurityMonitoring();
+                    
+                    _enforcer = new SecurityEnforcer(HandleThreatDetected);
+                    _enforcer.StatusChanged += (status, color) => 
+                    {
+                         Dispatcher.Invoke(() => 
+                         {
+                             if (_viewCache.TryGetValue(typeof(Views.OverviewView), out var view))
+                             {
+                                 ((Views.OverviewView)view).UpdateLiveStatus(status, color);
+                             }
+                         });
+                    };
+                    
+                    _enforcer.ConfigurationDriftDetected += (driftItems) => Dispatcher.Invoke(() => HandleFirewallDrift(driftItems));
+                    _enforcer.Start();
+
+                    _perfMonitor = new PerformanceMonitor();
+                    var perfTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+                    perfTimer.Tick += (s, e) => 
+                    {
+                        if (MainContentArea.Content is Views.DiagnosticsMainView dmv && dmv.SubContentArea.Content is Views.PerformanceView pv)
+                        {
+                             pv.UpdateMetrics(_perfMonitor.GetMetrics());
+                        }
+                    };
+                    perfTimer.Start();
+                    
+                    NavigateTo<Views.DashboardView>();
+                });
+            });
 
             // Navigation Wiring
             NavDashboardBtn.Click += NavDashboardBtn_Click;
@@ -236,20 +258,6 @@ namespace DeviceMonitorCS
             SettingsBtn.Click += SettingsBtn_Click;
             
             Closed += MainWindow_Closed;
-            
-            _perfMonitor = new PerformanceMonitor();
-            var perfTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-            perfTimer.Tick += (s, e) => 
-            {
-                // Recursive check for PerformanceView in MainContent or nested SubContent
-                if (MainContentArea.Content is Views.DiagnosticsMainView dmv && dmv.SubContentArea.Content is Views.PerformanceView pv)
-                {
-                     pv.UpdateMetrics(_perfMonitor.GetMetrics());
-                }
-            };
-            perfTimer.Start();
-            
-            NavigateTo<Views.DashboardView>();
         }
 
         private void Global_ButtonClick(object sender, RoutedEventArgs e)
@@ -447,16 +455,8 @@ namespace DeviceMonitorCS
 
         private string GetInitiator()
         {
-             try
-             {
-                 var searcher = new ManagementObjectSearcher("SELECT UserName FROM Win32_ComputerSystem");
-                 foreach (ManagementObject obj in searcher.Get())
-                 {
-                     return obj["UserName"]?.ToString();
-                 }
-             }
-             catch { }
-             return "Unknown";
+             // Use the fast cached identity instead of blocking WMI
+             return _currentUser ?? "Unknown";
         }
 
 

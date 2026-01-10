@@ -46,11 +46,17 @@ namespace DeviceMonitorCS.Models
         private List<PerformanceCounter> _diskWriteCounters = new List<PerformanceCounter>();
 
         private float _totalRamGb = 0;
+        public bool IsInitialized { get; private set; }
 
         public PerformanceMonitor()
         {
-            InitializeCounters();
-            _totalRamGb = GetTotalRam();
+            // Start async initialization so we don't block the UI thread
+            Task.Run(() => 
+            {
+                InitializeCounters();
+                _totalRamGb = GetTotalRam();
+                IsInitialized = true;
+            });
         }
 
         private void InitializeCounters()
@@ -88,6 +94,7 @@ namespace DeviceMonitorCS.Models
         public PerformanceMetrics GetMetrics()
         {
             var m = new PerformanceMetrics();
+            if (!IsInitialized) return m; // Return empty metrics until ready
             
             try
             {

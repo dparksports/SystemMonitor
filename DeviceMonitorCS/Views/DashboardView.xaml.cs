@@ -32,19 +32,25 @@ namespace DeviceMonitorCS.Views
              RecentEvents.Add(new TimelineItem { Title = "Scan Completed", Time = DateTime.Now.AddHours(-2), Color = "#00E676" });
         }
 
-        private void UserControl_Loaded(object sender, RoutedEventArgs e)
+        private async void UserControl_Loaded(object sender, RoutedEventArgs e)
         {
             try
             {
-                _cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
-                _ramCounter = new PerformanceCounter("Memory", "Available MBytes");
-
-                // Get Total RAM via WMI
-                var searcher = new ManagementObjectSearcher("SELECT TotalVisibleMemorySize FROM Win32_OperatingSystem");
-                foreach (var obj in searcher.Get())
+                // Defer blocking operations to background thread
+                await Task.Run(() => 
                 {
-                    _totalRamMB = Convert.ToDouble(obj["TotalVisibleMemorySize"]) / 1024.0; // KB to MB
-                }
+                    _cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
+                    _ramCounter = new PerformanceCounter("Memory", "Available MBytes");
+
+                    // Get Total RAM via WMI
+                    using (var searcher = new ManagementObjectSearcher("SELECT TotalVisibleMemorySize FROM Win32_OperatingSystem"))
+                    {
+                        foreach (var obj in searcher.Get())
+                        {
+                            _totalRamMB = Convert.ToDouble(obj["TotalVisibleMemorySize"]) / 1024.0; // KB to MB
+                        }
+                    }
+                });
 
                 _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
                 _timer.Tick += Timer_Tick;
@@ -52,7 +58,7 @@ namespace DeviceMonitorCS.Views
             }
             catch (Exception ex)
             {
-                Console.WriteLine("PerfCounter Error: " + ex.Message);
+                Debug.WriteLine("PerfCounter Error: " + ex.Message);
             }
         }
 
