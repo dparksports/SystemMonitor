@@ -104,15 +104,15 @@ namespace DeviceMonitorCS
                 
                 foreach (var kvp in overrides)
                 {
-                    string expected = kvp.Value == "True" ? "1" : "2"; // 1=True, 2=False (approx, or check boolean string in PS)
-                    // Actually Get-NetFirewallRule .Enabled returns 1 (True) or 2 (False) usually, or Boolean.
-                    // simpler: if enabled -ne $true
+                    string expected = kvp.Value; // "True" or "False"
+                    string desc = expected == "True" ? "Should be Enabled" : "Should be Disabled";
                     
-                    string checkState = kvp.Value == "True" ? "$false" : "$true";
-                    string desc = kvp.Value == "True" ? "Should be Enabled" : "Should be Disabled";
-                    
-                    // We check if state matches the OPPOSITE of what we want (meaning drift occurred)
-                    checkScript += $"if ((Get-NetFirewallRule -Name '{kvp.Key}' -ErrorAction SilentlyContinue).Enabled -eq {checkState}) {{ $drift += '{kvp.Key} ({desc})' }}; ";
+                    // Robust check: Get rule, normalize Enabled state to "True"/"False", compare with expected
+                    checkScript += $"$r = Get-NetFirewallRule -Name '{kvp.Key}' -ErrorAction SilentlyContinue; ";
+                    checkScript += $"if ($r) {{ ";
+                    checkScript += $"  $actual = if ($r.Enabled -eq 1 -or $r.Enabled -eq 'True') {{ 'True' }} else {{ 'False' }}; ";
+                    checkScript += $"  if ($actual -ne '{expected}') {{ $drift += '{kvp.Key} ({desc})' }}; ";
+                    checkScript += $"}}; ";
                 }
                 
                 checkScript += "$drift";
