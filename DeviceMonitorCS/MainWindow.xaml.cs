@@ -92,7 +92,7 @@ namespace DeviceMonitorCS
             StartSecurityMonitoring(); // Device monitoring now handled by OnSourceInitialized
             
             _enforcer = new SecurityEnforcer(HandleThreatDetected);
-            _enforcer.StatusChanged += (status, color) => Dispatcher.Invoke(() => DashboardView.UpdateLiveStatus(status, color));
+            _enforcer.StatusChanged += (status, color) => Dispatcher.Invoke(() => OverviewView.UpdateLiveStatus(status, color));
             
             // Handle Firewall Drift
             _enforcer.ConfigurationDriftDetected += (driftItems) => Dispatcher.Invoke(() => HandleFirewallDrift(driftItems));
@@ -108,6 +108,7 @@ namespace DeviceMonitorCS
 
             // Navigation Wiring
             NavDashboardBtn.Click += (s, e) => NavigateTo(DashboardView);
+            NavOverviewBtn.Click += (s, e) => NavigateTo(OverviewView);
             PerformanceBtn.Click += (s, e) => NavigateTo(PerformanceView);
             PrivacyBtn.Click += (s, e) => NavigateTo(PrivacyView);
             TimelineBtn.Click += (s, e) => NavigateTo(TimelineView);
@@ -620,7 +621,9 @@ namespace DeviceMonitorCS
             ColdBootsView.Visibility = Visibility.Collapsed;
             CommandPanelView.Visibility = Visibility.Collapsed;
             WindowsDefenderView.Visibility = Visibility.Collapsed;
+            WindowsDefenderView.Visibility = Visibility.Collapsed;
             EventManagementView.Visibility = Visibility.Collapsed;
+            OverviewView.Visibility = Visibility.Collapsed;
 
 
             // Show target
@@ -628,10 +631,10 @@ namespace DeviceMonitorCS
             {
                 targetView.Visibility = Visibility.Visible;
                 
-                // Refresh Dashboard if navigating to it
-                if (targetView is DashboardView dv)
+                // Refresh Overview if navigating to it
+                if (targetView is Views.OverviewView ov)
                 {
-                    _ = dv.LoadAllDataAsync();
+                    _ = ov.LoadAllDataAsync();
                 }
 
                 // Track Screen View
