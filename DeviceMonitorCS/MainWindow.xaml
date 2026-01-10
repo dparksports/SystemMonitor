@@ -172,12 +172,12 @@
         </Style>
 
         <Style TargetType="Button" x:Key="CloseBtn" BasedOn="{StaticResource WindowControlBtn}">
-            <ControlTemplate.Triggers>
+            <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="#E81123"/>
                     <Setter Property="Foreground" Value="White"/>
                 </Trigger>
-            </ControlTemplate.Triggers>
+            </Style.Triggers>
         </Style>
     </Window.Resources>
     
