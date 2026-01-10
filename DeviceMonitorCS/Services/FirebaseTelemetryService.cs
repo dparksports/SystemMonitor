@@ -18,8 +18,10 @@ namespace DeviceMonitorCS.Services
 
         public FirebaseTelemetryService()
         {
-            _configFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "firebase_config.json");
-            _clientIdFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "client_id.txt");
+            // Use LocalApplicationData for runtime writes (single-file friendly)
+            var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AutoCommand");
+            Directory.CreateDirectory(appData);
+            _clientIdFile = Path.Combine(appData, "client_id.txt");
             
             LoadConfig();
             LoadOrGenerateClientId();
@@ -29,14 +31,33 @@ namespace DeviceMonitorCS.Services
         {
             try
             {
-                if (File.Exists(_configFile))
+                // Try loading from Embedded Resource first (Preferred for Single-File)
+                var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+                var resourceName = "DeviceMonitorCS.firebase_config.json";
+
+                using (Stream stream = assembly.GetManifestResourceStream(resourceName))
                 {
-                    string json = File.ReadAllText(_configFile);
+                    if (stream != null)
+                    {
+                        using (StreamReader reader = new StreamReader(stream))
+                        {
+                            string json = reader.ReadToEnd();
+                            _config = JsonSerializer.Deserialize<FirebaseConfig>(json);
+                            return;
+                        }
+                    }
+                }
+
+                // Fallback to disk (for Debug/Dev)
+                string localPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "firebase_config.json");
+                if (File.Exists(localPath))
+                {
+                    string json = File.ReadAllText(localPath);
                     _config = JsonSerializer.Deserialize<FirebaseConfig>(json);
                 }
                 else
                 {
-                    Debug.WriteLine("Firebase config not found.");
+                    Debug.WriteLine("Firebase config not found in resources or disk.");
                 }
             }
             catch (Exception ex)
