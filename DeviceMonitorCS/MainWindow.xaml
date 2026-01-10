@@ -49,24 +49,30 @@
             <Setter Property="Foreground" Value="#94A3B8"/>
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="FontFamily" Value="Segoe UI"/>
-            <Setter Property="Padding" Value="15,8"/>
+            <Setter Property="Padding" Value="15,12"/>
             <Setter Property="HorizontalContentAlignment" Value="Left"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Margin" Value="0,1"/>
+            <Setter Property="Margin" Value="5,2"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="10" Padding="{TemplateBinding Padding}">
+                            <Grid>
+                                <!-- Selection Indicator -->
+                                <Border x:Name="indicator" HorizontalAlignment="Left" Width="3" Height="20" Background="#00F0FF" CornerRadius="2" Margin="-15,0,0,0" Visibility="Collapsed"/>
+                                <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                            </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="border" Property="Background" Value="#1A00F0FF"/>
                                 <Setter Property="Foreground" Value="#F8FAFC"/>
                             </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#3300F0FF"/>
+                            <Trigger Property="Tag" Value="Selected">
+                                <Setter TargetName="border" Property="Background" Value="#221E293B"/>
+                                <Setter Property="Foreground" Value="#00F0FF"/>
+                                <Setter TargetName="indicator" Property="Visibility" Value="Visible"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -126,122 +132,38 @@
                 </Grid.RowDefinitions>
 
                 <!-- App Header -->
-                <StackPanel Grid.Row="0" Margin="10,15,0,20">
-                    <TextBlock Text="AUTO COMMAND" FontSize="18" FontWeight="Black" Foreground="#00F0FF">
+                <StackPanel Grid.Row="0" Margin="10,15,0,30">
+                    <TextBlock Text="AUTO COMMAND" FontSize="20" FontWeight="Black" Foreground="#00F0FF">
                         <TextBlock.Effect>
-                            <DropShadowEffect Color="#00F0FF" BlurRadius="15" ShadowDepth="0" Opacity="0.6"/>
+                            <DropShadowEffect Color="#00F0FF" BlurRadius="20" ShadowDepth="0" Opacity="0.6"/>
                         </TextBlock.Effect>
                     </TextBlock>
-                    <TextBlock Text="SYSTEM MONITOR" FontSize="10" Foreground="#64748B" Margin="2,2,0,0"/>
+                    <TextBlock Text="ELITE MONITORING CORE" FontSize="9" Foreground="#64748B" FontWeight="Bold" Margin="2,2,0,0"/>
                 </StackPanel>
 
                 <!-- Navigation -->
                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden">
                     <StackPanel>
-                        <!-- Top Level -->
-                        <Button x:Name="NavDashboardBtn" Style="{StaticResource NavButton}">
+                        <Button x:Name="NavDashboardBtn" Style="{StaticResource NavButton}" Tag="Selected">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE80F;" FontFamily="Segoe MDL2 Assets" FontSize="16" Width="20" TextAlignment="Center"/>
-                                <TextBlock Text="Dashboard" Margin="15,0,0,0"/>
+                                <TextBlock Text="&#xEA8A;" FontFamily="Segoe MDL2 Assets" FontSize="18" Width="24" TextAlignment="Center"/>
+                                <TextBlock Text="Dashboard" Margin="15,0,0,0" FontWeight="SemiBold"/>
                             </StackPanel>
                         </Button>
 
-                        <!-- Security Group -->
-                        <TextBlock Text="SECURITY" Style="{StaticResource GroupHeader}"/>
-                        
-                        <Button x:Name="PrivacyBtn" Style="{StaticResource NavButton}">
+                        <Button x:Name="NavSecurityBtn" Style="{StaticResource NavButton}" Margin="5,10,5,2">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="16" Width="20" TextAlignment="Center"/>
-                                <TextBlock Text="Privacy Settings" Margin="15,0,0,0"/>
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="DefenderBtn" Style="{StaticResource NavButton}">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE83D;" FontFamily="Segoe MDL2 Assets" FontSize="16" Width="20" TextAlignment="Center"/>
-                                <TextBlock Text="Windows Defender" Margin="15,0,0,0"/>
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="EventManagementBtn" Style="{StaticResource NavButton}">
-                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xEA86;" FontFamily="Segoe MDL2 Assets" FontSize="16" Width="20" TextAlignment="Center"/>
-                                <TextBlock Text="Event Management" Margin="15,0,0,0"/>
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="FirewallSettingsBtn" Style="{StaticResource NavButton}">
-                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE945;" FontFamily="Segoe MDL2 Assets" FontSize="16" Width="20" TextAlignment="Center"/>
-                                <TextBlock Text="Firewall Settings" Margin="15,0,0,0"/>
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="CommandPanelBtn" Style="{StaticResource NavButton}">
-                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE756;" FontFamily="Segoe MDL2 Assets" FontSize="16" Width="20" TextAlignment="Center"/>
-                                <TextBlock Text="Command Panel" Margin="15,0,0,0"/>
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="TasksBtn" Style="{StaticResource NavButton}">
-                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" FontSize="16" Width="20" TextAlignment="Center"/>
-                                <TextBlock Text="Scheduled Tasks" Margin="15,0,0,0"/>
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="ConnectionsBtn" Style="{StaticResource NavButton}">
-                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xEC27;" FontFamily="Segoe MDL2 Assets" FontSize="16" Width="20" TextAlignment="Center"/>
-                                <TextBlock Text="Connections" Margin="15,0,0,0"/>
+                                <TextBlock Text="&#xE727;" FontFamily="Segoe MDL2 Assets" FontSize="18" Width="24" TextAlignment="Center"/>
+                                <TextBlock Text="Security" Margin="15,0,0,0" FontWeight="SemiBold"/>
                             </StackPanel>
                         </Button>
 
-                        <!-- Diagnostics Group -->
-                        <TextBlock Text="DIAGNOSTICS" Style="{StaticResource GroupHeader}"/>
-                        
-                        <Button x:Name="PerformanceBtn" Style="{StaticResource NavButton}">
-                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE9D2;" FontFamily="Segoe MDL2 Assets" FontSize="16" Width="20" TextAlignment="Center"/>
-                                <TextBlock Text="System Performance" Margin="15,0,0,0"/>
+                        <Button x:Name="NavDiagnosticsBtn" Style="{StaticResource NavButton}" Margin="5,10,5,2">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE9D2;" FontFamily="Segoe MDL2 Assets" FontSize="18" Width="24" TextAlignment="Center"/>
+                                <TextBlock Text="Diagnostics" Margin="15,0,0,0" FontWeight="SemiBold"/>
                             </StackPanel>
                         </Button>
-                        <Button x:Name="NavOverviewBtn" Style="{StaticResource NavButton}">
-                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE81C;" FontFamily="Segoe MDL2 Assets" FontSize="16" Width="20" TextAlignment="Center"/>
-                                <TextBlock Text="Overview" Margin="15,0,0,0"/>
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="TimelineBtn" Style="{StaticResource NavButton}">
-                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE81C;" FontFamily="Segoe MDL2 Assets" FontSize="16" Width="20" TextAlignment="Center"/>
-                                <TextBlock Text="System Timeline" Margin="15,0,0,0"/>
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="FirmwareSettingsBtn" Style="{StaticResource NavButton}">
-                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE972;" FontFamily="Segoe MDL2 Assets" FontSize="16" Width="20" TextAlignment="Center"/>
-                                <TextBlock Text="Firmware Settings" Margin="15,0,0,0"/>
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="DeviceManagementBtn" Style="{StaticResource NavButton}">
-                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE772;" FontFamily="Segoe MDL2 Assets" FontSize="16" Width="20" TextAlignment="Center"/>
-                                <TextBlock Text="Device Management" Margin="15,0,0,0"/>
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="ColdBootsBtn" Style="{StaticResource NavButton}">
-                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE7E8;" FontFamily="Segoe MDL2 Assets" FontSize="16" Width="20" TextAlignment="Center"/>
-                                <TextBlock Text="Cold Boots" Margin="15,0,0,0"/>
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="TrueShutdownBtn" Style="{StaticResource NavButton}">
-                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE7E8;" FontFamily="Segoe MDL2 Assets" FontSize="16" Width="20" TextAlignment="Center"/>
-                                <TextBlock Text="True Shutdown" Margin="15,0,0,0"/>
-                            </StackPanel>
-                        </Button>
-                        
-                        <!-- Hidden / Utilities -->
-                        <Button x:Name="HostedNetworkBtn" Visibility="Collapsed" Content="Hosted Network" Style="{StaticResource NavButton}"/>
-                        <Button x:Name="WanMiniportBtn" Visibility="Collapsed" Content="WAN Miniports" Style="{StaticResource NavButton}"/>
-                        <Button x:Name="NetworkAdaptersBtn" Visibility="Collapsed" Content="Network Adapters" Style="{StaticResource NavButton}"/>
                     </StackPanel>
                 </ScrollViewer>
 

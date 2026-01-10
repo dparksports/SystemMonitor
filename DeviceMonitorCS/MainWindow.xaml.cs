@@ -139,32 +139,57 @@ namespace DeviceMonitorCS
             // We can simplify or keep it running but checking if Content is PerfView
         }
 
+        private void NavDashboardBtn_Click(object sender, RoutedEventArgs e)
+        {
+            UpdateSelectedNavTag(NavDashboardBtn);
+            NavigateTo<Views.DashboardView>();
+        }
+
+        private void NavSecurityBtn_Click(object sender, RoutedEventArgs e)
+        {
+            UpdateSelectedNavTag(NavSecurityBtn);
+            NavigateTo<Views.SecurityMainView>();
+        }
+
+        private void NavDiagnosticsBtn_Click(object sender, RoutedEventArgs e)
+        {
+            UpdateSelectedNavTag(NavDiagnosticsBtn);
+            NavigateTo<Views.DiagnosticsMainView>();
+        }
+
+        private void SettingsBtn_Click(object sender, RoutedEventArgs e)
+        {
+            UpdateSelectedNavTag(SettingsBtn);
+            NavigateTo<Views.SettingsView>();
+        }
+
+        private void UpdateSelectedNavTag(Button selected)
+        {
+            NavDashboardBtn.Tag = null;
+            NavSecurityBtn.Tag = null;
+            NavDiagnosticsBtn.Tag = null;
+            SettingsBtn.Tag = null;
+            selected.Tag = "Selected";
+        }
+
         public MainWindow()
         {
             InitializeComponent();
             
-            // Initialize Telemetry
             _telemetryService = new FirebaseTelemetryService();
             _ = _telemetryService.SendEventAsync("app_start", new Dictionary<string, object> 
             { 
                { "app_version", System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString() }
             });
 
-            // Set Footer Version
             AppVersionText.Text = $"v{System.Reflection.Assembly.GetExecutingAssembly().GetName().Version}";
-
-            // Global Button Click Tracking
             this.AddHandler(Button.ClickEvent, new RoutedEventHandler(Global_ButtonClick));
 
-            // Check Admin - Assumed strict by UAC
             _currentUser = System.Security.Principal.WindowsIdentity.GetCurrent().Name;
-            
             Title = $"Auto Command (Administrator) - User: {_currentUser}";
-            StartSecurityMonitoring(); // Device monitoring now handled by OnSourceInitialized
+            StartSecurityMonitoring();
             
             _enforcer = new SecurityEnforcer(HandleThreatDetected);
-            
-            // Status update needs to find Overview IF it exists
             _enforcer.StatusChanged += (status, color) => 
             {
                  Dispatcher.Invoke(() => 
@@ -176,28 +201,14 @@ namespace DeviceMonitorCS
                  });
             };
             
-            // Handle Firewall Drift
             _enforcer.ConfigurationDriftDetected += (driftItems) => Dispatcher.Invoke(() => HandleFirewallDrift(driftItems));
-            
             _enforcer.Start();
 
             // Navigation Wiring
-            NavDashboardBtn.Click += (s, e) => NavigateTo<Views.DashboardView>();
-            NavOverviewBtn.Click += (s, e) => NavigateTo<Views.OverviewView>();
-            PerformanceBtn.Click += (s, e) => NavigateTo<Views.PerformanceView>();
-            PrivacyBtn.Click += (s, e) => NavigateTo<Views.PrivacyView>();
-            TimelineBtn.Click += (s, e) => NavigateTo<Views.TimelineView>();
-            DefenderBtn.Click += (s, e) => NavigateTo<Views.WindowsDefenderView>();
-            FirmwareSettingsBtn.Click += (s, e) => NavigateTo<Views.FirmwareSettingsView>();
-            DeviceManagementBtn.Click += (s, e) => NavigateTo<Views.DeviceManagementView>();
-            EventManagementBtn.Click += (s, e) => NavigateTo<Views.EventManagementView>();
-            FirewallSettingsBtn.Click += (s, e) => NavigateTo<Views.FirewallSettingsView>();
-            ColdBootsBtn.Click += (s, e) => NavigateTo<Views.ColdBootsView>();
-            CommandPanelBtn.Click += (s, e) => NavigateTo<Views.CommandPanelView>();
-            TasksBtn.Click += (s, e) => NavigateTo<Views.TasksView>();
-            ConnectionsBtn.Click += (s, e) => NavigateTo<Views.ConnectionsView>();
-            TrueShutdownBtn.Click += (s, e) => NavigateTo<Views.TrueShutdownView>();
-            SettingsBtn.Click += (s, e) => NavigateTo<Views.SettingsView>();
+            NavDashboardBtn.Click += NavDashboardBtn_Click;
+            NavSecurityBtn.Click += NavSecurityBtn_Click;
+            NavDiagnosticsBtn.Click += NavDiagnosticsBtn_Click;
+            SettingsBtn.Click += SettingsBtn_Click;
 
             ClearBtn.Click += (s, e) => 
             {
@@ -207,19 +218,18 @@ namespace DeviceMonitorCS
             
             Closed += MainWindow_Closed;
             
-            // Performance Monitor Init
             _perfMonitor = new PerformanceMonitor();
             var perfTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             perfTimer.Tick += (s, e) => 
             {
-                if (MainContentArea.Content is Views.PerformanceView pv)
+                // Recursive check for PerformanceView in MainContent or nested SubContent
+                if (MainContentArea.Content is Views.DiagnosticsMainView dmv && dmv.SubContentArea.Content is Views.PerformanceView pv)
                 {
                      pv.UpdateMetrics(_perfMonitor.GetMetrics());
                 }
             };
             perfTimer.Start();
             
-            // Default View
             NavigateTo<Views.DashboardView>();
         }
 

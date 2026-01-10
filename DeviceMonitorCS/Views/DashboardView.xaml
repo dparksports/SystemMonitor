@@ -24,6 +24,13 @@
             <Setter Property="Margin" Value="1,1,1,0"/>
         </Style>
 
+        <Style x:Key="GlowBottomLine" TargetType="Border">
+            <Setter Property="Height" Value="2"/>
+            <Setter Property="VerticalAlignment" Value="Bottom"/>
+            <Setter Property="CornerRadius" Value="0,0,10,10"/>
+            <Setter Property="Margin" Value="1,0,1,1"/>
+        </Style>
+
         <Style x:Key="CardTitle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="16"/>
             <Setter Property="Foreground" Value="#E2E8F0"/>
@@ -67,12 +74,12 @@
                             <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,0,1" Height="33"/>
                             <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,0,1" Height="33"/>
                         </StackPanel>
-                        <!-- Y-Axis Labels -->
-                        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="-15,0,0,0">
-                            <TextBlock Text="60" Foreground="#44E2E8F0" FontSize="10" Height="33"/>
-                            <TextBlock Text="40" Foreground="#44E2E8F0" FontSize="10" Height="33"/>
-                            <TextBlock Text="20" Foreground="#44E2E8F0" FontSize="10" Height="33"/>
-                            <TextBlock Text="0" Foreground="#44E2E8F0" FontSize="10"/>
+                        <!-- Y-Axis Labels (higher Z-order) -->
+                        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="-15,0,0,0" Panel.ZIndex="10">
+                            <TextBlock Text="60" Foreground="#BBE2E8F0" FontSize="10" Height="33"/>
+                            <TextBlock Text="40" Foreground="#BBE2E8F0" FontSize="10" Height="33"/>
+                            <TextBlock Text="20" Foreground="#BBE2E8F0" FontSize="10" Height="33"/>
+                            <TextBlock Text="0" Foreground="#BBE2E8F0" FontSize="10"/>
                         </StackPanel>
 
                         <!-- The Graph -->
@@ -86,13 +93,13 @@
                         </Path>
                         
                         <!-- X-Axis Labels -->
-                        <UniformGrid Columns="6" VerticalAlignment="Bottom" Margin="5,0,0,-20">
-                            <TextBlock Text="00" Foreground="#44E2E8F0" FontSize="10" HorizontalAlignment="Center"/>
-                            <TextBlock Text="10" Foreground="#44E2E8F0" FontSize="10" HorizontalAlignment="Center"/>
-                            <TextBlock Text="20" Foreground="#44E2E8F0" FontSize="10" HorizontalAlignment="Center"/>
-                            <TextBlock Text="30" Foreground="#44E2E8F0" FontSize="10" HorizontalAlignment="Center"/>
-                            <TextBlock Text="40" Foreground="#44E2E8F0" FontSize="10" HorizontalAlignment="Center"/>
-                            <TextBlock Text="50" Foreground="#44E2E8F0" FontSize="10" HorizontalAlignment="Center"/>
+                        <UniformGrid Columns="6" VerticalAlignment="Bottom" Margin="5,0,0,-20" Panel.ZIndex="10">
+                            <TextBlock Text="00" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
+                            <TextBlock Text="10" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
+                            <TextBlock Text="20" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
+                            <TextBlock Text="30" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
+                            <TextBlock Text="40" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
+                            <TextBlock Text="50" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
                         </UniformGrid>
                     </Grid>
                 </Grid>
@@ -114,11 +121,11 @@
                             <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,0,1" Height="33"/>
                         </StackPanel>
                         <!-- Y-Axis Labels -->
-                        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="-15,0,0,0">
-                            <TextBlock Text="60" Foreground="#44E2E8F0" FontSize="10" Height="33"/>
-                            <TextBlock Text="40" Foreground="#44E2E8F0" FontSize="10" Height="33"/>
-                            <TextBlock Text="20" Foreground="#44E2E8F0" FontSize="10" Height="33"/>
-                            <TextBlock Text="0" Foreground="#44E2E8F0" FontSize="10"/>
+                        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="-15,0,0,0" Panel.ZIndex="10">
+                            <TextBlock Text="60" Foreground="#BBE2E8F0" FontSize="10" Height="33"/>
+                            <TextBlock Text="40" Foreground="#BBE2E8F0" FontSize="10" Height="33"/>
+                            <TextBlock Text="20" Foreground="#BBE2E8F0" FontSize="10" Height="33"/>
+                            <TextBlock Text="0" Foreground="#BBE2E8F0" FontSize="10"/>
                         </StackPanel>
 
                         <!-- The Graph -->
@@ -132,13 +139,13 @@
                         </Path>
 
                         <!-- X-Axis Labels -->
-                        <UniformGrid Columns="6" VerticalAlignment="Bottom" Margin="5,0,0,-20">
-                            <TextBlock Text="00" Foreground="#44E2E8F0" FontSize="10" HorizontalAlignment="Center"/>
-                            <TextBlock Text="10" Foreground="#44E2E8F0" FontSize="10" HorizontalAlignment="Center"/>
-                            <TextBlock Text="20" Foreground="#44E2E8F0" FontSize="10" HorizontalAlignment="Center"/>
-                            <TextBlock Text="30" Foreground="#44E2E8F0" FontSize="10" HorizontalAlignment="Center"/>
-                            <TextBlock Text="40" Foreground="#44E2E8F0" FontSize="10" HorizontalAlignment="Center"/>
-                            <TextBlock Text="50" Foreground="#44E2E8F0" FontSize="10" HorizontalAlignment="Center"/>
+                        <UniformGrid Columns="6" VerticalAlignment="Bottom" Margin="5,0,0,-20" Panel.ZIndex="10">
+                            <TextBlock Text="00" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
+                            <TextBlock Text="10" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
+                            <TextBlock Text="20" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
+                            <TextBlock Text="30" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
+                            <TextBlock Text="40" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
+                            <TextBlock Text="50" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
                         </UniformGrid>
                     </Grid>
                 </Grid>
@@ -201,7 +208,7 @@
                         <!-- Inner Radiant Glow -->
                         <Border CornerRadius="10">
                             <Border.Background>
-                                <RadialGradientBrush Center="0.5,0" GradientOrigin="0.5,0" RadiusX="1" RadiusY="1">
+                                <RadialGradientBrush Center="0.5,0.5" GradientOrigin="0.5,0.5" RadiusX="1" RadiusY="1">
                                     <GradientStop Color="#404ADE80" Offset="0"/>
                                     <GradientStop Color="Transparent" Offset="1"/>
                                 </RadialGradientBrush>
@@ -210,6 +217,17 @@
                         
                         <!-- Top Radiant Line -->
                         <Border Style="{StaticResource GlowTopLine}">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                    <GradientStop Color="Transparent" Offset="0"/>
+                                    <GradientStop Color="#4ADE80" Offset="0.5"/>
+                                    <GradientStop Color="Transparent" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                        </Border>
+
+                        <!-- Bottom Radiant Line -->
+                        <Border Style="{StaticResource GlowBottomLine}">
                             <Border.Background>
                                 <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
                                     <GradientStop Color="Transparent" Offset="0"/>
@@ -242,7 +260,7 @@
                         <!-- Inner Radiant Glow -->
                         <Border CornerRadius="10">
                             <Border.Background>
-                                <RadialGradientBrush Center="0.5,0" GradientOrigin="0.5,0" RadiusX="1" RadiusY="1">
+                                <RadialGradientBrush Center="0.5,0.5" GradientOrigin="0.5,0.5" RadiusX="1" RadiusY="1">
                                     <GradientStop Color="#40F59E0B" Offset="0"/>
                                     <GradientStop Color="Transparent" Offset="1"/>
                                 </RadialGradientBrush>
@@ -251,6 +269,17 @@
 
                         <!-- Top Radiant Line -->
                         <Border Style="{StaticResource GlowTopLine}">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                    <GradientStop Color="Transparent" Offset="0"/>
+                                    <GradientStop Color="#F59E0B" Offset="0.5"/>
+                                    <GradientStop Color="Transparent" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                        </Border>
+
+                        <!-- Bottom Radiant Line -->
+                        <Border Style="{StaticResource GlowBottomLine}">
                             <Border.Background>
                                 <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
                                     <GradientStop Color="Transparent" Offset="0"/>
