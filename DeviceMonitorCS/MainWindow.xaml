@@ -225,7 +225,7 @@
                     <!-- App Header -->
                     <StackPanel x:Name="SidebarHeader" Grid.Row="1" Margin="0,5,0,20" Visibility="Visible">
                         <!-- Simple Logo or Icon for Sidebar -->
-                        <TextBlock Text="&#xEA18;" FontFamily="Segoe MDL2 Assets" FontSize="24" Foreground="#00F0FF" HorizontalAlignment="Center"/>
+                        <TextBlock Text="&#x2694;" FontFamily="Segoe UI Symbol" FontSize="24" Foreground="#00F0FF" HorizontalAlignment="Center"/>
                         <TextBlock Text="AUTO COMMAND" FontSize="10" FontWeight="Black" Foreground="#00F0FF" HorizontalAlignment="Center" Margin="0,5,0,0"/>
                     </StackPanel>
 
@@ -266,7 +266,7 @@
                         </Button>
                         
                         <StackPanel x:Name="SidebarFooter" Margin="0,15,0,0" Visibility="Visible">
-                            <TextBlock x:Name="AppVersionText" Text="v3.8.0" Foreground="#475569" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                            <TextBlock x:Name="AppVersionText" Text="v3.8.1" Foreground="#475569" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center"/>
                             <TextBlock Text="ACTIVE" Foreground="#00F0FF" FontSize="8" Margin="0,2,0,0" Opacity="0.7" HorizontalAlignment="Center"/>
                         </StackPanel>
                     </StackPanel>
