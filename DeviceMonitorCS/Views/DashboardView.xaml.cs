@@ -6,6 +6,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using System.Diagnostics;
 using System.Windows.Shapes;
+using System.Collections.Generic;
 
 namespace DeviceMonitorCS.Views
 {
@@ -50,6 +51,11 @@ namespace DeviceMonitorCS.Views
             _timer?.Stop();
         }
 
+        // Graph Data History (Last 60 seconds)
+        private readonly int _historyLength = 60;
+        private List<double> _cpuHistory = new List<double>();
+        private List<double> _ramHistory = new List<double>();
+
         private void Timer_Tick(object sender, EventArgs e)
         {
             if (_cpuCounter != null)
@@ -60,10 +66,48 @@ namespace DeviceMonitorCS.Views
                 CpuText.Text = $"{cpu:0}%";
                 MemText.Text = $"{ram:0} MB Free";
 
-                // Simple simulated graph update (random point added for visual effect if we had a full chart control)
-                // For Polyline, we would need a collection of Points.
-                // Keeping it simple static for now or just text update as requested by "screenshot look".
+                UpdateGraph(_cpuHistory, cpu, CpuGraph, 100, false);
+                UpdateGraph(_ramHistory, ram, MemGraph, 32000, true); // Assuming 32GB max for scale relative
             }
+        }
+
+        private void UpdateGraph(List<double> history, double newValue, Shape shape, double maxY, bool fillArea)
+        {
+            history.Add(newValue);
+            if (history.Count > _historyLength) history.RemoveAt(0);
+
+            double width = shape.ActualWidth;
+            double height = shape.ActualHeight;
+            if (width == 0 || height == 0) return;
+
+            double xStep = width / (_historyLength - 1);
+            
+            var points = new PointCollection();
+
+            if (fillArea)
+            {
+                 points.Add(new Point(0, height)); // Bottom Left Anchor
+            }
+
+            for (int i = 0; i < history.Count; i++)
+            {
+                double val = history[i];
+                // Scale Y: 0 at Bottom (Height), Max at Top (0)
+                // val=0 -> y=Height; val=Max -> y=0
+                double y = height - ((val / maxY) * height);
+                if (y < 0) y = 0;
+                if (y > height) y = height;
+
+                points.Add(new Point(i * xStep, y));
+            }
+
+            if (fillArea)
+            {
+                points.Add(new Point((history.Count - 1) * xStep, height)); // Bottom Right Anchor
+            }
+
+            if (shape is Polyline line) line.Points = points;
+            else if (shape is Polygon poly) poly.Points = points;
         }
     }
 

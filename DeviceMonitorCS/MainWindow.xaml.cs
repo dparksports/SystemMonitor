@@ -66,6 +66,79 @@ namespace DeviceMonitorCS
         private PerformanceMonitor _perfMonitor;
         private FirebaseTelemetryService _telemetryService;
 
+        private Dictionary<Type, UserControl> _viewCache = new Dictionary<Type, UserControl>();
+
+        private void NavigateTo<T>() where T : UserControl
+        {
+            Type viewType = typeof(T);
+            UserControl view;
+
+            if (!_viewCache.TryGetValue(viewType, out view))
+            {
+                // Instantiate View
+                view = (UserControl)Activator.CreateInstance(viewType);
+                _viewCache[viewType] = view;
+
+                // --- Wiring ---
+                if (view is Views.SettingsView sv)
+                {
+                    sv.SetCurrentInterval(_enforcer.CheckInterval);
+                    sv.IntervalChanged += (newInterval) => _enforcer.CheckInterval = newInterval;
+                }
+                
+                if (view is Views.DeviceManagementView dmv)
+                {
+                    // Optionally load data only once or every time?
+                    // Original logic loaded every time.
+                    // dmv.InitializeAndLoad(); Wiring to be safe to happen on load or similar.
+                }
+            }
+
+            // Perform View-Specific "On Show" Logic
+            if (view is Views.DashboardView dv)
+            {
+                 // No action needed, DashboardView handles its own timer on Loaded/Unloaded
+            }
+            if (view is Views.OverviewView ov)
+            {
+                 _ = ov.LoadAllDataAsync();
+            }
+            if (view is Views.DeviceManagementView dmView)
+            {
+                dmView.InitializeAndLoad();
+            }
+            if (view is Views.FirewallSettingsView fsv)
+            {
+                fsv.InitializeAndLoad();
+            }
+            if (view is Views.ColdBootsView cbv)
+            {
+                cbv.InitializeAndLoad();
+            }
+            if (view is Views.CommandPanelView cpv)
+            {
+                cpv.InitializeAndLoad();
+            }
+            if (view is Views.TrueShutdownView tsv)
+            {
+                tsv.InitializeAndLoad();
+            }
+
+            // Set Content
+            MainContentArea.Content = view;
+
+            // Telemetry
+            _ = _telemetryService.SendEventAsync("screen_view", new Dictionary<string, object>
+            {
+                { "screen_name", viewType.Name },
+                { "screen_class", viewType.Name }
+            });
+            
+            // Handle Side-Effects (like perf timer for PerfView)
+            // Perf timer was running globally, checking visibility. 
+            // We can simplify or keep it running but checking if Content is PerfView
+        }
+
         public MainWindow()
         {
             InitializeComponent();
@@ -83,8 +156,6 @@ namespace DeviceMonitorCS
             // Global Button Click Tracking
             this.AddHandler(Button.ClickEvent, new RoutedEventHandler(Global_ButtonClick));
 
-
-
             // Check Admin - Assumed strict by UAC
             _currentUser = System.Security.Principal.WindowsIdentity.GetCurrent().Name;
             
@@ -92,71 +163,48 @@ namespace DeviceMonitorCS
             StartSecurityMonitoring(); // Device monitoring now handled by OnSourceInitialized
             
             _enforcer = new SecurityEnforcer(HandleThreatDetected);
-            _enforcer.StatusChanged += (status, color) => Dispatcher.Invoke(() => OverviewView.UpdateLiveStatus(status, color));
+            
+            // Status update needs to find Overview IF it exists
+            _enforcer.StatusChanged += (status, color) => 
+            {
+                 Dispatcher.Invoke(() => 
+                 {
+                     if (_viewCache.TryGetValue(typeof(Views.OverviewView), out var view))
+                     {
+                         ((Views.OverviewView)view).UpdateLiveStatus(status, color);
+                     }
+                 });
+            };
             
             // Handle Firewall Drift
             _enforcer.ConfigurationDriftDetected += (driftItems) => Dispatcher.Invoke(() => HandleFirewallDrift(driftItems));
             
             _enforcer.Start();
 
-            // Wire Buttons
-            // Removed redundant check logic since app is now elevated by manifest.
-            
-            // Settings Wiring
-            SettingsView.SetCurrentInterval(_enforcer.CheckInterval);
-            SettingsView.IntervalChanged += (newInterval) => _enforcer.CheckInterval = newInterval;
-
             // Navigation Wiring
-            NavDashboardBtn.Click += (s, e) => NavigateTo(DashboardView);
-            NavOverviewBtn.Click += (s, e) => NavigateTo(OverviewView);
-            PerformanceBtn.Click += (s, e) => NavigateTo(PerformanceView);
-            PrivacyBtn.Click += (s, e) => NavigateTo(PrivacyView);
-            TimelineBtn.Click += (s, e) => NavigateTo(TimelineView);
-            DefenderBtn.Click += (s, e) => NavigateTo(WindowsDefenderView);
-            FirmwareSettingsBtn.Click += (s, e) => NavigateTo(FirmwareSettingsView);
-            DeviceManagementBtn.Click += (s, e) => 
-            {
-                NavigateTo(DeviceManagementView);
-                DeviceManagementView.InitializeAndLoad();
-            };
-            EventManagementBtn.Click += (s, e) => NavigateTo(EventManagementView);
-
-            FirewallSettingsBtn.Click += (s, e) => 
-            {
-                NavigateTo(FirewallSettingsView);
-                FirewallSettingsView.InitializeAndLoad();
-            };
-            ColdBootsBtn.Click += (s, e) => 
-            {
-                NavigateTo(ColdBootsView);
-                ColdBootsView.InitializeAndLoad();
-            };
-            CommandPanelBtn.Click += (s, e) => 
-            {
-                NavigateTo(CommandPanelView);
-                CommandPanelView.InitializeAndLoad();
-            };
-            
-            TasksBtn.Click += (s, e) => NavigateTo(TasksView);
-            ConnectionsBtn.Click += (s, e) => NavigateTo(ConnectionsView);
-            TrueShutdownBtn.Click += (s, e) => 
-            {
-                NavigateTo(TrueShutdownView);
-                TrueShutdownView.InitializeAndLoad();
-            };
-            SettingsBtn.Click += (s, e) => NavigateTo(SettingsView);
-
+            NavDashboardBtn.Click += (s, e) => NavigateTo<Views.DashboardView>();
+            NavOverviewBtn.Click += (s, e) => NavigateTo<Views.OverviewView>();
+            PerformanceBtn.Click += (s, e) => NavigateTo<Views.PerformanceView>();
+            PrivacyBtn.Click += (s, e) => NavigateTo<Views.PrivacyView>();
+            TimelineBtn.Click += (s, e) => NavigateTo<Views.TimelineView>();
+            DefenderBtn.Click += (s, e) => NavigateTo<Views.WindowsDefenderView>();
+            FirmwareSettingsBtn.Click += (s, e) => NavigateTo<Views.FirmwareSettingsView>();
+            DeviceManagementBtn.Click += (s, e) => NavigateTo<Views.DeviceManagementView>();
+            EventManagementBtn.Click += (s, e) => NavigateTo<Views.EventManagementView>();
+            FirewallSettingsBtn.Click += (s, e) => NavigateTo<Views.FirewallSettingsView>();
+            ColdBootsBtn.Click += (s, e) => NavigateTo<Views.ColdBootsView>();
+            CommandPanelBtn.Click += (s, e) => NavigateTo<Views.CommandPanelView>();
+            TasksBtn.Click += (s, e) => NavigateTo<Views.TasksView>();
+            ConnectionsBtn.Click += (s, e) => NavigateTo<Views.ConnectionsView>();
+            TrueShutdownBtn.Click += (s, e) => NavigateTo<Views.TrueShutdownView>();
+            SettingsBtn.Click += (s, e) => NavigateTo<Views.SettingsView>();
 
             ClearBtn.Click += (s, e) => 
             {
-                DeviceData.Clear(); // Original was DeviceData.Clear(), instruction changed to EventData.Clear() which doesn't exist. Reverting to DeviceData.Clear()
+                DeviceData.Clear();
                 SecurityData.Clear();
             };
             
-            // Dashboard now self-initializes on load - no binding needed
-
-            // Start Monitoring
-
             Closed += MainWindow_Closed;
             
             // Performance Monitor Init
@@ -164,12 +212,15 @@ namespace DeviceMonitorCS
             var perfTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             perfTimer.Tick += (s, e) => 
             {
-                if (PerformanceView.Visibility == Visibility.Visible)
+                if (MainContentArea.Content is Views.PerformanceView pv)
                 {
-                     PerformanceView.UpdateMetrics(_perfMonitor.GetMetrics());
+                     pv.UpdateMetrics(_perfMonitor.GetMetrics());
                 }
             };
             perfTimer.Start();
+            
+            // Default View
+            NavigateTo<Views.DashboardView>();
         }
 
         private void Global_ButtonClick(object sender, RoutedEventArgs e)
@@ -602,55 +653,8 @@ namespace DeviceMonitorCS
             }
         }
 
-        private void NavigateTo(UIElement targetView)
-        {
-            if (targetView == null) return;
+        // Old NavigateTo removed in favor of Generic Lazy Load version
 
-            // Hide all
-            DashboardView.Visibility = Visibility.Collapsed;
-            PerformanceView.Visibility = Visibility.Collapsed;
-            PrivacyView.Visibility = Visibility.Collapsed;
-            TimelineView.Visibility = Visibility.Collapsed;
-            TasksView.Visibility = Visibility.Collapsed;
-            ConnectionsView.Visibility = Visibility.Collapsed;
-            TrueShutdownView.Visibility = Visibility.Collapsed;
-            SettingsView.Visibility = Visibility.Collapsed;
-            FirmwareSettingsView.Visibility = Visibility.Collapsed;
-            DeviceManagementView.Visibility = Visibility.Collapsed;
-            FirewallSettingsView.Visibility = Visibility.Collapsed;
-            ColdBootsView.Visibility = Visibility.Collapsed;
-            CommandPanelView.Visibility = Visibility.Collapsed;
-            WindowsDefenderView.Visibility = Visibility.Collapsed;
-            WindowsDefenderView.Visibility = Visibility.Collapsed;
-            EventManagementView.Visibility = Visibility.Collapsed;
-            OverviewView.Visibility = Visibility.Collapsed;
-
-
-            // Show target
-            if (targetView != null)
-            {
-                targetView.Visibility = Visibility.Visible;
-                
-                // Refresh Overview if navigating to it
-                if (targetView is Views.OverviewView ov)
-                {
-                    _ = ov.LoadAllDataAsync();
-                }
-
-                // Track Screen View
-                if (targetView is FrameworkElement fe)
-                {
-                    string viewName = fe.Name;
-                    if (string.IsNullOrEmpty(viewName)) viewName = targetView.GetType().Name;
-                    
-                    _ = _telemetryService.SendEventAsync("screen_view", new Dictionary<string, object>
-                    {
-                        { "screen_name", viewName },
-                        { "screen_class", targetView.GetType().Name }
-                    });
-                }
-            }
-        }
 
         private void MainWindow_Closed(object sender, EventArgs e)
         {

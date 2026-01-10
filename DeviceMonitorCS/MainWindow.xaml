@@ -271,35 +271,7 @@
 
         <!-- Content Area -->
         <Border Grid.Column="1" Margin="20" Style="{StaticResource GlassPanel}">
-            <Grid>
-                <!-- Dashboard View (New) -->
-                <views:DashboardView x:Name="DashboardView" Visibility="Visible"/>
-
-                <!-- Overview View (Old Dashboard) -->
-                <views:OverviewView x:Name="OverviewView" Visibility="Collapsed"/>
-
-                <!-- Performance View -->
-                <views:PerformanceView x:Name="PerformanceView" Visibility="Collapsed"/>
-                
-                <!-- Security Views -->
-                <views:PrivacyView x:Name="PrivacyView" Visibility="Collapsed"/>
-                <views:WindowsDefenderView x:Name="WindowsDefenderView" Visibility="Collapsed"/>
-                <views:EventManagementView x:Name="EventManagementView" Visibility="Collapsed"/>
-                <views:FirewallSettingsView x:Name="FirewallSettingsView" Visibility="Collapsed"/>
-                <views:CommandPanelView x:Name="CommandPanelView" Visibility="Collapsed"/>
-                <views:TasksView x:Name="TasksView" Visibility="Collapsed"/>
-                <views:ConnectionsView x:Name="ConnectionsView" Visibility="Collapsed"/>
-
-                <!-- Diagnostics Views -->
-                <views:TimelineView x:Name="TimelineView" Visibility="Collapsed"/>
-                <views:FirmwareSettingsView x:Name="FirmwareSettingsView" Visibility="Collapsed"/>
-                <views:DeviceManagementView x:Name="DeviceManagementView" Visibility="Collapsed"/>
-                <views:ColdBootsView x:Name="ColdBootsView" Visibility="Collapsed"/>
-                <views:TrueShutdownView x:Name="TrueShutdownView" Visibility="Collapsed"/>
-
-                <!-- Other -->
-                <views:SettingsView x:Name="SettingsView" Visibility="Collapsed"/>
-            </Grid>
+             <ContentControl x:Name="MainContentArea"/>
         </Border>
     </Grid>
 </Window>
