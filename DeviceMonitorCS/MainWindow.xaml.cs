@@ -85,49 +85,26 @@ namespace DeviceMonitorCS
 
 
 
-            // Check Admin
+            // Check Admin - Assumed strict by UAC
             _currentUser = System.Security.Principal.WindowsIdentity.GetCurrent().Name;
-
-            if (IsAdministrator())
-            {
-                Title = $"Auto Command (Administrator) - User: {_currentUser}";
-                StartSecurityMonitoring(); // Device monitoring now handled by OnSourceInitialized
-                
-                _enforcer = new SecurityEnforcer(HandleThreatDetected);
-                _enforcer.StatusChanged += (status, color) => Dispatcher.Invoke(() => DashboardView.UpdateLiveStatus(status, color));
-                
-                // Handle Firewall Drift
-                _enforcer.ConfigurationDriftDetected += (driftItems) => Dispatcher.Invoke(() => HandleFirewallDrift(driftItems));
-                
-                _enforcer.Start();
-            }
-            else
-            {
-                Title = $"Auto Command (User: {_currentUser}) - LIMITED MODE";
-                MessageBox.Show("Please run as Administrator for full functionality.", "Restricted", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
+            
+            Title = $"Auto Command (Administrator) - User: {_currentUser}";
+            StartSecurityMonitoring(); // Device monitoring now handled by OnSourceInitialized
+            
+            _enforcer = new SecurityEnforcer(HandleThreatDetected);
+            _enforcer.StatusChanged += (status, color) => Dispatcher.Invoke(() => DashboardView.UpdateLiveStatus(status, color));
+            
+            // Handle Firewall Drift
+            _enforcer.ConfigurationDriftDetected += (driftItems) => Dispatcher.Invoke(() => HandleFirewallDrift(driftItems));
+            
+            _enforcer.Start();
 
             // Wire Buttons
-            // The following two lines are moved from the admin block to ensure they are always wired,
-            // but _enforcer will only be initialized if IsAdministrator() is true.
-            // This implies _enforcer might be null if not admin, which needs careful handling or
-            // the wiring should remain conditional. Assuming _enforcer is always initialized for now.
-            // If _enforcer is null, these lines will cause a NullReferenceException.
-            // For a robust solution, these should be inside the admin block or _enforcer should be initialized conditionally.
-            // For the purpose of this edit, I'm placing them as per instruction.
-            if (IsAdministrator()) // Re-adding the check to prevent NullReferenceException if _enforcer is not initialized
-            {
-                _enforcer.StatusChanged += (s, c) => DashboardView.UpdateLiveStatus(s, c);
-                _enforcer.Start();
-            }
-
+            // Removed redundant check logic since app is now elevated by manifest.
+            
             // Settings Wiring
-            // These lines also depend on _enforcer being initialized.
-            if (IsAdministrator())
-            {
-                SettingsView.SetCurrentInterval(_enforcer.CheckInterval);
-                SettingsView.IntervalChanged += (newInterval) => _enforcer.CheckInterval = newInterval;
-            }
+            SettingsView.SetCurrentInterval(_enforcer.CheckInterval);
+            SettingsView.IntervalChanged += (newInterval) => _enforcer.CheckInterval = newInterval;
 
             // Navigation Wiring
             NavDashboardBtn.Click += (s, e) => NavigateTo(DashboardView);
@@ -141,6 +118,8 @@ namespace DeviceMonitorCS
                 NavigateTo(DeviceManagementView);
                 DeviceManagementView.InitializeAndLoad();
             };
+            EventManagementBtn.Click += (s, e) => NavigateTo(EventManagementView);
+
             FirewallSettingsBtn.Click += (s, e) => 
             {
                 NavigateTo(FirewallSettingsView);
@@ -641,6 +620,7 @@ namespace DeviceMonitorCS
             ColdBootsView.Visibility = Visibility.Collapsed;
             CommandPanelView.Visibility = Visibility.Collapsed;
             WindowsDefenderView.Visibility = Visibility.Collapsed;
+            EventManagementView.Visibility = Visibility.Collapsed;
 
 
             // Show target

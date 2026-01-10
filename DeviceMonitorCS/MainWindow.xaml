@@ -80,6 +80,7 @@
                     <Button x:Name="DefenderBtn" Content="Windows Defender" Style="{StaticResource NavButton}"/>
                     <Button x:Name="FirmwareSettingsBtn" Content="Firmware Settings" Style="{StaticResource NavButton}"/>
                     <Button x:Name="DeviceManagementBtn" Content="Device Management" Style="{StaticResource NavButton}"/>
+                    <Button x:Name="EventManagementBtn" Content="Event Management" Style="{StaticResource NavButton}"/>
                     <Button x:Name="FirewallSettingsBtn" Content="Firewall Settings" Style="{StaticResource NavButton}"/>
                     <Button x:Name="ColdBootsBtn" Content="Cold Boots" Style="{StaticResource NavButton}"/>
                     <Button x:Name="CommandPanelBtn" Content="Command Panel" Style="{StaticResource NavButton}"/>
@@ -123,6 +124,7 @@
             <!-- Firmware Settings View -->
             <views:FirmwareSettingsView x:Name="FirmwareSettingsView" Visibility="Collapsed"/>
              <views:DeviceManagementView x:Name="DeviceManagementView" Visibility="Collapsed"/>
+             <views:EventManagementView x:Name="EventManagementView" Visibility="Collapsed"/>
             <views:FirewallSettingsView x:Name="FirewallSettingsView" Visibility="Collapsed"/>
             <views:ColdBootsView x:Name="ColdBootsView" Visibility="Collapsed"/>
             <views:CommandPanelView x:Name="CommandPanelView" Visibility="Collapsed"/>

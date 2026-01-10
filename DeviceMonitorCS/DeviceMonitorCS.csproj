@@ -10,6 +10,7 @@
     <ApplicationIcon>app_icon.ico</ApplicationIcon>
     <AssemblyName>AutoCommand</AssemblyName>
     <Product>AutoCommand</Product>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>
