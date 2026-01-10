@@ -4,6 +4,8 @@
 
 Auto Command is a powerful, unified tool designed for Windows administrators and power users who need granular control over their system's security posture and underlying hardware. Built with a modern, darkened aesthetic and high-performance native integrations, it streamlines complex administrative tasks into a single, cohesive dashboard.
 
+![Auto Command Dashboard](DeviceMonitorCS/app_dashboard_mockup.png)
+
 ---
 
 ## 🚀 Key Features
