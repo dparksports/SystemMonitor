@@ -6,36 +6,48 @@
 
 ![Auto Command Dashboard](file:///C:/Users/honey/.gemini/antigravity/brain/dd6eed55-9e6b-479d-82bb-0975e0b2df85/uploaded_image_1768036417854.png)
 
-## 🚀 Key Functionality
+## 🚀 Comprehensive Functionality
 
-### 📊 Real-Time Performance Analytics
+### 🖥 Dashboard: Real-Time Performance
 - **Live CPU Tracking**: High-frequency CPU utilization monitoring with a smoothed "Aurora" vector graph.
-- **Available Memory Monitoring**: Real-time tracking of system RAM, showing precise **GB Available** to ensure your workstation is performing at its peak.
-- **Unit Precision**: Optimized X and Y axis scaling for zero-overlap readability.
+- **Available Memory**: Real-time tracking of system RAM, showing precise **GB Available** to ensure peak workstation performance.
+- **Aurora Visuals**: Dynamic, soft radiant glows that indicate system health with a premium glassmorphism aesthetic.
 
-### 🛡 Proactive Security Dashboard
-- **Defender & Firewall Status**: Instant visual confirmation of Windows Defender and Windows Firewall active states.
-- **Security Timeline**: A live, historical feed of security-critical events, including firewall rule updates, device connections, and system scans.
-- **Aurora Glows**: Sophisticated Top-Center radiant lighting that visually integrates security health into the desktop environment.
+### 🛡 Security Center
+The Security module provides several deep-dive tools for system protection and monitoring:
+- **Privacy Settings**: Audit and manage Windows privacy and telemetry configurations.
+- **Windows Defender**: Real-time status and control for Microsoft's built-in antivirus.
+- **Firewall Settings**: Monitor and manage inbound/outbound firewall rules and drift detection.
+- **Event Management**: High-speed analysis of Windows security event logs.
+- **Command Panel**: A centralized suite for administrative system commands.
+- **Scheduled Tasks**: Monitor and audit triggered system tasks for unauthorized changes.
+- **Connections**: Live tracking of network sockets and established system connections.
 
-### 💎 High-Fidelity Interface
-- **Glassmorphism Design**: Translucent material effects using modern WPF styling techniques.
-- **Integrated Window Chrome**: Custom title bar with integrated minimize, maximize, and close controls for a seamless "App" feel.
-- **Crossed Swords Branding**: A powerful, definitive identity reflecting the "Auto Command" mission.
+### 🔍 Diagnostic Tools
+A comprehensive suite of forensic and performance tools:
+- **System Performance**: Detailed breakdown of hardware utilization and bottlenecks.
+- **Overview**: Centralized summary of hardware, firmware, and OS configuration.
+- **System Timeline**: A chronological history of system events, boottimes, and updates.
+- **Firmware Settings**: Deep-dive tracking of UEFI/BIOS security states and ACPI tables.
+- **Device Management**: Advanced monitoring of PNP devices and driver health.
+- **Cold Boots**: Logs and identifies "Cold Boot" vs "Fast Startup" events for hardware integrity.
+- **True Shutdown**: Tools to ensure a complete system power-off for security and maintenance.
 
-## 🛠 Technical Overview
-- **Core Engine**: .NET 8.0 (C# 12)
-- **Data Capture**: WMI (Windows Management Instrumentation) for hardware metrics and Windows Event Log API for security history.
-- **UI Architecture**: Hardware-accelerated WPF with custom `WindowChrome` and vector-based rendering.
-- **Telemetry**: Firebase Analytics integration for anonymous usage tracking.
+## 💎 Premium Design
+- **Glassmorphism UI**: Developed with modern WPF styling for a translucent material look.
+- **Integrated Window Chrome**: Precise control over title bar elements for a native "App" feel.
+- **Material Aura Lighting**: Sophisticated lighting effects that feel like light passing through glass.
+
+## 🛠 Technical Stack
+- **Framework**: .NET 8.0 (C# 12)
+- **Data Access**: WMI, Windows Event Log API, and Native Win32 interop.
+- **Analytics**: Firebase Analytics integration for high-fidelity usage metrics.
+- **Licensing**: Apache License, Version 2.0.
 
 ## 📦 Getting Started
-1.  **Download**: Get the [latest executable](https://github.com/dparksports/SystemMonitor/releases/download/v3.8.1/AutoCommand.exe).
-2.  **Elevation**: Must be **Run as Administrator** to access security provider data and system event logs.
-3.  **Deploy**: Self-contained, single-file deployment—no installation required.
-
-## ⚖ License
-Licensed under the **Apache License, Version 2.0**. See the [LICENSE](LICENSE) file for more details.
+1.  **Download**: Get the [latest single-file executable](https://github.com/dparksports/SystemMonitor/releases/download/v3.8.1/AutoCommand.exe).
+2.  **Elevation**: This application **must be run as Administrator** to access protected hardware and security telemetry.
+3.  **No Installation**: Auto Command is a portable, self-contained application.
 
 ---
 Made with ❤️ in California.
