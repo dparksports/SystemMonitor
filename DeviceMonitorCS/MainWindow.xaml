@@ -135,12 +135,12 @@
     
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="260"/>
+            <ColumnDefinition Width="Auto"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
         <!-- Sidebar (Glass Effect) -->
-        <Border x:Name="SidebarPane" Grid.Column="0" Width="120" Background="#990F172A" BorderBrush="#1FFFFFFF" BorderThickness="0,0,1,0">
+        <Border x:Name="SidebarPane" Grid.Column="0" Width="120" HorizontalAlignment="Left" Background="#990F172A" BorderBrush="#1FFFFFFF" BorderThickness="0,0,1,0">
             <Grid Margin="0,10,0,20">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/> <!-- Toggle -->
