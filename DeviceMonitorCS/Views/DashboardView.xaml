@@ -83,7 +83,7 @@
                         </StackPanel>
 
                         <!-- The Graph -->
-                        <Path x:Name="CpuPath" Stroke="#00F0FF" StrokeThickness="2" Margin="5,0,0,0">
+                        <Path x:Name="CpuPath" Stroke="#00F0FF" StrokeThickness="2" Margin="30,0,0,0">
                             <Path.Fill>
                                 <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
                                     <GradientStop Color="#4000F0FF" Offset="0"/>
@@ -93,7 +93,7 @@
                         </Path>
                         
                         <!-- X-Axis Labels -->
-                        <UniformGrid Columns="6" VerticalAlignment="Bottom" Margin="5,0,0,-25" Panel.ZIndex="10">
+                        <UniformGrid Columns="6" VerticalAlignment="Bottom" Margin="30,0,0,-25" Panel.ZIndex="10">
                             <TextBlock Text="00" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
                             <TextBlock Text="10" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
                             <TextBlock Text="20" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
@@ -129,7 +129,7 @@
                         </StackPanel>
 
                         <!-- The Graph -->
-                        <Path x:Name="MemPath" Stroke="#FFAE00" StrokeThickness="2" Margin="5,0,0,0">
+                        <Path x:Name="MemPath" Stroke="#FFAE00" StrokeThickness="2" Margin="30,0,0,0">
                              <Path.Fill>
                                 <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
                                     <GradientStop Color="#40FFAE00" Offset="0"/>
@@ -139,7 +139,7 @@
                         </Path>
 
                         <!-- X-Axis Labels -->
-                        <UniformGrid Columns="6" VerticalAlignment="Bottom" Margin="5,0,0,-25" Panel.ZIndex="10">
+                        <UniformGrid Columns="6" VerticalAlignment="Bottom" Margin="30,0,0,-25" Panel.ZIndex="10">
                             <TextBlock Text="00" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
                             <TextBlock Text="10" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
                             <TextBlock Text="20" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
@@ -205,10 +205,10 @@
                 <!-- Windows Defender -->
                 <Border Grid.Row="0" Style="{StaticResource MetricCard}" Margin="0,0,0,5">
                     <Grid>
-                        <!-- Inner Radiant Glow (Top-Center) -->
+                        <!-- Inner Radiant Glow (Dead-Center, Narrow) -->
                         <Border CornerRadius="10">
                             <Border.Background>
-                                <RadialGradientBrush Center="0.5,0" GradientOrigin="0.5,0" RadiusX="0.8" RadiusY="0.7">
+                                <RadialGradientBrush Center="0.5,0.5" GradientOrigin="0.5,0.5" RadiusX="0.5" RadiusY="0.5">
                                     <GradientStop Color="#504ADE80" Offset="0"/>
                                     <GradientStop Color="Transparent" Offset="1"/>
                                 </RadialGradientBrush>
@@ -257,10 +257,10 @@
                 <!-- Firewall -->
                 <Border Grid.Row="1" Style="{StaticResource MetricCard}" Margin="0,5,0,0">
                     <Grid>
-                        <!-- Inner Radiant Glow (Top-Center) -->
+                        <!-- Inner Radiant Glow (Dead-Center, Narrow) -->
                         <Border CornerRadius="10">
                             <Border.Background>
-                                <RadialGradientBrush Center="0.5,0" GradientOrigin="0.5,0" RadiusX="0.8" RadiusY="0.7">
+                                <RadialGradientBrush Center="0.5,0.5" GradientOrigin="0.5,0.5" RadiusX="0.5" RadiusY="0.5">
                                     <GradientStop Color="#50F59E0B" Offset="0"/>
                                     <GradientStop Color="Transparent" Offset="1"/>
                                 </RadialGradientBrush>

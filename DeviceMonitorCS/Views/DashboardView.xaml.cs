@@ -77,7 +77,7 @@ namespace DeviceMonitorCS.Views
                 if (availableGB < 0) availableGB = 0;
 
                 CpuText.Text = $"{cpu:0}%";
-                MemText.Text = $"{availableGB:0.1} GB Available";
+                MemText.Text = $"{availableGB:0.0} GB Available";
 
                 // Scale: CPU max 100, RAM max TotalRamGB
                 UpdateGraphSmoothed(_cpuHistory, cpu, CpuPath, 100);
