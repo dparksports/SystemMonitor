@@ -73,16 +73,15 @@ namespace DeviceMonitorCS.Views
                 float cpu = _cpuCounter.NextValue();
                 float ramAvailableMB = _ramCounter.NextValue();
                 
-                double usedMB = _totalRamMB - ramAvailableMB;
-                double usedGB = usedMB / 1024.0;
-                if (usedGB < 0) usedGB = 0;
+                double availableGB = ramAvailableMB / 1024.0;
+                if (availableGB < 0) availableGB = 0;
 
                 CpuText.Text = $"{cpu:0}%";
-                MemText.Text = $"{usedGB:0.1} GB Used";
+                MemText.Text = $"{availableGB:0.1} GB Available";
 
                 // Scale: CPU max 100, RAM max TotalRamGB
                 UpdateGraphSmoothed(_cpuHistory, cpu, CpuPath, 100);
-                UpdateGraphSmoothed(_ramHistory, usedGB, MemPath, _totalRamMB / 1024.0); 
+                UpdateGraphSmoothed(_ramHistory, availableGB, MemPath, _totalRamMB / 1024.0); 
             }
         }
 
