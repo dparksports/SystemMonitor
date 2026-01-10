@@ -3,140 +3,211 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:DeviceMonitorCS"
         xmlns:views="clr-namespace:DeviceMonitorCS.Views"
-        Title="Auto Command" Height="700" Width="1100" WindowStartupLocation="CenterScreen"
-        Background="#1E1E1E"
+        Title="Auto Command" Height="720" Width="1180" WindowStartupLocation="CenterScreen"
         Icon="app_icon.ico">
+    
+    <Window.Background>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#0F172A" Offset="0.0"/>
+            <GradientStop Color="#1E293B" Offset="1.0"/>
+        </LinearGradientBrush>
+    </Window.Background>
+
     <Window.Resources>
+        <!-- DataGrid Style -->
         <Style TargetType="DataGrid">
             <Setter Property="AutoGenerateColumns" Value="False"/>
             <Setter Property="CanUserAddRows" Value="False"/>
             <Setter Property="IsReadOnly" Value="True"/>
             <Setter Property="HeadersVisibility" Value="Column"/>
             <Setter Property="GridLinesVisibility" Value="Horizontal"/>
-            <Setter Property="Background" Value="#252526"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="RowBackground" Value="#252526"/>
-            <Setter Property="AlternatingRowBackground" Value="#2D2D30"/>
+            <Setter Property="Background" Value="#11FFFFFF"/>
+            <Setter Property="Foreground" Value="#E2E8F0"/>
+            <Setter Property="RowBackground" Value="Transparent"/>
+            <Setter Property="AlternatingRowBackground" Value="#08FFFFFF"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="RowHeaderWidth" Value="0"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="#33FFFFFF"/>
+            <Setter Property="VerticalGridLinesBrush" Value="Transparent"/>
+            <Setter Property="ColumnHeaderStyle">
+                <Setter.Value>
+                    <Style TargetType="DataGridColumnHeader">
+                        <Setter Property="Background" Value="#1E293B"/>
+                        <Setter Property="Foreground" Value="#00F0FF"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                        <Setter Property="Padding" Value="10,8"/>
+                        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                        <Setter Property="BorderBrush" Value="#00F0FF"/>
+                    </Style>
+                </Setter.Value>
+            </Setter>
         </Style>
+
+        <!-- Navigation Button Style -->
         <Style TargetType="Button" x:Key="NavButton">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Foreground" Value="#94A3B8"/>
             <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="Padding" Value="15,8"/>
             <Setter Property="HorizontalContentAlignment" Value="Left"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Margin" Value="0,2"/>
+            <Setter Property="Margin" Value="0,1"/>
+            <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Left"/>
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#1A00F0FF"/>
+                                <Setter Property="Foreground" Value="#F8FAFC"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#3300F0FF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#3E3E42"/>
-                </Trigger>
-            </Style.Triggers>
         </Style>
+
+        <!-- Group Header Style -->
+        <Style TargetType="TextBlock" x:Key="GroupHeader">
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Margin" Value="15,20,0,8"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect Color="Black" BlurRadius="2" ShadowDepth="1" Opacity="0.3"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Glass Panel Style -->
+        <Style TargetType="Border" x:Key="GlassPanel">
+            <Setter Property="Background" Value="#CC1E293B"/>
+            <Setter Property="BorderBrush" Value="#33FFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect Color="Black" BlurRadius="20" ShadowDepth="5" Opacity="0.4"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style TargetType="CheckBox">
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Foreground" Value="#E2E8F0"/>
             <Setter Property="Margin" Value="10,5"/>
         </Style>
         <Style TargetType="GroupBox">
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderBrush" Value="#3E3E42"/>
+            <Setter Property="Foreground" Value="#E2E8F0"/>
+            <Setter Property="BorderBrush" Value="#33FFFFFF"/>
         </Style>
     </Window.Resources>
     
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="220"/>
+            <ColumnDefinition Width="260"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <!-- Sidebar -->
-        <Border Grid.Column="0" Background="#252526" BorderBrush="#3E3E42" BorderThickness="0,0,1,0">
-            <Grid Margin="10">
+        <!-- Sidebar (Glass Effect) -->
+        <Border Grid.Column="0" Background="#990F172A" BorderBrush="#1FFFFFFF" BorderThickness="0,0,1,0">
+            <Grid Margin="10,10,10,20">
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <StackPanel Grid.Row="0">
-                    <TextBlock Text="Auto Command" FontSize="20" FontWeight="Bold" Foreground="Cyan" Margin="0,10,20,20">
+                <!-- App Header -->
+                <StackPanel Grid.Row="0" Margin="10,15,0,20">
+                    <TextBlock Text="AUTO COMMAND" FontSize="18" FontWeight="Black" Foreground="#00F0FF">
                         <TextBlock.Effect>
-                            <DropShadowEffect Color="Cyan" BlurRadius="10" ShadowDepth="0" Opacity="0.5"/>
+                            <DropShadowEffect Color="#00F0FF" BlurRadius="15" ShadowDepth="0" Opacity="0.6"/>
                         </TextBlock.Effect>
                     </TextBlock>
-
-                    <TextBlock Text="MAIN" Foreground="#808080" FontSize="12" Margin="5,0,0,5" FontWeight="SemiBold"/>
-                    <Button x:Name="NavDashboardBtn" Content="Dashboard" Style="{StaticResource NavButton}"/>
-                    <Button x:Name="PerformanceBtn" Content="System Performance" Style="{StaticResource NavButton}"/>
-                    <Button x:Name="PrivacyBtn" Content="Privacy Settings" Style="{StaticResource NavButton}"/>
-                    <Button x:Name="TimelineBtn" Content="System Timeline" Style="{StaticResource NavButton}"/>
-                    <Button x:Name="DefenderBtn" Content="Windows Defender" Style="{StaticResource NavButton}"/>
-                    <Button x:Name="FirmwareSettingsBtn" Content="Firmware Settings" Style="{StaticResource NavButton}"/>
-                    <Button x:Name="DeviceManagementBtn" Content="Device Management" Style="{StaticResource NavButton}"/>
-                    <Button x:Name="EventManagementBtn" Content="Event Management" Style="{StaticResource NavButton}"/>
-                    <Button x:Name="FirewallSettingsBtn" Content="Firewall Settings" Style="{StaticResource NavButton}"/>
-                    <Button x:Name="ColdBootsBtn" Content="Cold Boots" Style="{StaticResource NavButton}"/>
-                    <Button x:Name="CommandPanelBtn" Content="Command Panel" Style="{StaticResource NavButton}"/>
-
-                    <TextBlock Text="TOOLS" Foreground="#808080" FontSize="12" Margin="5,20,0,5" FontWeight="SemiBold"/>
-                    <Button x:Name="HostedNetworkBtn" Visibility="Collapsed" Content="Hosted Network" Style="{StaticResource NavButton}"/>
-                    <Button x:Name="WanMiniportBtn" Visibility="Collapsed" Content="WAN Miniports" Style="{StaticResource NavButton}"/>
-                    <Button x:Name="NetworkAdaptersBtn" Visibility="Collapsed" Content="Network Adapters" Style="{StaticResource NavButton}"/>
-                    <Button x:Name="TasksBtn" Content="Scheduled Tasks" Style="{StaticResource NavButton}"/>
-                    <Button x:Name="ConnectionsBtn" Content="Connections" Style="{StaticResource NavButton}"/>
-                    <Button x:Name="TrueShutdownBtn" Content="True Shutdown" Style="{StaticResource NavButton}"/>
-
-                    <Separator Background="#3E3E42" Margin="0,20"/>
-                    <Button x:Name="SettingsBtn" Content="Settings" Style="{StaticResource NavButton}"/>
-                    <Button x:Name="ClearBtn" Content="Clear Logs" Style="{StaticResource NavButton}" Foreground="#FF6B6B"/>
+                    <TextBlock Text="SYSTEM MONITOR" FontSize="10" Foreground="#64748B" Margin="2,2,0,0"/>
                 </StackPanel>
 
+                <!-- Navigation -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden">
+                    <StackPanel>
+                        <!-- Diagnostics Group -->
+                        <TextBlock Text="DIAGNOSTICS" Style="{StaticResource GroupHeader}"/>
+                        <Button x:Name="NavDashboardBtn" Content="Overview" Style="{StaticResource NavButton}"/>
+                        <Button x:Name="TimelineBtn" Content="System Timeline" Style="{StaticResource NavButton}"/>
+                        <Button x:Name="FirmwareSettingsBtn" Content="Firmware Settings" Style="{StaticResource NavButton}"/>
+                        <Button x:Name="DeviceManagementBtn" Content="Device Management" Style="{StaticResource NavButton}"/>
+                        <Button x:Name="ColdBootsBtn" Content="Cold Boots" Style="{StaticResource NavButton}"/>
+                        <Button x:Name="TrueShutdownBtn" Content="True Shutdown" Style="{StaticResource NavButton}"/>
+                        <!-- Including Performance here as likely implied by Overview context or missing from explicit list but essential -->
+                        <Button x:Name="PerformanceBtn" Content="System Performance" Style="{StaticResource NavButton}"/>
+
+                        <!-- Security Group -->
+                        <TextBlock Text="SECURITY" Style="{StaticResource GroupHeader}"/>
+                        <Button x:Name="PrivacyBtn" Content="Privacy Settings" Style="{StaticResource NavButton}"/>
+                        <Button x:Name="DefenderBtn" Content="Windows Defender" Style="{StaticResource NavButton}"/>
+                        <Button x:Name="EventManagementBtn" Content="Event Management" Style="{StaticResource NavButton}"/>
+                        <Button x:Name="FirewallSettingsBtn" Content="Firewall Settings" Style="{StaticResource NavButton}"/>
+                        <Button x:Name="CommandPanelBtn" Content="Command Panel" Style="{StaticResource NavButton}"/>
+                        <Button x:Name="TasksBtn" Content="Scheduled Tasks" Style="{StaticResource NavButton}"/>
+                        <Button x:Name="ConnectionsBtn" Content="Connections" Style="{StaticResource NavButton}"/>
+                        
+                        <!-- Hidden / Utilities -->
+                        <Button x:Name="HostedNetworkBtn" Visibility="Collapsed" Content="Hosted Network" Style="{StaticResource NavButton}"/>
+                        <Button x:Name="WanMiniportBtn" Visibility="Collapsed" Content="WAN Miniports" Style="{StaticResource NavButton}"/>
+                        <Button x:Name="NetworkAdaptersBtn" Visibility="Collapsed" Content="Network Adapters" Style="{StaticResource NavButton}"/>
+                    </StackPanel>
+                </ScrollViewer>
+
                 <!-- Footer -->
-                <StackPanel Grid.Row="1" Margin="5,20,0,5">
-                    <TextBlock x:Name="AppVersionText" Text="v3.6" Foreground="#808080" FontSize="11" Margin="0,0,0,2"/>
-                    <TextBlock Text="© 2026 Auto Command" Foreground="#666666" FontSize="10" Margin="0,0,0,2"/>
-                    <TextBlock Text="Made with ❤️ in California" Foreground="#666666" FontSize="10"/>
+                <StackPanel Grid.Row="2" Margin="10,20,10,0">
+                    <Separator Background="#1FFFFFFF" Margin="0,0,0,15"/>
+                    <Button x:Name="SettingsBtn" Content="Settings" Style="{StaticResource NavButton}"/>
+                    <Button x:Name="ClearBtn" Content="Clear System Logs" Style="{StaticResource NavButton}" Foreground="#FF4444"/>
+                    
+                    <StackPanel Margin="5,15,0,0">
+                        <TextBlock x:Name="AppVersionText" Text="v3.7" Foreground="#475569" FontSize="11" FontWeight="SemiBold"/>
+                        <TextBlock Text="SECURE CORE ACTIVE" Foreground="#00F0FF" FontSize="9" Margin="0,2,0,0" Opacity="0.7"/>
+                    </StackPanel>
                 </StackPanel>
             </Grid>
         </Border>
 
         <!-- Content Area -->
-        <Grid Grid.Column="1" Background="#1E1E1E">
-            
-            <!-- Dashboard View (Default) -->
-            <local:DashboardView x:Name="DashboardView" Visibility="Visible"/>
+        <Border Grid.Column="1" Margin="20" Style="{StaticResource GlassPanel}">
+            <Grid>
+                <!-- Dashboard View (Overview) -->
+                <local:DashboardView x:Name="DashboardView" Visibility="Visible"/>
 
-            <!-- Performance View -->
-            <views:PerformanceView x:Name="PerformanceView" Visibility="Collapsed"/>
-            
-            <!-- Privacy View -->
-            <views:PrivacyView x:Name="PrivacyView" Visibility="Collapsed"/>
-            <views:TimelineView x:Name="TimelineView" Visibility="Collapsed"/>
-            <views:WindowsDefenderView x:Name="WindowsDefenderView" Visibility="Collapsed"/>
-            
-            <!-- Firmware Settings View -->
-            <views:FirmwareSettingsView x:Name="FirmwareSettingsView" Visibility="Collapsed"/>
-             <views:DeviceManagementView x:Name="DeviceManagementView" Visibility="Collapsed"/>
-             <views:EventManagementView x:Name="EventManagementView" Visibility="Collapsed"/>
-            <views:FirewallSettingsView x:Name="FirewallSettingsView" Visibility="Collapsed"/>
-            <views:ColdBootsView x:Name="ColdBootsView" Visibility="Collapsed"/>
-            <views:CommandPanelView x:Name="CommandPanelView" Visibility="Collapsed"/>
+                <!-- Performance View -->
+                <views:PerformanceView x:Name="PerformanceView" Visibility="Collapsed"/>
+                
+                <!-- Security Views -->
+                <views:PrivacyView x:Name="PrivacyView" Visibility="Collapsed"/>
+                <views:WindowsDefenderView x:Name="WindowsDefenderView" Visibility="Collapsed"/>
+                <views:EventManagementView x:Name="EventManagementView" Visibility="Collapsed"/>
+                <views:FirewallSettingsView x:Name="FirewallSettingsView" Visibility="Collapsed"/>
+                <views:CommandPanelView x:Name="CommandPanelView" Visibility="Collapsed"/>
+                <views:TasksView x:Name="TasksView" Visibility="Collapsed"/>
+                <views:ConnectionsView x:Name="ConnectionsView" Visibility="Collapsed"/>
 
-            <!-- Tools Views -->
-            <views:TasksView x:Name="TasksView" Visibility="Collapsed"/>
-            <views:ConnectionsView x:Name="ConnectionsView" Visibility="Collapsed"/>
-            <views:TrueShutdownView x:Name="TrueShutdownView" Visibility="Collapsed"/>
-            <views:SettingsView x:Name="SettingsView" Visibility="Collapsed"/>
+                <!-- Diagnostics Views -->
+                <views:TimelineView x:Name="TimelineView" Visibility="Collapsed"/>
+                <views:FirmwareSettingsView x:Name="FirmwareSettingsView" Visibility="Collapsed"/>
+                <views:DeviceManagementView x:Name="DeviceManagementView" Visibility="Collapsed"/>
+                <views:ColdBootsView x:Name="ColdBootsView" Visibility="Collapsed"/>
+                <views:TrueShutdownView x:Name="TrueShutdownView" Visibility="Collapsed"/>
 
-
-
-        </Grid>
+                <!-- Other -->
+                <views:SettingsView x:Name="SettingsView" Visibility="Collapsed"/>
+            </Grid>
+        </Border>
     </Grid>
 </Window>

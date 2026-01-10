@@ -9,8 +9,8 @@
     <UserControl.Resources>
         <!-- Card Style -->
         <Style x:Key="DashboardCard" TargetType="Border">
-            <Setter Property="Background" Value="#252526"/>
-            <Setter Property="BorderBrush" Value="#333"/>
+            <Setter Property="Background" Value="#10FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#33FFFFFF"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Padding" Value="15"/>
@@ -20,9 +20,17 @@
         <Style x:Key="CardHeader" TargetType="TextBlock">
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="Foreground" Value="#94A3B8"/>
             <Setter Property="Margin" Value="0,0,0,10"/>
         </Style>
+
+        <Style x:Key="MetricValue" TargetType="TextBlock">
+             <Setter Property="FontSize" Value="24"/>
+             <Setter Property="FontWeight" Value="Bold"/>
+             <Setter Property="Foreground" Value="#00F0FF"/>
+        </Style>
+
+
         
         <!-- List Item Style -->
         <Style x:Key="ListItem" TargetType="Border">
