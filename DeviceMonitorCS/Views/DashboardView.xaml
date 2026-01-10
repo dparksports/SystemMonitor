@@ -75,7 +75,7 @@
                             <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,0,1" Height="33"/>
                         </StackPanel>
                         <!-- Y-Axis Labels (higher Z-order) -->
-                        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="-15,0,0,0" Panel.ZIndex="10">
+                        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="5,0,0,0" Panel.ZIndex="10">
                             <TextBlock Text="60" Foreground="#BBE2E8F0" FontSize="10" Height="33"/>
                             <TextBlock Text="40" Foreground="#BBE2E8F0" FontSize="10" Height="33"/>
                             <TextBlock Text="20" Foreground="#BBE2E8F0" FontSize="10" Height="33"/>
@@ -121,7 +121,7 @@
                             <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,0,1" Height="33"/>
                         </StackPanel>
                         <!-- Y-Axis Labels -->
-                        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="-15,0,0,0" Panel.ZIndex="10">
+                        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="5,0,0,0" Panel.ZIndex="10">
                             <TextBlock Text="60" Foreground="#BBE2E8F0" FontSize="10" Height="33"/>
                             <TextBlock Text="40" Foreground="#BBE2E8F0" FontSize="10" Height="33"/>
                             <TextBlock Text="20" Foreground="#BBE2E8F0" FontSize="10" Height="33"/>
