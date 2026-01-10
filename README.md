@@ -1,79 +1,45 @@
-# Auto Command
+# ⚔ Auto Command
 
-**Advanced System Management & Security Hardening**
+**Auto Command** is a high-fidelity, professional-grade Windows system monitoring and security dashboard. Built with a focus on visual excellence and real-time accuracy, it provides a "glassmorphism" interface for monitoring critical system health and security status.
 
-Auto Command is a powerful, unified tool designed for Windows administrators and power users who need granular control over their system's security posture and underlying hardware. Built with a modern, darkened aesthetic and high-performance native integrations, it streamlines complex administrative tasks into a single, cohesive dashboard.
+[**Download Latest Release (v3.8.1)**](https://github.com/dparksports/SystemMonitor/releases/download/v3.8.1/AutoCommand.exe)
 
-![Auto Command Dashboard](DeviceMonitorCS/app_dashboard_mockup.png)
+![Auto Command Dashboard](file:///C:/Users/honey/.gemini/antigravity/brain/dd6eed55-9e6b-479d-82bb-0975e0b2df85/uploaded_image_1768036417854.png)
 
----
+## ✨ Core Features
 
-## 🚀 Key Features
+### 🛡 Real-Time Security Tracking
+- **Unified Status**: Instant visibility into Windows Defender and Windows Firewall states.
+- **Security Timeline**: Live-updating log of recent security events, firewall rule changes, and device connections.
+- **Aurora Visuals**: Dynamic, soft radiant glows ("Aurora" effect) that indicate system health with a premium aesthetic.
 
-### 🛡️ Unified Command Panel
-The heart of Auto Command, providing one-click management for critical system interfaces often exploited as "Security Holes."
-- **Network Hole Management**: Instantly toggle and natively uninstall WAN Miniports, WiFi Direct Virtual Adapters, and Kernel Debug Network Adapters (KDNET).
-- **Privacy Toggles**: Global control over background VPN services, wireless entry points, and Windows flighting/telemetry tasks.
-- **Real-time Monitoring**: Integrated status checks for Windows Defender Tamper Protection and boot configuration flags.
+### 📈 Performance Visualizer
+- **CPU Usage**: Real-time smoothing graph showing processor utilization.
+- **Available Memory**: Precise tracking of system RAM, showing exactly how many GB are available for work.
+- **Zero-Overlap Design**: High-fidelity chart axis labels and scales designed for perfect readability.
 
-### 🔍 Advanced Diagnostics
-- **Firmware Explorer**: Deep dive into ACPI tables and UEFI variables with detailed byte-level views.
-- **Security Timeline**: Track historical system events to identify suspicious patterns or configuration changes.
-- **Device Management**: A high-performance replacement for Device Manager with advanced property enumeration and native uninstallation capabilities.
+### 💎 Premium Interface
+- **Glassmorphism UI**: A modern, translucent material design with integrated title bar controls.
+- **Responsive Sidebar**: Collapsible navigation with definitive "Crossed Swords" branding.
+- **Dark Mode Optimized**: Deep blue and slate color palette designed for high-end professional setups.
 
-### ⚙️ System Tools
-- **Scheduled Tasks**: Browse and audit Windows tasks with an intuitive interface.
-- **Network Connections**: High-visibility monitoring of active network sockets and traffic.
-- **True Shutdown**: Bypass Windows "Fast Startup" to perform a complete hardware power-off, ensuring a fresh state on the next boot.
-- **Firewall Controls**: Streamlined management of profiles and rule sets.
+## 🛠 Technical Stack
+- **Framework**: .NET 8.0 (WPF) with C# 12
+- **Data Sources**: Windows Management Instrumentation (WMI), Windows Event Log API
+- **Theming**: Custom Vanilla XAML Styles with `WindowChrome` integration
+- **Architecture**: MVVM (Model-View-ViewModel) for clean logic separation
 
----
+## 🚀 Quick Start
+1.  **Clone the Repository**.
+2.  **Run as Administrator**: Auto Command requires elevated privileges to query security provider status and event logs.
+3.  **Build & Launch**: Use Visual Studio 2022 or the `dotnet` CLI to run the project.
 
-## 🛠️ Technology Stack
+```powershell
+dotnet run --project DeviceMonitorCS
+```
 
-- **Core Framework**: .NET 8.0 (WPF)
-- **Languages**: C#, XAML, PowerShell
-- **System APIs**: 
-    - **WMI** (`System.Management`) for advanced hardware queries.
-    - **SetupDi API** (P/Invoke) for native device management and driver uninstallation.
-    - **BCDedit** for boot configuration management.
-- **UI Design**: Modern, dark-mode focused UI with accent-driven typography and micro-animations.
-
----
-
-## 📥 Getting Started
-
-### ⚡ Quick Start
-The easiest way to get started is to download the latest production bundle:
-- **[Download Auto Command v3.4 (.zip)](https://github.com/dparksports/SystemMonitor/releases/download/v3.4/AutoCommand_v3.4.zip)**
-- Or browse all **[Releases](https://github.com/dparksports/SystemMonitor/releases)**
-
-### Build from Source
-If you prefer to build it yourself:
-1. Clone the repository.
-2. Open the solution in Visual Studio or your preferred C# IDE.
-3. Build the project using the **Release** configuration.
-4. Run `AutoCommand.exe` from the output directory.
-
-### Prerequisites
-- .NET 8.0 Runtime (for running) or SDK (for building).
-- Windows 10/11 with Administrative privileges.
-
-### Optional: Firebase Telemetry
-The application includes optional telemetry for tracking usage metrics (app starts, UI interactions). To enable this:
-1. Create a `firebase_config.json` file in the `DeviceMonitorCS` directory.
-2. Use `firebase_config.json.template` as a guide and fill in your `apiKey` and `measurementId`.
-3. Rebuild the project.
+## 📦 Versioning
+Current Stable Release: **v3.8.1** (Definitive Edition)
 
 ---
-
-## ⚖️ License
-
-Auto Command is released under the **Apache License, Version 2.0**.
-
-Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at: [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0)
-
-Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
-
----
-Created with ❤️ in California.
+*Developed for power users who demand both data accuracy and visual perfection.*
