@@ -57,6 +57,12 @@ If you prefer to build it yourself:
 - .NET 8.0 Runtime (for running) or SDK (for building).
 - Windows 10/11 with Administrative privileges.
 
+### Optional: Firebase Telemetry
+The application includes optional telemetry for tracking usage metrics (app starts, UI interactions). To enable this:
+1. Create a `firebase_config.json` file in the `DeviceMonitorCS` directory.
+2. Use `firebase_config.json.template` as a guide and fill in your `apiKey` and `measurementId`.
+3. Rebuild the project.
+
 ---
 
 ## ⚖️ License

@@ -71,6 +71,7 @@ namespace DeviceMonitorCS.Services
         {
             if (_config == null || string.IsNullOrEmpty(_config.MeasurementId) || string.IsNullOrEmpty(_config.ApiKey))
             {
+                Debug.WriteLine("[TELEMETRY] Cannot send event: Firebase configuration is missing or invalid.");
                 return;
             }
 
@@ -89,28 +90,29 @@ namespace DeviceMonitorCS.Services
                     }
                 };
 
-                // Add session_id to maintain session continuity if needed, but basic tracking is fine without it for now.
                 // Google Analytics Measurement Protocol URL
+                // Note: api_secret is the API Secret from GA4 Admin > Data Streams > [Stream] > Measurement Protocol API secrets
                 string url = $"https://www.google-analytics.com/mp/collect?measurement_id={_config.MeasurementId}&api_secret={_config.ApiKey}";
 
                 string jsonPayload = JsonSerializer.Serialize(payload);
                 var content = new StringContent(jsonPayload, System.Text.Encoding.UTF8, "application/json");
 
-                // Fire and forget - don't await the response content, just send it
+                // Send the event
                 var response = await _httpClient.PostAsync(url, content);
                 
                 if (!response.IsSuccessStatusCode)
                 {
-                    Debug.WriteLine($"Firebase Event Failed: {response.StatusCode}");
+                    string errorDetails = await response.Content.ReadAsStringAsync();
+                    Debug.WriteLine($"[TELEMETRY] Firebase Event Failed: {response.StatusCode} - {errorDetails}");
                 }
                 else 
                 {
-                     Debug.WriteLine($"Firebase Event Sent: {eventName}");
+                     Debug.WriteLine($"[TELEMETRY] Firebase Event Sent: {eventName}");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error sending telemetry: {ex.Message}");
+                Debug.WriteLine($"[TELEMETRY] Error sending telemetry: {ex.Message}");
             }
         }
     }
