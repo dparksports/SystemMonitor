@@ -205,21 +205,11 @@
                 <!-- Windows Defender -->
                 <Border Grid.Row="0" Style="{StaticResource MetricCard}" Margin="0,0,0,5">
                     <Grid>
-                        <!-- Inner Radiant Glow (Top-Left) -->
+                        <!-- Inner Radiant Glow (Top-Center) -->
                         <Border CornerRadius="10">
                             <Border.Background>
-                                <RadialGradientBrush Center="0,0" GradientOrigin="0,0" RadiusX="0.8" RadiusY="0.8">
-                                    <GradientStop Color="#304ADE80" Offset="0"/>
-                                    <GradientStop Color="Transparent" Offset="1"/>
-                                </RadialGradientBrush>
-                            </Border.Background>
-                        </Border>
-
-                        <!-- Inner Radiant Glow (Bottom-Left) -->
-                        <Border CornerRadius="10">
-                            <Border.Background>
-                                <RadialGradientBrush Center="0,1" GradientOrigin="0,1" RadiusX="0.6" RadiusY="0.6">
-                                    <GradientStop Color="#252D6A4F" Offset="0"/>
+                                <RadialGradientBrush Center="0.5,0" GradientOrigin="0.5,0" RadiusX="0.8" RadiusY="0.7">
+                                    <GradientStop Color="#504ADE80" Offset="0"/>
                                     <GradientStop Color="Transparent" Offset="1"/>
                                 </RadialGradientBrush>
                             </Border.Background>
@@ -267,21 +257,11 @@
                 <!-- Firewall -->
                 <Border Grid.Row="1" Style="{StaticResource MetricCard}" Margin="0,5,0,0">
                     <Grid>
-                        <!-- Inner Radiant Glow (Top-Left) -->
+                        <!-- Inner Radiant Glow (Top-Center) -->
                         <Border CornerRadius="10">
                             <Border.Background>
-                                <RadialGradientBrush Center="0,0" GradientOrigin="0,0" RadiusX="0.8" RadiusY="0.8">
-                                    <GradientStop Color="#30F59E0B" Offset="0"/>
-                                    <GradientStop Color="Transparent" Offset="1"/>
-                                </RadialGradientBrush>
-                            </Border.Background>
-                        </Border>
-
-                        <!-- Inner Radiant Glow (Bottom-Left) -->
-                        <Border CornerRadius="10">
-                            <Border.Background>
-                                <RadialGradientBrush Center="0,1" GradientOrigin="0,1" RadiusX="0.6" RadiusY="0.6">
-                                    <GradientStop Color="#2592400E" Offset="0"/>
+                                <RadialGradientBrush Center="0.5,0" GradientOrigin="0.5,0" RadiusX="0.8" RadiusY="0.7">
+                                    <GradientStop Color="#50F59E0B" Offset="0"/>
                                     <GradientStop Color="Transparent" Offset="1"/>
                                 </RadialGradientBrush>
                             </Border.Background>
