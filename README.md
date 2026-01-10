@@ -1,45 +1,41 @@
 # ⚔ Auto Command
 
-**Auto Command** is a high-fidelity, professional-grade Windows system monitoring and security dashboard. Built with a focus on visual excellence and real-time accuracy, it provides a "glassmorphism" interface for monitoring critical system health and security status.
+**Auto Command** is a high-fidelity Windows system monitoring and security command center. It combines real-time data accuracy with a premium "Aurora" glassmorphism interface, providing a professional workspace for power users to track system health and security telemetry.
 
-[**Download Latest Release (v3.8.1)**](https://github.com/dparksports/SystemMonitor/releases/download/v3.8.1/AutoCommand.exe)
+[![Download v3.8.1](https://img.shields.io/badge/Download-v3.8.1-00F0FF?style=for-the-badge&logo=windows)](https://github.com/dparksports/SystemMonitor/releases/download/v3.8.1/AutoCommand.exe)
 
 ![Auto Command Dashboard](file:///C:/Users/honey/.gemini/antigravity/brain/dd6eed55-9e6b-479d-82bb-0975e0b2df85/uploaded_image_1768036417854.png)
 
-## ✨ Core Features
+## 🚀 Key Functionality
 
-### 🛡 Real-Time Security Tracking
-- **Unified Status**: Instant visibility into Windows Defender and Windows Firewall states.
-- **Security Timeline**: Live-updating log of recent security events, firewall rule changes, and device connections.
-- **Aurora Visuals**: Dynamic, soft radiant glows ("Aurora" effect) that indicate system health with a premium aesthetic.
+### 📊 Real-Time Performance Analytics
+- **Live CPU Tracking**: High-frequency CPU utilization monitoring with a smoothed "Aurora" vector graph.
+- **Available Memory Monitoring**: Real-time tracking of system RAM, showing precise **GB Available** to ensure your workstation is performing at its peak.
+- **Unit Precision**: Optimized X and Y axis scaling for zero-overlap readability.
 
-### 📈 Performance Visualizer
-- **CPU Usage**: Real-time smoothing graph showing processor utilization.
-- **Available Memory**: Precise tracking of system RAM, showing exactly how many GB are available for work.
-- **Zero-Overlap Design**: High-fidelity chart axis labels and scales designed for perfect readability.
+### 🛡 Proactive Security Dashboard
+- **Defender & Firewall Status**: Instant visual confirmation of Windows Defender and Windows Firewall active states.
+- **Security Timeline**: A live, historical feed of security-critical events, including firewall rule updates, device connections, and system scans.
+- **Aurora Glows**: Sophisticated Top-Center radiant lighting that visually integrates security health into the desktop environment.
 
-### 💎 Premium Interface
-- **Glassmorphism UI**: A modern, translucent material design with integrated title bar controls.
-- **Responsive Sidebar**: Collapsible navigation with definitive "Crossed Swords" branding.
-- **Dark Mode Optimized**: Deep blue and slate color palette designed for high-end professional setups.
+### 💎 High-Fidelity Interface
+- **Glassmorphism Design**: Translucent material effects using modern WPF styling techniques.
+- **Integrated Window Chrome**: Custom title bar with integrated minimize, maximize, and close controls for a seamless "App" feel.
+- **Crossed Swords Branding**: A powerful, definitive identity reflecting the "Auto Command" mission.
 
-## 🛠 Technical Stack
-- **Framework**: .NET 8.0 (WPF) with C# 12
-- **Data Sources**: Windows Management Instrumentation (WMI), Windows Event Log API
-- **Theming**: Custom Vanilla XAML Styles with `WindowChrome` integration
-- **Architecture**: MVVM (Model-View-ViewModel) for clean logic separation
+## 🛠 Technical Overview
+- **Core Engine**: .NET 8.0 (C# 12)
+- **Data Capture**: WMI (Windows Management Instrumentation) for hardware metrics and Windows Event Log API for security history.
+- **UI Architecture**: Hardware-accelerated WPF with custom `WindowChrome` and vector-based rendering.
+- **Telemetry**: Firebase Analytics integration for anonymous usage tracking.
 
-## 🚀 Quick Start
-1.  **Clone the Repository**.
-2.  **Run as Administrator**: Auto Command requires elevated privileges to query security provider status and event logs.
-3.  **Build & Launch**: Use Visual Studio 2022 or the `dotnet` CLI to run the project.
+## 📦 Getting Started
+1.  **Download**: Get the [latest executable](https://github.com/dparksports/SystemMonitor/releases/download/v3.8.1/AutoCommand.exe).
+2.  **Elevation**: Must be **Run as Administrator** to access security provider data and system event logs.
+3.  **Deploy**: Self-contained, single-file deployment—no installation required.
 
-```powershell
-dotnet run --project DeviceMonitorCS
-```
-
-## 📦 Versioning
-Current Stable Release: **v3.8.1** (Definitive Edition)
+## ⚖ License
+Licensed under the **Apache License, Version 2.0**. See the [LICENSE](LICENSE) file for more details.
 
 ---
-*Developed for power users who demand both data accuracy and visual perfection.*
+Made with ❤️ in California.
