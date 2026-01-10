@@ -204,10 +204,10 @@ namespace DeviceMonitorCS
             _telemetryService = new FirebaseTelemetryService();
             _ = _telemetryService.SendEventAsync("app_start", new Dictionary<string, object> 
             { 
-               { "app_version", "3.8.3.1" }
+               { "app_version", "3.9.0" }
             });
 
-            AppVersionText.Text = "v3.8.3.1";
+            AppVersionText.Text = "v3.9.0";
             this.AddHandler(Button.ClickEvent, new RoutedEventHandler(Global_ButtonClick));
 
             _currentUser = System.Security.Principal.WindowsIdentity.GetCurrent().Name;

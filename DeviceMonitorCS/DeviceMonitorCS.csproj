@@ -6,13 +6,11 @@
     <Nullable>disable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>3.8.3.1</Version>
+    <Version>3.9.0</Version>
     <ApplicationIcon>app_icon.ico</ApplicationIcon>
     <AssemblyName>AutoCommand</AssemblyName>
     <Product>AutoCommand</Product>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <IncludeAllContentForSelfExtract>false</IncludeAllContentForSelfExtract>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,7 +24,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="firebase_config.json" />
+    <None Update="firebase_config.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

@@ -31,7 +31,16 @@ namespace DeviceMonitorCS.Services
         {
             try
             {
-                // Try loading from Embedded Resource first (Preferred for Single-File)
+                // Prioritize local file for Portable Directory mode (v3.9.0+)
+                string localPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "firebase_config.json");
+                if (File.Exists(localPath))
+                {
+                    string json = File.ReadAllText(localPath);
+                    _config = JsonSerializer.Deserialize<FirebaseConfig>(json);
+                    return;
+                }
+
+                // Fallback to Embedded Resource
                 var assembly = System.Reflection.Assembly.GetExecutingAssembly();
                 var resourceName = "DeviceMonitorCS.firebase_config.json";
 
@@ -43,21 +52,8 @@ namespace DeviceMonitorCS.Services
                         {
                             string json = reader.ReadToEnd();
                             _config = JsonSerializer.Deserialize<FirebaseConfig>(json);
-                            return;
                         }
                     }
-                }
-
-                // Fallback to disk (for Debug/Dev)
-                string localPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "firebase_config.json");
-                if (File.Exists(localPath))
-                {
-                    string json = File.ReadAllText(localPath);
-                    _config = JsonSerializer.Deserialize<FirebaseConfig>(json);
-                }
-                else
-                {
-                    Debug.WriteLine("Firebase config not found in resources or disk.");
                 }
             }
             catch (Exception ex)
