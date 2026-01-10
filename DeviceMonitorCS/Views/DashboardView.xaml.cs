@@ -66,48 +66,63 @@ namespace DeviceMonitorCS.Views
                 CpuText.Text = $"{cpu:0}%";
                 MemText.Text = $"{ram:0} MB Free";
 
-                UpdateGraph(_cpuHistory, cpu, CpuGraph, 100, false);
-                UpdateGraph(_ramHistory, ram, MemGraph, 32000, true); // Assuming 32GB max for scale relative
+                // Scale: Mockup shows 60 as top label, let's use 80 as max Y for better fit
+                UpdateGraphSmoothed(_cpuHistory, cpu, CpuPath, 80);
+                UpdateGraphSmoothed(_ramHistory, ram, MemPath, 32000); 
             }
         }
 
-        private void UpdateGraph(List<double> history, double newValue, Shape shape, double maxY, bool fillArea)
+        private void UpdateGraphSmoothed(List<double> history, double newValue, Path path, double maxY)
         {
             history.Add(newValue);
             if (history.Count > _historyLength) history.RemoveAt(0);
 
-            double width = shape.ActualWidth;
-            double height = shape.ActualHeight;
+            double width = path.ActualWidth;
+            double height = path.ActualHeight;
             if (width == 0 || height == 0) return;
 
             double xStep = width / (_historyLength - 1);
             
-            var points = new PointCollection();
+            var geometry = new PathGeometry();
+            var figure = new PathFigure();
+            
+            // Base height adjusted for stroke thickness to prevent sinking
+            double baseHeight = height - 1.0; 
+            
+            // Start Point (at the bottom left if we want a fill)
+            figure.StartPoint = new Point(0, baseHeight);
+            figure.IsClosed = true;
 
-            if (fillArea)
-            {
-                 points.Add(new Point(0, height)); // Bottom Left Anchor
-            }
+            if (history.Count < 2) return;
 
-            for (int i = 0; i < history.Count; i++)
+            // First Actual Data Point
+            double firstY = baseHeight - ((history[0] / maxY) * baseHeight);
+            figure.Segments.Add(new LineSegment(new Point(0, firstY), true));
+
+            for (int i = 1; i < history.Count; i++)
             {
-                double val = history[i];
-                // Scale Y: 0 at Bottom (Height), Max at Top (0)
-                // val=0 -> y=Height; val=Max -> y=0
-                double y = height - ((val / maxY) * height);
+                double x = i * xStep;
+                double y = baseHeight - ((history[i] / maxY) * baseHeight);
                 if (y < 0) y = 0;
-                if (y > height) y = height;
+                if (y > baseHeight) y = baseHeight;
 
-                points.Add(new Point(i * xStep, y));
+                // For smoothing, we use a Bezier segment. 
+                double prevX = (i - 1) * xStep;
+                double prevY = baseHeight - ((history[i-1] / maxY) * baseHeight);
+
+                figure.Segments.Add(new BezierSegment(
+                    new Point(prevX + (xStep / 2), prevY),
+                    new Point(x - (xStep / 2), y),
+                    new Point(x, y),
+                    true
+                ));
             }
 
-            if (fillArea)
-            {
-                points.Add(new Point((history.Count - 1) * xStep, height)); // Bottom Right Anchor
-            }
+            // End Point (at the bottom right for fill)
+            figure.Segments.Add(new LineSegment(new Point((history.Count - 1) * xStep, baseHeight), true));
 
-            if (shape is Polyline line) line.Points = points;
-            else if (shape is Polygon poly) poly.Points = points;
+            geometry.Figures.Add(figure);
+            path.Data = geometry;
         }
     }
 

@@ -9,12 +9,19 @@
 
     <UserControl.Resources>
         <Style x:Key="MetricCard" TargetType="Border">
-            <Setter Property="Background" Value="#10FFFFFF"/>
-            <Setter Property="BorderBrush" Value="#33FFFFFF"/>
+            <Setter Property="Background" Value="#CC1E293B"/>
+            <Setter Property="BorderBrush" Value="#22FFFFFF"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="CornerRadius" Value="10"/>
             <Setter Property="Padding" Value="15"/>
             <Setter Property="Margin" Value="5"/>
+        </Style>
+
+        <Style x:Key="GlowTopLine" TargetType="Border">
+            <Setter Property="Height" Value="2"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+            <Setter Property="CornerRadius" Value="10,10,0,0"/>
+            <Setter Property="Margin" Value="1,1,1,0"/>
         </Style>
 
         <Style x:Key="CardTitle" TargetType="TextBlock">
@@ -49,11 +56,45 @@
             <Border Grid.Column="0" Style="{StaticResource MetricCard}">
                 <Grid>
                     <TextBlock Text="CPU Usage" Style="{StaticResource CardTitle}"/>
-                    <Border Style="{StaticResource StatusBadge}" Background="#3300F0FF">
+                    <Border Style="{StaticResource StatusBadge}" Background="#1500F0FF" BorderBrush="#3300F0FF" BorderThickness="1">
                         <TextBlock x:Name="CpuText" Text="0%" Foreground="#00F0FF" FontWeight="Bold"/>
                     </Border>
-                    <!-- Placement for Graph -->
-                    <Polyline x:Name="CpuGraph" Stroke="#00F0FF" StrokeThickness="2" Points="" Margin="0,30,0,0" VerticalAlignment="Bottom" Height="100" Stretch="Fill"/>
+                    
+                    <!-- Chart Background (Grid Lines) -->
+                    <Grid Margin="0,40,0,25" ClipToBounds="True">
+                        <StackPanel VerticalAlignment="Stretch">
+                            <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,0,1" Height="33"/>
+                            <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,0,1" Height="33"/>
+                            <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,0,1" Height="33"/>
+                        </StackPanel>
+                        <!-- Y-Axis Labels -->
+                        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="-15,0,0,0">
+                            <TextBlock Text="60" Foreground="#44E2E8F0" FontSize="10" Height="33"/>
+                            <TextBlock Text="40" Foreground="#44E2E8F0" FontSize="10" Height="33"/>
+                            <TextBlock Text="20" Foreground="#44E2E8F0" FontSize="10" Height="33"/>
+                            <TextBlock Text="0" Foreground="#44E2E8F0" FontSize="10"/>
+                        </StackPanel>
+
+                        <!-- The Graph -->
+                        <Path x:Name="CpuPath" Stroke="#00F0FF" StrokeThickness="2" Margin="5,0,0,0">
+                            <Path.Fill>
+                                <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                                    <GradientStop Color="#4000F0FF" Offset="0"/>
+                                    <GradientStop Color="#0000F0FF" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Path.Fill>
+                        </Path>
+                        
+                        <!-- X-Axis Labels -->
+                        <UniformGrid Columns="6" VerticalAlignment="Bottom" Margin="5,0,0,-20">
+                            <TextBlock Text="00" Foreground="#44E2E8F0" FontSize="10" HorizontalAlignment="Center"/>
+                            <TextBlock Text="10" Foreground="#44E2E8F0" FontSize="10" HorizontalAlignment="Center"/>
+                            <TextBlock Text="20" Foreground="#44E2E8F0" FontSize="10" HorizontalAlignment="Center"/>
+                            <TextBlock Text="30" Foreground="#44E2E8F0" FontSize="10" HorizontalAlignment="Center"/>
+                            <TextBlock Text="40" Foreground="#44E2E8F0" FontSize="10" HorizontalAlignment="Center"/>
+                            <TextBlock Text="50" Foreground="#44E2E8F0" FontSize="10" HorizontalAlignment="Center"/>
+                        </UniformGrid>
+                    </Grid>
                 </Grid>
             </Border>
 
@@ -61,11 +102,45 @@
             <Border Grid.Column="1" Style="{StaticResource MetricCard}">
                 <Grid>
                     <TextBlock Text="Memory Usage" Style="{StaticResource CardTitle}"/>
-                    <Border Style="{StaticResource StatusBadge}" Background="#33FFAE00">
+                    <Border Style="{StaticResource StatusBadge}" Background="#15FFAE00" BorderBrush="#33FFAE00" BorderThickness="1">
                         <TextBlock x:Name="MemText" Text="0 GB" Foreground="#FFAE00" FontWeight="Bold"/>
                     </Border>
-                    <!-- Placement for Graph -->
-                    <Polygon x:Name="MemGraph" Fill="#33FFAE00" Points="" Margin="0,30,0,0" VerticalAlignment="Bottom" Height="100" Stretch="Fill" Stroke="#FFAE00" StrokeThickness="1"/>
+                    
+                    <!-- Chart Background (Grid Lines) -->
+                    <Grid Margin="0,40,0,25" ClipToBounds="True">
+                        <StackPanel VerticalAlignment="Stretch">
+                            <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,0,1" Height="33"/>
+                            <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,0,1" Height="33"/>
+                            <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,0,1" Height="33"/>
+                        </StackPanel>
+                        <!-- Y-Axis Labels -->
+                        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="-15,0,0,0">
+                            <TextBlock Text="60" Foreground="#44E2E8F0" FontSize="10" Height="33"/>
+                            <TextBlock Text="40" Foreground="#44E2E8F0" FontSize="10" Height="33"/>
+                            <TextBlock Text="20" Foreground="#44E2E8F0" FontSize="10" Height="33"/>
+                            <TextBlock Text="0" Foreground="#44E2E8F0" FontSize="10"/>
+                        </StackPanel>
+
+                        <!-- The Graph -->
+                        <Path x:Name="MemPath" Stroke="#FFAE00" StrokeThickness="2" Margin="5,0,0,0">
+                             <Path.Fill>
+                                <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                                    <GradientStop Color="#40FFAE00" Offset="0"/>
+                                    <GradientStop Color="#00FFAE00" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Path.Fill>
+                        </Path>
+
+                        <!-- X-Axis Labels -->
+                        <UniformGrid Columns="6" VerticalAlignment="Bottom" Margin="5,0,0,-20">
+                            <TextBlock Text="00" Foreground="#44E2E8F0" FontSize="10" HorizontalAlignment="Center"/>
+                            <TextBlock Text="10" Foreground="#44E2E8F0" FontSize="10" HorizontalAlignment="Center"/>
+                            <TextBlock Text="20" Foreground="#44E2E8F0" FontSize="10" HorizontalAlignment="Center"/>
+                            <TextBlock Text="30" Foreground="#44E2E8F0" FontSize="10" HorizontalAlignment="Center"/>
+                            <TextBlock Text="40" Foreground="#44E2E8F0" FontSize="10" HorizontalAlignment="Center"/>
+                            <TextBlock Text="50" Foreground="#44E2E8F0" FontSize="10" HorizontalAlignment="Center"/>
+                        </UniformGrid>
+                    </Grid>
                 </Grid>
             </Border>
         </Grid>
@@ -121,23 +196,85 @@
                 </Grid.RowDefinitions>
 
                 <!-- Windows Defender -->
-                <Border Grid.Row="0" Style="{StaticResource MetricCard}" Background="#20005500">
-                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Left" Margin="10">
-                         <!-- Icon Placeholder -->
-                         <Ellipse Width="40" Height="40" Fill="#00C853" HorizontalAlignment="Left" Margin="0,0,0,10"/>
-                         <TextBlock Text="Windows Defender:" Foreground="#E2E8F0" FontSize="14"/>
-                         <TextBlock Text="Active" Foreground="#00E676" FontSize="20" FontWeight="Bold"/>
-                    </StackPanel>
+                <Border Grid.Row="0" Style="{StaticResource MetricCard}" Margin="0,0,0,5">
+                    <Grid>
+                        <!-- Inner Radiant Glow -->
+                        <Border CornerRadius="10">
+                            <Border.Background>
+                                <RadialGradientBrush Center="0.5,0" GradientOrigin="0.5,0" RadiusX="1" RadiusY="1">
+                                    <GradientStop Color="#404ADE80" Offset="0"/>
+                                    <GradientStop Color="Transparent" Offset="1"/>
+                                </RadialGradientBrush>
+                            </Border.Background>
+                        </Border>
+                        
+                        <!-- Top Radiant Line -->
+                        <Border Style="{StaticResource GlowTopLine}">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                    <GradientStop Color="Transparent" Offset="0"/>
+                                    <GradientStop Color="#4ADE80" Offset="0.5"/>
+                                    <GradientStop Color="Transparent" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                        </Border>
+
+                        <Grid VerticalAlignment="Center" Margin="10,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid Grid.Column="0" Width="48" Height="48" Margin="0,0,15,0">
+                                <Ellipse Fill="#4ADE80"/>
+                                <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="24" Foreground="#0F172A" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold"/>
+                            </Grid>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                 <TextBlock Text="Windows Defender:" Foreground="#E2E8F0" FontSize="14"/>
+                                 <TextBlock Text="Active" Foreground="#4ADE80" FontSize="22" FontWeight="Bold" Margin="0,-2,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
                 </Border>
 
                 <!-- Firewall -->
-                <Border Grid.Row="1" Style="{StaticResource MetricCard}" Background="#20553300">
-                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Left" Margin="10">
-                         <!-- Icon Placeholder -->
-                         <Path Data="M10,0 L20,5 L20,15 C20,22 10,28 10,28 C10,28 0,22 0,15 L0,5 Z" Fill="Transparent" Stroke="#FFAB00" StrokeThickness="2" Width="30" Height="40" HorizontalAlignment="Left" Margin="5,0,0,10"/>
-                         <TextBlock Text="Firewall:" Foreground="#E2E8F0" FontSize="14"/>
-                         <TextBlock Text="Strict" Foreground="#FFAB00" FontSize="20" FontWeight="Bold"/>
-                    </StackPanel>
+                <Border Grid.Row="1" Style="{StaticResource MetricCard}" Margin="0,5,0,0">
+                    <Grid>
+                        <!-- Inner Radiant Glow -->
+                        <Border CornerRadius="10">
+                            <Border.Background>
+                                <RadialGradientBrush Center="0.5,0" GradientOrigin="0.5,0" RadiusX="1" RadiusY="1">
+                                    <GradientStop Color="#40F59E0B" Offset="0"/>
+                                    <GradientStop Color="Transparent" Offset="1"/>
+                                </RadialGradientBrush>
+                            </Border.Background>
+                        </Border>
+
+                        <!-- Top Radiant Line -->
+                        <Border Style="{StaticResource GlowTopLine}">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                    <GradientStop Color="Transparent" Offset="0"/>
+                                    <GradientStop Color="#F59E0B" Offset="0.5"/>
+                                    <GradientStop Color="Transparent" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                        </Border>
+
+                        <Grid VerticalAlignment="Center" Margin="10,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid Grid.Column="0" Width="48" Height="48" Margin="0,0,15,0">
+                                <Ellipse Fill="#F59E0B"/>
+                                <TextBlock Text="&#xE727;" FontFamily="Segoe MDL2 Assets" FontSize="24" Foreground="#0F172A" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold"/>
+                            </Grid>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                 <TextBlock Text="Firewall Status:" Foreground="#E2E8F0" FontSize="14"/>
+                                 <TextBlock Text="Strict" Foreground="#F59E0B" FontSize="22" FontWeight="Bold" Margin="0,-2,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
                 </Border>
             </Grid>
         </Grid>
