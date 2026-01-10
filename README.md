@@ -6,40 +6,32 @@
 
 ![Auto Command Dashboard](file:///C:/Users/honey/.gemini/antigravity/brain/dd6eed55-9e6b-479d-82bb-0975e0b2df85/uploaded_image_1768036417854.png)
 
-## 🚀 Comprehensive Functionality
+## 🚀 Key Features
 
-### 🖥 Dashboard: Real-Time Performance
-- **Live CPU Tracking**: High-frequency CPU utilization monitoring with a smoothed "Aurora" vector graph.
-- **Available Memory**: Real-time tracking of system RAM, showing precise **GB Available** to ensure peak workstation performance.
-- **Aurora Visuals**: Dynamic, soft radiant glows that indicate system health with a premium glassmorphism aesthetic.
+### 🛡️ Unified Command Panel
+The heart of Auto Command, providing one-click management for critical system interfaces often exploited as "Security Holes."
+- **Network Hole Management**: Instantly toggle and natively uninstall WAN Miniports, WiFi Direct Virtual Adapters, and Kernel Debug Network Adapters (KDNET).
+- **Privacy Toggles**: Global control over background VPN services, wireless entry points, and Windows flighting/telemetry tasks.
+- **Real-time Monitoring**: Integrated status checks for Windows Defender Tamper Protection and boot configuration flags.
 
-### 🛡 Security Center
-The Security module provides several deep-dive tools for system protection and monitoring:
-- **Privacy Settings**: Audit and manage Windows privacy and telemetry configurations.
-- **Windows Defender**: Real-time status and control for Microsoft's built-in antivirus.
-- **Firewall Settings**: Monitor and manage inbound/outbound firewall rules and drift detection.
-- **Event Management**: High-speed analysis of Windows security event logs.
-- **Command Panel**: A centralized suite for administrative system commands.
-- **Scheduled Tasks**: Monitor and audit triggered system tasks for unauthorized changes.
-- **Connections**: Live tracking of network sockets and established system connections.
+### 🔍 Advanced Diagnostics
+- **Firmware Explorer**: Deep dive into ACPI tables and UEFI variables with detailed byte-level views.
+- **Security Timeline**: Track historical system events to identify suspicious patterns or configuration changes.
+- **Device Management**: A high-performance replacement for Device Manager with advanced property enumeration and native uninstallation capabilities.
 
-### 🔍 Diagnostic Tools
-A comprehensive suite of forensic and performance tools:
-- **System Performance**: Detailed breakdown of hardware utilization and bottlenecks.
-- **Overview**: Centralized summary of hardware, firmware, and OS configuration.
-- **System Timeline**: A chronological history of system events, boottimes, and updates.
-- **Firmware Settings**: Deep-dive tracking of UEFI/BIOS security states and ACPI tables.
-- **Device Management**: Advanced monitoring of PNP devices and driver health.
-- **Cold Boots**: Logs and identifies "Cold Boot" vs "Fast Startup" events for hardware integrity.
-- **True Shutdown**: Tools to ensure a complete system power-off for security and maintenance.
+### ⚙️ System Tools
+- **Scheduled Tasks**: Browse and audit Windows tasks with an intuitive interface.
+- **Network Connections**: High-visibility monitoring of active network sockets and traffic.
+- **True Shutdown**: Bypass Windows "Fast Startup" to perform a complete hardware power-off, ensuring a fresh state on the next boot.
+- **Firewall Controls**: Streamlined management of profiles and rule sets.
 
 ## 💎 Premium Design
 - **Glassmorphism UI**: Developed with modern WPF styling for a translucent material look.
 - **Integrated Window Chrome**: Precise control over title bar elements for a native "App" feel.
 - **Material Aura Lighting**: Sophisticated lighting effects that feel like light passing through glass.
 
-## 🛠 Technical Stack
-- **Framework**: .NET 8.0 (C# 12)
+## 🛠 Technical Overview
+- **Core Engine**: .NET 8.0 (C# 12)
 - **Data Access**: WMI, Windows Event Log API, and Native Win32 interop.
 - **Analytics**: Firebase Analytics integration for high-fidelity usage metrics.
 - **Licensing**: Apache License, Version 2.0.
