@@ -31,6 +31,7 @@ namespace DeviceMonitorCS
         
         // Dedup Cache: "EventType|Name|Type" -> Timestamp
         private Dictionary<string, DateTime> _eventDedupCache = new Dictionary<string, DateTime>();
+        private bool _isMinimized = false;
 
         // Called by BOTH Native WndProc and WMI Handler
         private void DispatchDeviceEvent(DeviceEvent newEvent)
@@ -84,6 +85,11 @@ namespace DeviceMonitorCS
                 {
                     sv.SetCurrentInterval(_enforcer.CheckInterval);
                     sv.IntervalChanged += (newInterval) => _enforcer.CheckInterval = newInterval;
+                    sv.ClearLogsRequested += () => 
+                    {
+                        DeviceData.Clear();
+                        SecurityData.Clear();
+                    };
                 }
                 
                 if (view is Views.DeviceManagementView dmv)
@@ -163,6 +169,25 @@ namespace DeviceMonitorCS
             NavigateTo<Views.SettingsView>();
         }
 
+        private void HamburgerBtn_Click(object sender, RoutedEventArgs e)
+        {
+            _isMinimized = !_isMinimized;
+            
+            // Toggle Width
+            SidebarPane.Width = _isMinimized ? 80 : 120;
+            
+            // Toggle Label Visibility
+            Visibility labelVis = _isMinimized ? Visibility.Collapsed : Visibility.Visible;
+            LabelDashboard.Visibility = labelVis;
+            LabelSecurity.Visibility = labelVis;
+            LabelDiagnostics.Visibility = labelVis;
+            LabelSettings.Visibility = labelVis;
+            
+            // Toggle Header/Footer extra elements
+            SidebarHeader.Visibility = labelVis;
+            SidebarFooter.Visibility = labelVis;
+        }
+
         private void UpdateSelectedNavTag(Button selected)
         {
             NavDashboardBtn.Tag = null;
@@ -209,12 +234,6 @@ namespace DeviceMonitorCS
             NavSecurityBtn.Click += NavSecurityBtn_Click;
             NavDiagnosticsBtn.Click += NavDiagnosticsBtn_Click;
             SettingsBtn.Click += SettingsBtn_Click;
-
-            ClearBtn.Click += (s, e) => 
-            {
-                DeviceData.Clear();
-                SecurityData.Clear();
-            };
             
             Closed += MainWindow_Closed;
             

@@ -6,6 +6,7 @@ namespace DeviceMonitorCS.Views
     public partial class SettingsView : UserControl
     {
         public event Action<int> IntervalChanged;
+        public event Action ClearLogsRequested;
 
         public SettingsView()
         {
@@ -109,6 +110,14 @@ namespace DeviceMonitorCS.Views
             catch (Exception ex)
             {
                  System.Windows.MessageBox.Show($"An error occurred:\n{ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            }
+        }
+        private void ClearLogsBtn_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            var result = System.Windows.MessageBox.Show("Are you sure you want to clear all monitoring logs?", "Confirm Clear", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question);
+            if (result == System.Windows.MessageBoxResult.Yes)
+            {
+                ClearLogsRequested?.Invoke();
             }
         }
     }
