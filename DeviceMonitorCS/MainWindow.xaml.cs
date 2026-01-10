@@ -25,8 +25,6 @@ namespace DeviceMonitorCS
         public ObservableCollection<SecurityEvent> SecurityData { get; set; } = new ObservableCollection<SecurityEvent>();
         
         // Hybrid Device Monitoring (Native + WMI)
-        private ManagementEventWatcher _deviceWatcherAdd;
-        private ManagementEventWatcher _deviceWatcherRem;
         private string _currentUser;
         
         // Dedup Cache: "EventType|Name|Type" -> Timestamp
@@ -204,10 +202,10 @@ namespace DeviceMonitorCS
             _telemetryService = new FirebaseTelemetryService();
             _ = _telemetryService.SendEventAsync("app_start", new Dictionary<string, object> 
             { 
-               { "app_version", "3.9.1" }
+               { "app_version", "3.9.2" }
             });
 
-            AppVersionText.Text = "v3.9.1";
+            AppVersionText.Text = "v3.9.2";
             this.AddHandler(Button.ClickEvent, new RoutedEventHandler(Global_ButtonClick));
 
             // FAST Identity retrieval
@@ -283,7 +281,6 @@ namespace DeviceMonitorCS
         }
 
         // Native Device Notification
-        private List<IntPtr> _notificationHandles = new List<IntPtr>();
         private DeviceGuidManager _guidManager = new DeviceGuidManager();
         
         protected override void OnSourceInitialized(EventArgs e)
@@ -309,16 +306,12 @@ namespace DeviceMonitorCS
                     Marshal.StructureToPtr(dbi, buffer, true);
 
                     IntPtr handle = NativeMethods.RegisterDeviceNotification(windowHandle, buffer, 0);
-                    if (handle != IntPtr.Zero)
-                    {
-                        _notificationHandles.Add(handle);
-                    }
                     Marshal.FreeHGlobal(buffer);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Device Watcher Error: {ex.Message}");
+                Debug.WriteLine($"Device Watcher Warning: {ex.Message}");
             }
         }
         
@@ -337,12 +330,7 @@ namespace DeviceMonitorCS
                 IntPtr buffer = Marshal.AllocHGlobal(dbi.dbcc_size);
                 Marshal.StructureToPtr(dbi, buffer, true);
 
-                IntPtr handle = NativeMethods.RegisterDeviceNotification(source.Handle, buffer, 0);
-                if (handle != IntPtr.Zero)
-                {
-                    _notificationHandles.Add(handle);
-                    Debug.WriteLine($"Dynamically Registered New Device GUID: {guid}");
-                }
+                NativeMethods.RegisterDeviceNotification(source.Handle, buffer, 0);
                 Marshal.FreeHGlobal(buffer);
              }
              catch { }
@@ -396,62 +384,7 @@ namespace DeviceMonitorCS
             catch { return dbcc_name; }
         }
 
-        private void StartDeviceMonitoring()
-        {
-            try
-            {
-                // WMI Fallback for obscure devices not caught by Native Interface GUIDs
-                var query = new WqlEventQuery("__InstanceCreationEvent", new TimeSpan(0, 0, 1), "TargetInstance ISA 'Win32_PnPEntity'");
-                _deviceWatcherAdd = new ManagementEventWatcher(query);
-                _deviceWatcherAdd.EventArrived += (s, e) => Dispatcher.Invoke(() => HandleDeviceEvent(e.NewEvent, "ADDED"));
-                _deviceWatcherAdd.Start();
 
-                var queryRem = new WqlEventQuery("__InstanceDeletionEvent", new TimeSpan(0, 0, 1), "TargetInstance ISA 'Win32_PnPEntity'");
-                _deviceWatcherRem = new ManagementEventWatcher(queryRem);
-                _deviceWatcherRem.EventArrived += (s, e) => Dispatcher.Invoke(() => HandleDeviceEvent(e.NewEvent, "REMOVED"));
-                _deviceWatcherRem.Start();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"WMI Monitor Error: {ex.Message}");
-            }
-        }
-
-        private void HandleDeviceEvent(ManagementBaseObject e, string eventType)
-        {
-            try 
-            {
-                var target = e["TargetInstance"] as ManagementBaseObject;
-                if (target == null) return;
-
-                string name = target["Name"]?.ToString() ?? target["Description"]?.ToString();
-                string type = target["PNPClass"]?.ToString() ?? "Device";
-                string classGuid = target["ClassGuid"]?.ToString();
-
-                // Learning: checking if we can monitor this type natively next time
-                if (!string.IsNullOrEmpty(classGuid))
-                {
-                    if (_guidManager.AddAndSave(classGuid))
-                    {
-                        // It's a new GUID! Try to register it natively immediately
-                        if (Guid.TryParse(classGuid, out Guid g))
-                        {
-                            Dispatcher.Invoke(() => RegisterNewGuid(g));
-                        }
-                    }
-                }
-
-                DispatchDeviceEvent(new DeviceEvent
-                {
-                    Time = DateTime.Now.ToString("HH:mm:ss"),
-                    EventType = eventType,
-                    Name = name,
-                    Type = type,
-                    Initiator = GetInitiator()
-                });
-            }
-            catch { }
-        }
 
         private string GetInitiator()
         {
@@ -696,10 +629,6 @@ namespace DeviceMonitorCS
 
         private void MainWindow_Closed(object sender, EventArgs e)
         {
-            foreach (var h in _notificationHandles)
-            {
-               NativeMethods.UnregisterDeviceNotification(h);
-            }
             _enforcer?.Stop();
             // _logWatcher?.Enabled = false; // if using watcher
             Application.Current.Shutdown();

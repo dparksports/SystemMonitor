@@ -266,7 +266,7 @@
                         </Button>
                         
                         <StackPanel x:Name="SidebarFooter" Margin="0,15,0,0" Visibility="Visible">
-                            <TextBlock x:Name="AppVersionText" Text="v3.9.1" Foreground="#475569" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                            <TextBlock x:Name="AppVersionText" Text="v3.9.2" Foreground="#475569" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center"/>
                             <TextBlock Text="ACTIVE" Foreground="#00F0FF" FontSize="8" Margin="0,2,0,0" Opacity="0.7" HorizontalAlignment="Center"/>
                         </StackPanel>
                     </StackPanel>

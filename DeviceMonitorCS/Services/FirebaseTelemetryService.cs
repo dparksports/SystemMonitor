@@ -10,7 +10,7 @@ namespace DeviceMonitorCS.Services
 {
     public class FirebaseTelemetryService
     {
-        private readonly string _configFile;
+
         private readonly string _clientIdFile;
         private FirebaseConfig _config;
         private string _clientId;
