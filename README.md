@@ -2,7 +2,7 @@
 
 **Auto Command** is a high-fidelity Windows system monitoring and security command center. It combines real-time data accuracy with a premium "Aurora" glassmorphism interface, providing a professional workspace for power users to track system health and security telemetry.
 
-[![Download v3.8.1](https://img.shields.io/badge/Download-v3.8.1-00F0FF?style=for-the-badge&logo=windows)](https://github.com/dparksports/SystemMonitor/releases/download/v3.8.1/AutoCommand.exe)
+[![Download v3.8.1](https://img.shields.io/badge/Download-v3.8.1-00F0FF?style=for-the-badge&logo=windows)](https://github.com/dparksports/SystemMonitor/releases/download/v3.8.1/AutoCommand_v3.8.1.zip)
 
 ![Auto Command Dashboard](DeviceMonitorCS/app_dashboard_mockup.png)
 
@@ -37,7 +37,7 @@ The heart of Auto Command, providing one-click management for critical system in
 - **Licensing**: Apache License, Version 2.0.
 
 ## 📦 Getting Started
-1.  **Download**: Get the [latest single-file executable](https://github.com/dparksports/SystemMonitor/releases/download/v3.8.1/AutoCommand.exe).
+1.  **Download**: Get the [latest zip archive](https://github.com/dparksports/SystemMonitor/releases/download/v3.8.1/AutoCommand_v3.8.1.zip).
 2.  **Elevation**: This application **must be run as Administrator** to access protected hardware and security telemetry.
 3.  **No Installation**: Auto Command is a portable, self-contained application.
 
