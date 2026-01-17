@@ -86,7 +86,7 @@ namespace DeviceMonitorCS.Services
 
         public async Task SendEventAsync(string eventName, Dictionary<string, object> parameters = null)
         {
-            if (_config == null || string.IsNullOrEmpty(_config.MeasurementId) || string.IsNullOrEmpty(_config.ApiKey))
+            if (_config == null || string.IsNullOrEmpty(_config.MeasurementId) || string.IsNullOrEmpty(_config.ApiSecret))
             {
                 Debug.WriteLine("[TELEMETRY] Cannot send event: Firebase configuration is missing or invalid.");
                 return;
@@ -108,8 +108,8 @@ namespace DeviceMonitorCS.Services
                 };
 
                 // Google Analytics Measurement Protocol URL
-                // Note: api_secret is the API Secret from GA4 Admin > Data Streams > [Stream] > Measurement Protocol API secrets
-                string url = $"https://www.google-analytics.com/mp/collect?measurement_id={_config.MeasurementId}&api_secret={_config.ApiKey}";
+                // Note: api_secret is the Measurement Protocol API Secret, NOT the Firebase Web API Key
+                string url = $"https://www.google-analytics.com/mp/collect?measurement_id={_config.MeasurementId}&api_secret={_config.ApiSecret}";
 
                 string jsonPayload = JsonSerializer.Serialize(payload);
                 var content = new StringContent(jsonPayload, System.Text.Encoding.UTF8, "application/json");
@@ -138,11 +138,11 @@ namespace DeviceMonitorCS.Services
     {
         public string apiKey { get; set; }
         public string measurementId { get; set; }
+        public string apiSecret { get; set; }
         
-        // Helper properties to handle case sensitivity from JSON if needed, 
-        // but System.Text.Json is case-sensitive by default.
-        // We map the user provided keys.
+        // Helper properties
         public string ApiKey => apiKey; 
         public string MeasurementId => measurementId;
+        public string ApiSecret => apiSecret;
     }
 }
