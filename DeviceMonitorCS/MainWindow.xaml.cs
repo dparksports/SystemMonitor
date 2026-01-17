@@ -193,7 +193,7 @@ namespace DeviceMonitorCS
             
             // Toggle Header/Footer extra elements
             SidebarHeader.Visibility = labelVis;
-            SidebarFooter.Visibility = labelVis;
+
         }
 
         private void UpdateSelectedNavTag(Button selected)
