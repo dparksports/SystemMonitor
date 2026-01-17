@@ -134,19 +134,7 @@
                     <TextBlock x:Name="StatusDetailsText" Text="" Foreground="Gray" FontStyle="Italic"/>
                 </StackPanel>
 
-                <!-- AI Section -->
-                <Border Background="#252526" CornerRadius="5" Padding="20">
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
-                            <TextBlock Text="AI Insight" FontSize="18" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/>
-                            <TextBlock Text="(Gemini)" FontSize="14" Foreground="Cyan" VerticalAlignment="Center" Margin="5,0,0,0"/>
-                        </StackPanel>
 
-                        <TextBlock Text="What does UsageDataReceiver do?" FontWeight="Bold" Foreground="Cyan" Margin="0,0,0,10"/>
-                        <TextBlock x:Name="AiExplanationText" Text="Loading explanation..." TextWrapping="Wrap" Foreground="#DDDDDD" FontSize="14" LineHeight="20" Margin="0,0,0,15"/>
-                        <Button x:Name="RefreshAiBtn" Content="Ask AI" HorizontalAlignment="Left" Width="100" Padding="10,5" Background="#2D2D30" Foreground="White" BorderBrush="#3E3E42" Click="RefreshAiBtn_Click"/>
-                    </StackPanel>
-                </Border>
 
             </StackPanel>
         </ScrollViewer>
