@@ -70,10 +70,34 @@ namespace DeviceMonitorCS.Models
             {
                 using var doc = JsonDocument.Parse(json);
                 var root = doc.RootElement;
+                // Check for prompt feedback (block before generation)
+                if (root.TryGetProperty("promptFeedback", out var promptFeedback))
+                {
+                    if (promptFeedback.TryGetProperty("blockReason", out var blockReason))
+                    {
+                        return $"Error: Prompt blocked by safety filters. Reason: {blockReason}";
+                    }
+                }
+
                 if (!root.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0)
                     return "Error: No candidates returned in Gemini response.";
 
                 var firstCandidate = candidates[0];
+
+                // Check for finish reason (block during generation)
+                if (firstCandidate.TryGetProperty("finishReason", out var finishReasonProp))
+                {
+                    var finishReason = finishReasonProp.GetString();
+                    if (finishReason != "STOP")
+                    {
+                        // If there is no content, this is the primary error
+                        if (!firstCandidate.TryGetProperty("content", out _))
+                        {
+                            return $"Error: Generation stopped. Reason: {finishReason}";
+                        }
+                    }
+                }
+
                 if (!firstCandidate.TryGetProperty("content", out var content) ||
                     !content.TryGetProperty("parts", out var parts) || parts.GetArrayLength() == 0)
                     return "Error: Unexpected Gemini response format (missing content/parts).";

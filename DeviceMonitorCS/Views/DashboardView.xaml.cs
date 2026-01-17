@@ -91,7 +91,7 @@ namespace DeviceMonitorCS.Views
             }
         }
 
-        private void UpdateGraphSmoothed(List<double> history, double newValue, Path path, double maxY)
+        private void UpdateGraphSmoothed(List<double> history, double newValue, System.Windows.Shapes.Path path, double maxY)
         {
             history.Add(newValue);
             if (history.Count > _historyLength) history.RemoveAt(0);

@@ -11,6 +11,7 @@
     <AssemblyName>AutoCommand</AssemblyName>
     <Product>AutoCommand</Product>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <DefaultItemExcludes>$(DefaultItemExcludes);UsbTestApp\**;GeminiVerification\**;usb-keyboard.cs;usb-mouse.cs</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
