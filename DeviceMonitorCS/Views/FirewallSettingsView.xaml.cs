@@ -18,8 +18,12 @@ namespace DeviceMonitorCS.Views
 {
     public partial class FirewallSettingsView : UserControl, INotifyPropertyChanged
     {
-        public ObservableCollection<FirewallRule> InboundRules { get; set; } = new ObservableCollection<FirewallRule>();
-        public ObservableCollection<FirewallRule> OutboundRules { get; set; } = new ObservableCollection<FirewallRule>();
+        // Data Collections
+        public ObservableCollection<FirewallRule> InboundEnabledRules { get; set; } = new ObservableCollection<FirewallRule>();
+        public ObservableCollection<FirewallRule> InboundDisabledRules { get; set; } = new ObservableCollection<FirewallRule>();
+        
+        public ObservableCollection<FirewallRule> OutboundEnabledRules { get; set; } = new ObservableCollection<FirewallRule>();
+        public ObservableCollection<FirewallRule> OutboundDisabledRules { get; set; } = new ObservableCollection<FirewallRule>();
 
         public event PropertyChangedEventHandler PropertyChanged;
         protected void OnPropertyChanged([CallerMemberName] string name = null)
@@ -28,76 +32,118 @@ namespace DeviceMonitorCS.Views
         }
 
         private bool _isInitialized = false;
+        private bool _inboundLoaded = false;
+        private bool _outboundLoaded = false;
 
         public FirewallSettingsView()
         {
             InitializeComponent();
-            // DataContext is set to this for bindings to work
-            // Ideally we should use a proper ViewModel, but for this refactor we keep code-behind pattern
-            // However, the UserControl itself doesn't need to be DataContext if we use RelativeSource in XAML (which we did).
-            
-            // Loaded += async (s, e) => await LoadRules(); // REMOVED for Lazy Loading
         }
 
         public async void InitializeAndLoad()
         {
             if (_isInitialized) return;
             _isInitialized = true;
-            await LoadRules();
+            
+            // Only load Inbound initially
+            await LoadRules("Inbound");
+        }
+
+        private async void MainTab_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (e.Source is TabControl tc && tc.SelectedItem is TabItem selectedTab)
+            {
+                // Ensure we only react to the main tab control, not nested ones (bubbling event)
+                if (selectedTab.Tag?.ToString() == "Inbound")
+                {
+                    if (!_inboundLoaded) await LoadRules("Inbound");
+                }
+                else if (selectedTab.Tag?.ToString() == "Outbound")
+                {
+                    if (!_outboundLoaded) await LoadRules("Outbound");
+                }
+            }
         }
 
         private async void RefreshBtn_Click(object sender, RoutedEventArgs e)
         {
-            await LoadRules();
+            // Reset flags and reload CURRENTLY visible tab
+            _inboundLoaded = false;
+            _outboundLoaded = false;
+            
+            // Determine active tab
+            // This is a bit manual since we don't have a viewmodel binding for SelectedIndex
+            // But we can just rely on the SelectionChanged logic if we toggle selection or manually inspect
+            // However, triggering SelectionChanged manually is messy.
+            
+            // Better: Check visibility or just reload both if already loaded?
+            // Simple: Check which visual tab is selected?
+            // Actually, just reload based on what was previously loaded to keep state consistent?
+            // Or simplified: Just Load("Inbound") then if outbound was loaded, Load("Outbound")
+            
+            await LoadRules("Inbound");
+            if (_outboundLoaded) await LoadRules("Outbound");
+            // If strictly lazy, we only load the visible one. But checking IsSelected helper would need visual tree inspection or binding.
+            // Let's stick to reloading what was previously marked as loaded.
         }
 
-        private async Task LoadRules()
+        private async Task LoadRules(string direction)
         {
             try
             {
                 Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
-                InboundRules.Clear();
-                OutboundRules.Clear();
+                
+                if (direction == "Inbound")
+                {
+                    InboundEnabledRules.Clear();
+                    InboundDisabledRules.Clear();
+                    _inboundLoaded = true;
+                }
+                else
+                {
+                    OutboundEnabledRules.Clear();
+                    OutboundDisabledRules.Clear();
+                    _outboundLoaded = true;
+                }
 
-                // OPTIMIZED: Bulk fetch all data first, then join in PowerShell.
-                string script = @"
-$rules = Get-NetFirewallRule
+                string script = $@"
+$rules = Get-NetFirewallRule -Direction {direction}
 $appFilters = Get-NetFirewallApplicationFilter
 $portFilters = Get-NetFirewallPortFilter
 $addrFilters = Get-NetFirewallAddressFilter
 
 # Create hashtables for fast lookup by InstanceID
-$appHash = @{}; $appFilters | ForEach-Object { $appHash[$_.InstanceID] = $_ }
-$portHash = @{}; $portFilters | ForEach-Object { $portHash[$_.InstanceID] = $_ }
-$addrHash = @{}; $addrFilters | ForEach-Object { $addrHash[$_.InstanceID] = $_ }
+$appHash = @{{}}; $appFilters | ForEach-Object {{ $appHash[$_.InstanceID] = $_ }}
+$portHash = @{{}}; $portFilters | ForEach-Object {{ $portHash[$_.InstanceID] = $_ }}
+$addrHash = @{{}}; $addrFilters | ForEach-Object {{ $addrHash[$_.InstanceID] = $_ }}
 
-$rules | ForEach-Object {
+$rules | ForEach-Object {{
     $r = $_
     $app = $appHash[$r.Name]
     $port = $portHash[$r.Name]
     $addr = $addrHash[$r.Name]
     
-    [PSCustomObject]@{
+    [PSCustomObject]@{{
         Name = $r.Name
         DisplayName = $r.DisplayName
         DisplayGroup = $r.DisplayGroup
         Direction = $r.Direction.ToString()
-        Enabled = if ($r.Enabled -eq 1 -or $r.Enabled -eq 'True') {'Yes'} else {'No'}
+        Enabled = if ($r.Enabled -eq 1 -or $r.Enabled -eq 'True') {{'Yes'}} else {{'No'}}
         Action = $r.Action.ToString()
         Profile = $r.Profile.ToString()
-        Program = if ($app) { $app.Program } else { '' }
-        Protocol = if ($port) { $port.Protocol } else { '' }
-        LocalPort = if ($port -and $port.LocalPort) { ($port.LocalPort -join ',') } else { '' }
-        RemotePort = if ($port -and $port.RemotePort) { ($port.RemotePort -join ',') } else { '' }
-        RemoteAddress = if ($addr -and $addr.RemoteAddress) { ($addr.RemoteAddress -join ',') } else { '' }
-    }
-} | ConvertTo-Json -Depth 2
+        Program = if ($app) {{ $app.Program }} else {{ '' }}
+        Protocol = if ($port) {{ $port.Protocol }} else {{ '' }}
+        LocalPort = if ($port -and $port.LocalPort) {{ ($port.LocalPort -join ',') }} else {{ '' }}
+        RemotePort = if ($port -and $port.RemotePort) {{ ($port.RemotePort -join ',') }} else {{ '' }}
+        RemoteAddress = if ($addr -and $addr.RemoteAddress) {{ ($addr.RemoteAddress -join ',') }} else {{ '' }}
+    }}
+}} | ConvertTo-Json -Depth 2
 ";
                 string json = await RunPowershellAsync(script);
 
                 if (string.IsNullOrWhiteSpace(json)) 
                 {
-                    MessageBox.Show("Failed to retrieve firewall rules. The data returned was empty.");
+                    // No rules found or error (silent fail preferred here than annoying popup if just empty)
                     return;
                 }
 
@@ -108,13 +154,39 @@ $rules | ForEach-Object {
                 
                 if (rules == null) return;
 
-                foreach (var rule in rules)
-                {
-                    if (string.IsNullOrEmpty(rule.DisplayGroup))
-                        rule.DisplayGroup = "(Ungrouped)";
+                // PARTITIONING LOGIC
+                // Group by DisplayGroup
+                var groupedRules = rules.GroupBy(r => string.IsNullOrEmpty(r.DisplayGroup) ? "(Ungrouped)" : r.DisplayGroup).ToList();
 
-                    if (rule.Direction == "Inbound") InboundRules.Add(rule);
-                    else OutboundRules.Add(rule);
+                // Split into Enabled and Disabled Groups
+                var enabledGroups = groupedRules.Where(g => g.Any(r => r.IsEnabledBool)).ToList();
+                var disabledGroups = groupedRules.Where(g => g.All(r => !r.IsEnabledBool)).ToList();
+
+                // SORTING: Enabled Groups by Rule Count (Ascending - "least rules on top")
+                var sortedEnabledGroups = enabledGroups.OrderBy(g => g.Count()).ToList();
+
+                // Add Enabled Rules (Sorted by Group Size)
+                foreach(var group in sortedEnabledGroups)
+                {
+                    foreach(var rule in group)
+                    {
+                        if (string.IsNullOrEmpty(rule.DisplayGroup)) rule.DisplayGroup = "(Ungrouped)";
+                        
+                        if (direction == "Inbound") InboundEnabledRules.Add(rule);
+                        else OutboundEnabledRules.Add(rule);
+                    }
+                }
+
+                // Add Disabled Rules (Unsorted / Default Order)
+                foreach (var group in disabledGroups)
+                {
+                    foreach (var rule in group)
+                    {
+                        if (string.IsNullOrEmpty(rule.DisplayGroup)) rule.DisplayGroup = "(Ungrouped)";
+
+                        if (direction == "Inbound") InboundDisabledRules.Add(rule);
+                        else OutboundDisabledRules.Add(rule);
+                    }
                 }
             }
             catch (Exception ex)
@@ -137,8 +209,9 @@ $rules | ForEach-Object {
 
         private async void ToggleRuleCtx_Click(object sender, RoutedEventArgs e)
         {
-            var grid = InboundGrid.IsMouseOver ? InboundGrid : OutboundGrid;
-            if (grid.SelectedItem is FirewallRule rule)
+            // Helper to get active grid would be complex due to 4 grids.
+            // Simplified: User Right-clicked. The ContextMenu placement target is the DataGrid.
+            if (sender is MenuItem mi && mi.Parent is ContextMenu cm && cm.PlacementTarget is DataGrid grid && grid.SelectedItem is FirewallRule rule)
             {
                 await ToggleRule(rule);
             }
@@ -148,52 +221,33 @@ $rules | ForEach-Object {
         {
              if (sender is CheckBox cb && cb.Tag is string groupName)
              {
-                 // Determine context (Inbound or Outbound)
-                 // This is tricky because the sender is inside a template.
-                 // However, we can infer from which list contains the group, or pass more info.
-                 // A simpler way: Check both lists for this group name. It's possible same group name exists in both.
-                 // XAML structure separates them, so let's try to detect the parent DataGrid or just process for all rules in that group across the currently visible tab context?
-                 // Or better, just update rules in the visible lists that match the group.
-                 
-                 // Let's check which Tab is selected by checking visibility or just process both? 
-                 // Firewall groups are usually global (same group name might span inbound/outbound), so toggling "Core Networking" usually implies both.
-                 // But the UI splits them. The user clicked a checkbox in *one* of the grids.
-                 // Let's try to find the rules in the collections.
-                 
                  bool? isChecked = cb.IsChecked;
-                 string targetState = isChecked == true ? "True" : "False"; // PowerShell expects True/False string or bool
+                 string targetState = isChecked == true ? "True" : "False";
                  string targetStateUi = isChecked == true ? "Yes" : "No";
 
                  Mouse.OverrideCursor = Cursors.Wait;
                  try
                  {
-                     // Find all rules in this group in both lists (to be consistent with "Toggle Group" meaning)
-                     // or just the list the user clicked? 
-                     // Typically if I'm in "Inbound" tab and click "Group A", I expect Inbound Group A to toggle.
-                     // But if I want to be safe, I'll update all rules with that Group Name in the collections.
-                     
-                     var rulesToUpdate = new List<FirewallRule>();
-                     rulesToUpdate.AddRange(InboundRules.Where(r => r.DisplayGroup == groupName));
-                     rulesToUpdate.AddRange(OutboundRules.Where(r => r.DisplayGroup == groupName));
-
-                     if (rulesToUpdate.Count == 0) return;
-
-                     // Run PowerShell to update all at once
+                     // PowerShell update (Scoped by Group Name - affects ALL rules in that group regardless of direction technically, but we usually want scoped)
+                     // Standard Windows behavior: Group toggle affects all rules in that group.
                      await RunPowershellAsync($"Set-NetFirewallRule -DisplayGroup '{groupName}' -Enabled {targetState}");
 
-                     // Update UI
-                     foreach (var r in rulesToUpdate)
-                     {
-                         r.Enabled = targetStateUi;
-                         // Persist State
-                         FirewallConfigManager.Instance.SetOverride(r.Name, targetStateUi);
-                     }
-                     FirewallConfigManager.Instance.Save();
+                     // Update UI & Repartition
+                     // Efficient way: Update properties, then move if necessary.
+                     // Or Lazy way: Reload affected direction.
                      
-                     // Force refresh of the group header binding if it doesn't auto-update
-                     // Since bindings are OneWay + Converter, we might need to trigger a refresh 
-                     // But if the rules update their property, the converter should re-evaluate if we bound to the collection?
-                     // Actually `Binding Items` in GroupStyle passes the CollectionViewGroup.Items, which is observable.
+                     // Since moving groups between tabs is visually complex to animate, reloading data might be cleanest
+                     // But reloading is slow (3-5s).
+                     // Ideally we verify if the group state flipped.
+                     // "Enabled Groups" -> Disabled all rules -> Move to "Disabled Groups".
+                     // "Disabled Groups" -> Enabled one rule -> Move to "Enabled Groups".
+                     
+                     // Let's implement full reload for correctness for now, as re-partitioning logic is complex to do in-place.
+                     // Trigger reload for both if loaded?
+                     
+                     // Optimization: Only reload the affected directions.
+                     if (_inboundLoaded) await LoadRules("Inbound");
+                     if (_outboundLoaded) await LoadRules("Outbound");
                  }
                  catch (Exception ex)
                  {
@@ -221,6 +275,15 @@ $rules | ForEach-Object {
                 
                 // Persist State
                 FirewallConfigManager.Instance.SetOverride(rule.Name, rule.Enabled);
+
+                // Check RE-PARTITIONING requirement
+                // If we disabled the LAST enabled rule in a group, the group should move to Disabled tab.
+                // If we enabled a rule in a Disabled group, the group should move to Enabled tab.
+                
+                // For simplicity and robustness, currently triggering a Reload of that direction key.
+                // Determine direction
+                string dir = rule.Direction; // "Inbound" or "Outbound"
+                await LoadRules(dir);
             }
             catch (Exception ex)
             {
@@ -245,28 +308,20 @@ $rules | ForEach-Object {
 
         private void AskAiGroup_Click(object sender, RoutedEventArgs e)
         {
+             // Simplified context finding logic
              string groupName = null;
-             if (sender is MenuItem mi)
-             {
-                 if (mi.Tag is string t && !string.IsNullOrEmpty(t))
-                 {
-                     groupName = t;
-                 }
-                 else if (mi.Parent is ContextMenu cm && cm.PlacementTarget is FrameworkElement target)
-                 {
-                     // Fallback: Get from CollectionViewGroup via DataContext
-                     if (target.DataContext is CollectionViewGroup cvg)
-                     {
-                         groupName = cvg.Name?.ToString();
-                     }
-                 }
-             }
+             if (sender is MenuItem mi && mi.Tag is string t) groupName = t;
 
              if (!string.IsNullOrEmpty(groupName))
              {
+                 // Need to find rules across all 4 lists? 
+                 // Or just passed in rules? ContextMenu implementation used Tag binding.
+                 // Let's just aggregate from all loaded lists to be safe.
                  var rules = new List<FirewallRule>();
-                 rules.AddRange(InboundRules.Where(r => r.DisplayGroup == groupName));
-                 rules.AddRange(OutboundRules.Where(r => r.DisplayGroup == groupName));
+                 rules.AddRange(InboundEnabledRules.Where(r => r.DisplayGroup == groupName));
+                 rules.AddRange(InboundDisabledRules.Where(r => r.DisplayGroup == groupName));
+                 rules.AddRange(OutboundEnabledRules.Where(r => r.DisplayGroup == groupName));
+                 rules.AddRange(OutboundDisabledRules.Where(r => r.DisplayGroup == groupName));
 
                  var context = new 
                  {
@@ -298,8 +353,6 @@ $rules | ForEach-Object {
                             dataGrid.InvalidateMeasure();
                             dataGrid.UpdateLayout();
 
-                            // Force column width refresh as requested (simulates resize)
-                            // We toggle one star column to forcing a re-calculation
                             if (dataGrid.Columns.Count > 0)
                             {
                                 var col = dataGrid.Columns[0];
@@ -342,7 +395,10 @@ $rules | ForEach-Object {
                     await p.WaitForExitAsync();
                     
                     MessageBox.Show("Firewall reset command executed. Reloading rules...", "Success");
-                    await LoadRules();
+                    
+                    // Reload everything that was loaded
+                    if (_inboundLoaded) await LoadRules("Inbound");
+                    if (_outboundLoaded) await LoadRules("Outbound");
                 }
                 catch (Exception ex)
                 {
@@ -436,6 +492,23 @@ $rules | ForEach-Object {
                 if (allEnabled) return true;
                 if (allDisabled) return false;
                 return null; // Indeterminate
+            }
+            return false;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+    public class GroupCountToExpansionStateConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is int count)
+            {
+                // Expanded (true) if count <= 5, otherwise Collapsed (false)
+                return count <= 5;
             }
             return false;
         }

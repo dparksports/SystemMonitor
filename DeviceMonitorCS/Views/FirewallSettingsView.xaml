@@ -10,8 +10,10 @@
              Background="#1E1E1E">
     <UserControl.Resources>
         <local:GroupToEnabledStateConverter x:Key="GroupToEnabledStateConverter"/>
+        <local:GroupCountToExpansionStateConverter x:Key="GroupCountToExpansionStateConverter"/>
         
-        <CollectionViewSource x:Key="InboundRulesSource" Source="{Binding InboundRules, RelativeSource={RelativeSource AncestorType=UserControl}}">
+        <!-- INBOUND ENABLED -->
+        <CollectionViewSource x:Key="InboundEnabledSource" Source="{Binding InboundEnabledRules, RelativeSource={RelativeSource AncestorType=UserControl}}">
             <CollectionViewSource.GroupDescriptions>
                 <PropertyGroupDescription PropertyName="DisplayGroup"/>
             </CollectionViewSource.GroupDescriptions>
@@ -19,8 +21,9 @@
                 <scm:SortDescription PropertyName="Enabled" Direction="Descending"/>
             </CollectionViewSource.SortDescriptions>
         </CollectionViewSource>
-        
-        <CollectionViewSource x:Key="OutboundRulesSource" Source="{Binding OutboundRules, RelativeSource={RelativeSource AncestorType=UserControl}}">
+
+        <!-- INBOUND DISABLED -->
+        <CollectionViewSource x:Key="InboundDisabledSource" Source="{Binding InboundDisabledRules, RelativeSource={RelativeSource AncestorType=UserControl}}">
             <CollectionViewSource.GroupDescriptions>
                 <PropertyGroupDescription PropertyName="DisplayGroup"/>
             </CollectionViewSource.GroupDescriptions>
@@ -28,6 +31,149 @@
                 <scm:SortDescription PropertyName="Enabled" Direction="Descending"/>
             </CollectionViewSource.SortDescriptions>
         </CollectionViewSource>
+
+        <!-- OUTBOUND ENABLED -->
+        <CollectionViewSource x:Key="OutboundEnabledSource" Source="{Binding OutboundEnabledRules, RelativeSource={RelativeSource AncestorType=UserControl}}">
+            <CollectionViewSource.GroupDescriptions>
+                <PropertyGroupDescription PropertyName="DisplayGroup"/>
+            </CollectionViewSource.GroupDescriptions>
+            <CollectionViewSource.SortDescriptions>
+                <scm:SortDescription PropertyName="Enabled" Direction="Descending"/>
+            </CollectionViewSource.SortDescriptions>
+        </CollectionViewSource>
+
+        <!-- OUTBOUND DISABLED -->
+        <CollectionViewSource x:Key="OutboundDisabledSource" Source="{Binding OutboundDisabledRules, RelativeSource={RelativeSource AncestorType=UserControl}}">
+            <CollectionViewSource.GroupDescriptions>
+                <PropertyGroupDescription PropertyName="DisplayGroup"/>
+            </CollectionViewSource.GroupDescriptions>
+            <CollectionViewSource.SortDescriptions>
+                <scm:SortDescription PropertyName="Enabled" Direction="Descending"/>
+            </CollectionViewSource.SortDescriptions>
+        </CollectionViewSource>
+
+        <!-- Common Tab Style -->
+        <Style x:Key="MainTabStyle" TargetType="TabItem">
+            <Setter Property="Background" Value="#252526"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Padding" Value="15,10"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="Border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#3E3E42"/>
+                                <Setter Property="Foreground" Value="Cyan"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Nested Tab Style (Smaller) -->
+        <Style x:Key="NestedTabStyle" TargetType="TabItem">
+            <Setter Property="Background" Value="#2D2D30"/>
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="Border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#454545"/>
+                                <Setter Property="Foreground" Value="#00F0FF"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Enabled Group Style (Expanded by Default) -->
+        <Style x:Key="EnabledGroupStyle" TargetType="{x:Type GroupItem}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type GroupItem}">
+                        <Expander IsExpanded="{Binding ItemCount, Converter={StaticResource GroupCountToExpansionStateConverter}, Mode=OneWay}" Expanded="GroupExpander_Expanded" Background="#333333" Foreground="White" BorderBrush="Gray" BorderThickness="0,0,0,1">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <StackPanel.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="Ask AI about this Group" Click="AskAiGroup_Click" Tag="{Binding Name}"/>
+                                        </ContextMenu>
+                                    </StackPanel.ContextMenu>
+                                    <CheckBox VerticalAlignment="Center" Margin="0,0,10,0"
+                                              IsChecked="{Binding Items, Converter={StaticResource GroupToEnabledStateConverter}, Mode=OneWay}"
+                                              Click="GroupToggle_Click" Tag="{Binding Name}">
+                                         <CheckBox.LayoutTransform>
+                                            <ScaleTransform ScaleX="1.2" ScaleY="1.2"/>
+                                        </CheckBox.LayoutTransform>
+                                    </CheckBox>
+                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" Foreground="Cyan" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding ItemCount, StringFormat=' ({0} rules)'}" FontStyle="Italic" Foreground="LightGray" VerticalAlignment="Center" Margin="5,0,0,0"/>
+                                </StackPanel>
+                            </Expander.Header>
+                            <ItemsPresenter />
+                        </Expander>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Disabled Group Style (Collapsed by Default) -->
+        <Style x:Key="DisabledGroupStyle" TargetType="{x:Type GroupItem}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type GroupItem}">
+                        <Expander IsExpanded="False" Expanded="GroupExpander_Expanded" Background="#333333" Foreground="White" BorderBrush="Gray" BorderThickness="0,0,0,1">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <StackPanel.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="Ask AI about this Group" Click="AskAiGroup_Click" Tag="{Binding Name}"/>
+                                        </ContextMenu>
+                                    </StackPanel.ContextMenu>
+                                    <CheckBox VerticalAlignment="Center" Margin="0,0,10,0"
+                                              IsChecked="{Binding Items, Converter={StaticResource GroupToEnabledStateConverter}, Mode=OneWay}"
+                                              Click="GroupToggle_Click" Tag="{Binding Name}">
+                                         <CheckBox.LayoutTransform>
+                                            <ScaleTransform ScaleX="1.2" ScaleY="1.2"/>
+                                        </CheckBox.LayoutTransform>
+                                    </CheckBox>
+                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" Foreground="Gray" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding ItemCount, StringFormat=' ({0} rules)'}" FontStyle="Italic" Foreground="LightGray" VerticalAlignment="Center" Margin="5,0,0,0"/>
+                                </StackPanel>
+                            </Expander.Header>
+                            <ItemsPresenter />
+                        </Expander>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <SolidColorBrush x:Key="NeonCyanBrush" Color="#00FFFF"/>
+        
+        <Style x:Key="FirewallHeaderStyle" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#2D2D30"/>
+            <Setter Property="Foreground" Value="Cyan"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Setter Property="BorderBrush" Value="#3E3E42"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+
     </UserControl.Resources>
 
     <Grid Margin="20">
@@ -55,182 +201,419 @@
             <Button x:Name="ResetBtn" Grid.Column="1" Content="Reset to Default" Padding="15,5" Background="#FF4444" Foreground="White" BorderBrush="Red" Click="ResetBtn_Click" FontWeight="Bold"/>
         </Grid>
 
-        <!-- Rules Tabs -->
-        <TabControl Grid.Row="1" Background="Transparent" BorderThickness="0">
-            <TabControl.Resources>
-                <Style TargetType="TabItem">
-                    <Setter Property="Background" Value="#252526"/>
-                    <Setter Property="Foreground" Value="White"/>
-                    <Setter Property="FontSize" Value="14"/>
-                    <Setter Property="Padding" Value="15,10"/>
-                    <Setter Property="BorderThickness" Value="0"/>
-                    <Setter Property="Template">
-                        <Setter.Value>
-                            <ControlTemplate TargetType="TabItem">
-                                <Border x:Name="Border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
-                                    <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Border>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsSelected" Value="True">
-                                        <Setter TargetName="Border" Property="Background" Value="#3E3E42"/>
-                                        <Setter Property="Foreground" Value="Cyan"/>
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Setter.Value>
-                    </Setter>
-                </Style>
-            </TabControl.Resources>
+        <!-- Main Tabs (Inbound / Outbound) -->
+        <TabControl Grid.Row="1" Background="Transparent" BorderThickness="0" SelectionChanged="MainTab_SelectionChanged">
+            
+            <!-- INBOUND RULES -->
+            <TabItem Header="Inbound Rules" Style="{StaticResource MainTabStyle}" Tag="Inbound">
+                <TabControl Background="Transparent" BorderThickness="0" Margin="0,10,0,0">
+                    
+                    <!-- Nested: Enabled Groups -->
+                    <TabItem Header="Enabled Groups" Style="{StaticResource NestedTabStyle}">
+                        <DataGrid x:Name="InboundEnabledGrid" ItemsSource="{Binding Source={StaticResource InboundEnabledSource}}" 
+                                  AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" 
+                                  EnableRowVirtualization="True" ScrollViewer.CanContentScroll="True"
+                                  Background="#252526" Foreground="White" RowBackground="#252526" AlternatingRowBackground="#2D2D30"
+                                  GridLinesVisibility="Horizontal" HeadersVisibility="Column" ColumnHeaderStyle="{StaticResource FirewallHeaderStyle}"
+                                  BorderThickness="0" Margin="0,10,0,0">
+                            <DataGrid.GroupStyle>
+                                <GroupStyle ContainerStyle="{StaticResource EnabledGroupStyle}"/>
+                            </DataGrid.GroupStyle>
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="Name" Width="2*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Name}" Foreground="White" VerticalAlignment="Center" Margin="5,0"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Group" Width="1.5*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding DisplayGroup}" Foreground="#CCCCCC" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Profile" Width="1*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Profile}" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Program" Width="2*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Program}" Foreground="#AAAAAA" ToolTip="{Binding Program}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Protocol" Width="0.8*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Protocol}" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Local Port" Width="0.8*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding LocalPort}" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Remote Port" Width="0.8*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding RemotePort}" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Remote Address" Width="1.5*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding RemoteAddress}" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Action" Width="0.8*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Action}" Foreground="{StaticResource NeonCyanBrush}" FontWeight="Bold" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Enabled" Width="0.8*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Enabled}" Foreground="White" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Actions" Width="100">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Content="Toggle" Click="ToggleRule_Click" CommandParameter="{Binding}" Background="#007ACC" Foreground="White" BorderThickness="0" Padding="5,2" Margin="2"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                            <DataGrid.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Toggle Rule" Click="ToggleRuleCtx_Click"/>
+                                    <MenuItem Header="Ask AI about this Rule" Click="AskAiRule_Click"/>
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
+                        </DataGrid>
+                    </TabItem>
 
-            <TabItem Header="Inbound Rules">
-                <DataGrid x:Name="InboundGrid" ItemsSource="{Binding Source={StaticResource InboundRulesSource}}" 
-                          AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" 
-                          EnableRowVirtualization="False" ScrollViewer.CanContentScroll="False"
-                          Background="#252526" Foreground="White" RowBackground="#252526" AlternatingRowBackground="#2D2D30"
-                          GridLinesVisibility="Horizontal" HeadersVisibility="Column" BorderThickness="0" Margin="0,10,0,0">
-                    <DataGrid.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel />
-                        </ItemsPanelTemplate>
-                    </DataGrid.ItemsPanel>
-                    <DataGrid.GroupStyle>
-                        <GroupStyle>
-                            <GroupStyle.ContainerStyle>
-                                <Style TargetType="{x:Type GroupItem}">
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="{x:Type GroupItem}">
-                                                <Expander IsExpanded="False" Expanded="GroupExpander_Expanded" Background="#333333" Foreground="White" BorderBrush="Gray" BorderThickness="0,0,0,1">
-                                                    <Expander.Header>
-                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                            <StackPanel.ContextMenu>
-                                                                <ContextMenu>
-                                                                    <MenuItem Header="Ask AI about this Group" Click="AskAiGroup_Click" Tag="{Binding Name}"/>
-                                                                </ContextMenu>
-                                                            </StackPanel.ContextMenu>
-                                                            <CheckBox VerticalAlignment="Center" Margin="0,0,10,0"
-                                                                      IsChecked="{Binding Items, Converter={StaticResource GroupToEnabledStateConverter}, Mode=OneWay}"
-                                                                      Click="GroupToggle_Click" Tag="{Binding Name}">
-                                                                 <CheckBox.LayoutTransform>
-                                                                    <ScaleTransform ScaleX="1.2" ScaleY="1.2"/>
-                                                                </CheckBox.LayoutTransform>
-                                                            </CheckBox>
-                                                            <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" Foreground="Cyan" VerticalAlignment="Center"/>
-                                                            <TextBlock Text="{Binding ItemCount, StringFormat=' ({0} rules)'}" FontStyle="Italic" Foreground="LightGray" VerticalAlignment="Center" Margin="5,0,0,0"/>
-                                                        </StackPanel>
-                                                    </Expander.Header>
-                                                    <ItemsPresenter />
-                                                </Expander>
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Style>
-                            </GroupStyle.ContainerStyle>
-                        </GroupStyle>
-                    </DataGrid.GroupStyle>
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*"/>
-                        <DataGridTextColumn Header="Group" Binding="{Binding DisplayGroup}" Width="1.5*"/>
-                        <DataGridTextColumn Header="Profile" Binding="{Binding Profile}" Width="1*"/>
-                        <DataGridTextColumn Header="Program" Binding="{Binding Program}" Width="2*"/>
-                        <DataGridTextColumn Header="Protocol" Binding="{Binding Protocol}" Width="0.8*"/>
-                        <DataGridTextColumn Header="Local Port" Binding="{Binding LocalPort}" Width="0.8*"/>
-                        <DataGridTextColumn Header="Remote Port" Binding="{Binding RemotePort}" Width="0.8*"/>
-                        <DataGridTextColumn Header="Remote Address" Binding="{Binding RemoteAddress}" Width="1.5*"/>
-                        <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="0.8*"/>
-                        <DataGridTextColumn Header="Enabled" Binding="{Binding Enabled}" Width="0.8*"/>
-                        <DataGridTemplateColumn Header="Actions" Width="100">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <Button Content="Toggle" Click="ToggleRule_Click" CommandParameter="{Binding}" 
-                                            Background="#007ACC" Foreground="White" BorderThickness="0" Padding="5,2" Margin="2"/>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                    </DataGrid.Columns>
-                    <DataGrid.ContextMenu>
-                        <ContextMenu>
-                            <MenuItem Header="Toggle Rule" Click="ToggleRuleCtx_Click"/>
-                            <MenuItem Header="Ask AI about this Rule" Click="AskAiRule_Click"/>
-                        </ContextMenu>
-                    </DataGrid.ContextMenu>
-                </DataGrid>
+                    <!-- Nested: Disabled Groups -->
+                    <TabItem Header="Disabled Groups" Style="{StaticResource NestedTabStyle}">
+                        <DataGrid x:Name="InboundDisabledGrid" ItemsSource="{Binding Source={StaticResource InboundDisabledSource}}" 
+                                  AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" 
+                                  EnableRowVirtualization="True" ScrollViewer.CanContentScroll="True"
+                                  Background="#252526" Foreground="White" RowBackground="#252526" AlternatingRowBackground="#2D2D30"
+                                  GridLinesVisibility="Horizontal" HeadersVisibility="Column" ColumnHeaderStyle="{StaticResource FirewallHeaderStyle}"
+                                  BorderThickness="0" Margin="0,10,0,0">
+                            <DataGrid.GroupStyle>
+                                <GroupStyle ContainerStyle="{StaticResource DisabledGroupStyle}"/>
+                            </DataGrid.GroupStyle>
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="Name" Width="2*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Name}" Foreground="White" VerticalAlignment="Center" Margin="5,0"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Group" Width="1.5*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding DisplayGroup}" Foreground="#CCCCCC" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Profile" Width="1*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Profile}" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Program" Width="2*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Program}" Foreground="#AAAAAA" ToolTip="{Binding Program}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Protocol" Width="0.8*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Protocol}" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Local Port" Width="0.8*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding LocalPort}" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Remote Port" Width="0.8*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding RemotePort}" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Remote Address" Width="1.5*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding RemoteAddress}" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Action" Width="0.8*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Action}" Foreground="{StaticResource NeonCyanBrush}" FontWeight="Bold" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Enabled" Width="0.8*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Enabled}" Foreground="White" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Actions" Width="100">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Content="Toggle" Click="ToggleRule_Click" CommandParameter="{Binding}" Background="#007ACC" Foreground="White" BorderThickness="0" Padding="5,2" Margin="2"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                            <DataGrid.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Toggle Rule" Click="ToggleRuleCtx_Click"/>
+                                    <MenuItem Header="Ask AI about this Rule" Click="AskAiRule_Click"/>
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
+                        </DataGrid>
+                    </TabItem>
+
+                </TabControl>
             </TabItem>
 
-            <TabItem Header="Outbound Rules">
-                <DataGrid x:Name="OutboundGrid" ItemsSource="{Binding Source={StaticResource OutboundRulesSource}}" 
-                          AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" 
-                          EnableRowVirtualization="False" ScrollViewer.CanContentScroll="False"
-                          Background="#252526" Foreground="White" RowBackground="#252526" AlternatingRowBackground="#2D2D30"
-                          GridLinesVisibility="Horizontal" HeadersVisibility="Column" BorderThickness="0" Margin="0,10,0,0">
-                    <DataGrid.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel />
-                        </ItemsPanelTemplate>
-                    </DataGrid.ItemsPanel>
-                    <DataGrid.GroupStyle>
-                        <GroupStyle>
-                            <GroupStyle.ContainerStyle>
-                                <Style TargetType="{x:Type GroupItem}">
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="{x:Type GroupItem}">
-                                                <Expander IsExpanded="False" Expanded="GroupExpander_Expanded" Background="#333333" Foreground="White" BorderBrush="Gray" BorderThickness="0,0,0,1">
-                                                    <Expander.Header>
-                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                            <StackPanel.ContextMenu>
-                                                                <ContextMenu>
-                                                                    <MenuItem Header="Ask AI about this Group" Click="AskAiGroup_Click" Tag="{Binding Name}"/>
-                                                                </ContextMenu>
-                                                            </StackPanel.ContextMenu>
-                                                             <CheckBox VerticalAlignment="Center" Margin="0,0,10,0"
-                                                                      IsChecked="{Binding Items, Converter={StaticResource GroupToEnabledStateConverter}, Mode=OneWay}"
-                                                                      Click="GroupToggle_Click" Tag="{Binding Name}">
-                                                                <CheckBox.LayoutTransform>
-                                                                    <ScaleTransform ScaleX="1.2" ScaleY="1.2"/>
-                                                                </CheckBox.LayoutTransform>
-                                                            </CheckBox>
-                                                            <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" Foreground="Cyan" VerticalAlignment="Center"/>
-                                                            <TextBlock Text="{Binding ItemCount, StringFormat=' ({0} rules)'}" FontStyle="Italic" Foreground="LightGray" VerticalAlignment="Center" Margin="5,0,0,0"/>
-                                                        </StackPanel>
-                                                    </Expander.Header>
-                                                    <ItemsPresenter />
-                                                </Expander>
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Style>
-                            </GroupStyle.ContainerStyle>
-                        </GroupStyle>
-                    </DataGrid.GroupStyle>
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*"/>
-                        <DataGridTextColumn Header="Group" Binding="{Binding DisplayGroup}" Width="1.5*"/>
-                        <DataGridTextColumn Header="Profile" Binding="{Binding Profile}" Width="1*"/>
-                        <DataGridTextColumn Header="Program" Binding="{Binding Program}" Width="2*"/>
-                        <DataGridTextColumn Header="Protocol" Binding="{Binding Protocol}" Width="0.8*"/>
-                        <DataGridTextColumn Header="Local Port" Binding="{Binding LocalPort}" Width="0.8*"/>
-                        <DataGridTextColumn Header="Remote Port" Binding="{Binding RemotePort}" Width="0.8*"/>
-                        <DataGridTextColumn Header="Remote Address" Binding="{Binding RemoteAddress}" Width="1.5*"/>
-                        <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="0.8*"/>
-                        <DataGridTextColumn Header="Enabled" Binding="{Binding Enabled}" Width="0.8*"/>
-                        <DataGridTemplateColumn Header="Actions" Width="100">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <Button Content="Toggle" Click="ToggleRule_Click" CommandParameter="{Binding}" 
-                                            Background="#007ACC" Foreground="White" BorderThickness="0" Padding="5,2" Margin="2"/>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                    </DataGrid.Columns>
-                    <DataGrid.ContextMenu>
-                        <ContextMenu>
-                            <MenuItem Header="Toggle Rule" Click="ToggleRuleCtx_Click"/>
-                            <MenuItem Header="Ask AI about this Rule" Click="AskAiRule_Click"/>
-                        </ContextMenu>
-                    </DataGrid.ContextMenu>
-                </DataGrid>
+            <!-- OUTBOUND RULES -->
+            <TabItem Header="Outbound Rules" Style="{StaticResource MainTabStyle}" Tag="Outbound">
+                <TabControl Background="Transparent" BorderThickness="0" Margin="0,10,0,0">
+                    
+                    <!-- Nested: Enabled Groups -->
+                    <TabItem Header="Enabled Groups" Style="{StaticResource NestedTabStyle}">
+                        <DataGrid x:Name="OutboundEnabledGrid" ItemsSource="{Binding Source={StaticResource OutboundEnabledSource}}" 
+                                  AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" 
+                                  EnableRowVirtualization="True" ScrollViewer.CanContentScroll="True"
+                                  Background="#252526" Foreground="White" RowBackground="#252526" AlternatingRowBackground="#2D2D30"
+                                  GridLinesVisibility="Horizontal" HeadersVisibility="Column" ColumnHeaderStyle="{StaticResource FirewallHeaderStyle}"
+                                  BorderThickness="0" Margin="0,10,0,0">
+                            <DataGrid.GroupStyle>
+                                <GroupStyle ContainerStyle="{StaticResource EnabledGroupStyle}"/>
+                            </DataGrid.GroupStyle>
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="Name" Width="2*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Name}" Foreground="White" VerticalAlignment="Center" Margin="5,0"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Group" Width="1.5*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding DisplayGroup}" Foreground="#CCCCCC" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Profile" Width="1*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Profile}" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Program" Width="2*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Program}" Foreground="#AAAAAA" ToolTip="{Binding Program}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Protocol" Width="0.8*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Protocol}" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Local Port" Width="0.8*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding LocalPort}" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Remote Port" Width="0.8*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding RemotePort}" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Remote Address" Width="1.5*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding RemoteAddress}" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Action" Width="0.8*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Action}" Foreground="{StaticResource NeonCyanBrush}" FontWeight="Bold" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Enabled" Width="0.8*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Enabled}" Foreground="White" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Actions" Width="100">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Content="Toggle" Click="ToggleRule_Click" CommandParameter="{Binding}" Background="#007ACC" Foreground="White" BorderThickness="0" Padding="5,2" Margin="2"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                            <DataGrid.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Toggle Rule" Click="ToggleRuleCtx_Click"/>
+                                    <MenuItem Header="Ask AI about this Rule" Click="AskAiRule_Click"/>
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
+                        </DataGrid>
+                    </TabItem>
+
+                    <!-- Nested: Disabled Groups -->
+                    <TabItem Header="Disabled Groups" Style="{StaticResource NestedTabStyle}">
+                        <DataGrid x:Name="OutboundDisabledGrid" ItemsSource="{Binding Source={StaticResource OutboundDisabledSource}}" 
+                                  AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" 
+                                  EnableRowVirtualization="True" ScrollViewer.CanContentScroll="True"
+                                  Background="#252526" Foreground="White" RowBackground="#252526" AlternatingRowBackground="#2D2D30"
+                                  GridLinesVisibility="Horizontal" HeadersVisibility="Column" ColumnHeaderStyle="{StaticResource FirewallHeaderStyle}"
+                                  BorderThickness="0" Margin="0,10,0,0">
+                            <DataGrid.GroupStyle>
+                                <GroupStyle ContainerStyle="{StaticResource DisabledGroupStyle}"/>
+                            </DataGrid.GroupStyle>
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="Name" Width="2*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Name}" Foreground="White" VerticalAlignment="Center" Margin="5,0"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Group" Width="1.5*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding DisplayGroup}" Foreground="#CCCCCC" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Profile" Width="1*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Profile}" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Program" Width="2*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Program}" Foreground="#AAAAAA" ToolTip="{Binding Program}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Protocol" Width="0.8*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Protocol}" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Local Port" Width="0.8*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding LocalPort}" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Remote Port" Width="0.8*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding RemotePort}" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Remote Address" Width="1.5*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding RemoteAddress}" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Action" Width="0.8*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Action}" Foreground="{StaticResource NeonCyanBrush}" FontWeight="Bold" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Enabled" Width="0.8*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Enabled}" Foreground="White" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Actions" Width="100">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Content="Toggle" Click="ToggleRule_Click" CommandParameter="{Binding}" Background="#007ACC" Foreground="White" BorderThickness="0" Padding="5,2" Margin="2"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                            <DataGrid.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Toggle Rule" Click="ToggleRuleCtx_Click"/>
+                                    <MenuItem Header="Ask AI about this Rule" Click="AskAiRule_Click"/>
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
+                        </DataGrid>
+                    </TabItem>
+
+                </TabControl>
             </TabItem>
+
         </TabControl>
     </Grid>
 </UserControl>

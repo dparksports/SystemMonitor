@@ -2,7 +2,7 @@
 
 **Auto Command** is a high-fidelity Windows system monitoring and security command center. It combines real-time data accuracy with a premium "Aurora" glassmorphism interface, providing a professional workspace for power users to track system health and security telemetry.
 
-[![Download v3.10.0](https://img.shields.io/badge/Download-v3.10.0-00F0FF?style=for-the-badge&logo=windows)](https://github.com/dparksports/SystemMonitor/releases/download/v3.10.0/AutoCommand-v3.10.0-win-x64.zip)
+[![Download v3.10.1](https://img.shields.io/badge/Download-v3.10.1-00F0FF?style=for-the-badge&logo=windows)](https://github.com/dparksports/SystemMonitor/releases/download/v3.10.1/AutoCommand-v3.10.1-win-x64.zip)
 
 ![Auto Command Dashboard](DeviceMonitorCS/app_dashboard_mockup.png)
 
@@ -26,7 +26,7 @@ The heart of Auto Command, providing one-click management for critical system in
 - **Firewall Controls**: Streamlined management of profiles and rule sets.
 
 ## 💎 Premium Design
-Current Stable Release: **v3.10.0** (Clean Code Edition)
+Current Stable Release: **v3.10.1** (Clean Code Edition)
 - **Glassmorphism UI**: Developed with modern WPF styling for a translucent material look.
 - **Integrated Window Chrome**: Precise control over title bar elements for a native "App" feel.
 - **Material Aura Lighting**: Sophisticated lighting effects that feel like light passing through glass.
@@ -38,7 +38,7 @@ Current Stable Release: **v3.10.0** (Clean Code Edition)
 - **Licensing**: Apache License, Version 2.0.
 
 ## 📦 Getting Started
-1.  **Download**: Get the [latest v3.10.0 portable archive (Clean Code Edition)](https://github.com/dparksports/SystemMonitor/releases/download/v3.10.0/AutoCommand-v3.10.0-win-x64.zip)..
+1.  **Download**: Get the [latest v3.10.1 portable archive (Clean Code Edition)](https://github.com/dparksports/SystemMonitor/releases/download/v3.10.1/AutoCommand-v3.10.1-win-x64.zip)..
 2.  **Unzip**: Extract the **entire folder** to a location of your choice.
 3.  **Elevation**: Run `AutoCommand.exe` as **Administrator**.
 
