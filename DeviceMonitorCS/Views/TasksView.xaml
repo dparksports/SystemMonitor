@@ -3,10 +3,21 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:scm="clr-namespace:System.ComponentModel;assembly=WindowsBase"
              mc:Ignorable="d" 
              d:DesignHeight="600" d:DesignWidth="800"
              Background="#1E1E1E">
     <UserControl.Resources>
+
+        <CollectionViewSource x:Key="TasksSource" Source="{Binding TasksData, RelativeSource={RelativeSource AncestorType=UserControl}}">
+            <CollectionViewSource.GroupDescriptions>
+                <PropertyGroupDescription PropertyName="TaskPath"/>
+            </CollectionViewSource.GroupDescriptions>
+            <CollectionViewSource.SortDescriptions>
+                <scm:SortDescription PropertyName="State" Direction="Descending"/>
+            </CollectionViewSource.SortDescriptions>
+        </CollectionViewSource>
+
         <Style TargetType="Button">
             <Setter Property="Background" Value="#2D2D30"/>
             <Setter Property="Foreground" Value="White"/>
@@ -50,18 +61,81 @@
 
         <!-- Grid -->
         <Border Grid.Row="2" Background="#252526" CornerRadius="5" Padding="5">
-            <DataGrid x:Name="TasksGrid" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" SelectionMode="Single"
+            <DataGrid x:Name="TasksGrid" ItemsSource="{Binding Source={StaticResource TasksSource}}"
+                      AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="All" GridLinesVisibility="Horizontal" SelectionMode="Single"
                       Background="Transparent" BorderThickness="0" Foreground="White" RowBackground="#252526" AlternatingRowBackground="#2D2D30">
+                <DataGrid.ColumnHeaderStyle>
+                    <Style TargetType="DataGridColumnHeader">
+                        <Setter Property="Background" Value="#2D2D30"/>
+                        <Setter Property="Foreground" Value="Cyan"/>
+                        <Setter Property="Padding" Value="10,8"/>
+                        <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                        <Setter Property="BorderBrush" Value="#3E3E42"/>
+                        <Setter Property="FontWeight" Value="Bold"/>
+                    </Style>
+                </DataGrid.ColumnHeaderStyle>
                 <DataGrid.ContextMenu>
                     <ContextMenu>
                         <MenuItem Header="Ask AI about this" Click="AskAi_Click"/>
                     </ContextMenu>
                 </DataGrid.ContextMenu>
+                
+                <DataGrid.GroupStyle>
+                    <GroupStyle>
+                        <GroupStyle.ContainerStyle>
+                            <Style TargetType="{x:Type GroupItem}">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="{x:Type GroupItem}">
+                                            <Expander IsExpanded="False" Background="#333333" Foreground="White" BorderBrush="Gray" BorderThickness="0,0,0,1">
+                                                <Expander.Header>
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" Foreground="Cyan" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding ItemCount, StringFormat=' ({0} tasks)'}" FontStyle="Italic" Foreground="LightGray" VerticalAlignment="Center" Margin="5,0,0,0"/>
+                                                    </StackPanel>
+                                                </Expander.Header>
+                                                <ItemsPresenter />
+                                            </Expander>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </GroupStyle.ContainerStyle>
+                    </GroupStyle>
+                </DataGrid.GroupStyle>
+
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Task Name" Binding="{Binding TaskName}" Width="250"/>
-                    <DataGridTextColumn Header="State" Binding="{Binding State}" Width="80"/>
-                    <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="*"/>
-                    <DataGridTextColumn Header="User" Binding="{Binding User}" Width="150"/>
+                    <DataGridTemplateColumn Header="Task Name" Width="300">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding TaskName}" Foreground="White" VerticalAlignment="Center" Margin="5,0"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    
+                    <DataGridTemplateColumn Header="State" Width="80">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding State}" Foreground="{StaticResource NeonCyanBrush}" VerticalAlignment="Center"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTemplateColumn Header="Action" Width="400">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Action}" Foreground="#CCCCCC" TextTrimming="CharacterEllipsis" ToolTip="{Binding Action}" VerticalAlignment="Center"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTemplateColumn Header="User" Width="150">
+                         <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding User}" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                 </DataGrid.Columns>
             </DataGrid>
         </Border>

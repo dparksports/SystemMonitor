@@ -15,7 +15,8 @@ namespace DeviceMonitorCS.Views
         public TasksView()
         {
             InitializeComponent();
-            TasksGrid.ItemsSource = TasksData;
+
+            // TasksGrid.ItemsSource = TasksData; // Now bound in XAML via CollectionViewSource
 
             RefreshBtn.Click += (s, e) => LoadTasks();
             DisableBtn.Click += DisableBtn_Click;
@@ -24,67 +25,127 @@ namespace DeviceMonitorCS.Views
             DeleteBtn.Click += DeleteBtn_Click;
 
             LoadTasks();
+
+            this.Loaded += TasksView_Loaded;
         }
 
-        private void LoadTasks()
+        private void TasksView_Loaded(object sender, RoutedEventArgs e)
+        {
+            // Force re-layout to ensure headers are visible
+            TasksGrid.UpdateLayout();
+            
+            // Toggle visibility to force refresh if needed
+            if (TasksGrid.Columns.Count > 0)
+            {
+                var col = TasksGrid.Columns[0];
+                var width = col.Width;
+                col.Width = 0;
+                col.Width = width;
+            }
+        }
+
+        private async void LoadTasks()
         {
             try
             {
+                // Clear existing items on UI thread to show "loading" state (empty list) instantly
                 TasksData.Clear();
-                var startInfo = new ProcessStartInfo
+                
+                // Run the heavy 'schtasks.exe' query on a background thread
+                var tasks = await System.Threading.Tasks.Task.Run(() => 
                 {
-                    FileName = "schtasks.exe",
-                    Arguments = "/query /FO CSV /V",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    StandardOutputEncoding = System.Text.Encoding.UTF8 
-                };
-
-                using (var process = Process.Start(startInfo))
-                {
-                    string output = process.StandardOutput.ReadToEnd();
-                    process.WaitForExit();
-
-                    var lines = output.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
-                    
-                    if (lines.Length > 1)
+                    var taskList = new System.Collections.Generic.List<ScheduledTaskItem>();
+                    var startInfo = new ProcessStartInfo
                     {
-                        var headers = ParseCsvLine(lines[0]);
-                        int idxTaskName = Array.IndexOf(headers, "TaskName");
-                        int idxStatus = Array.IndexOf(headers, "Status");
-                        int idxAction = Array.IndexOf(headers, "Task To Run");
-                        int idxUser = Array.IndexOf(headers, "Run As User");
+                        FileName = "schtasks.exe",
+                        Arguments = "/query /FO CSV /V",
+                        RedirectStandardOutput = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                        StandardOutputEncoding = System.Text.Encoding.UTF8 
+                    };
 
-                        if (idxTaskName == -1) idxTaskName = 0; 
+                    using (var process = Process.Start(startInfo))
+                    {
+                        string output = process.StandardOutput.ReadToEnd();
+                        process.WaitForExit();
 
-                        var addedTasks = new System.Collections.Generic.HashSet<string>();
-
-                        for (int i = 1; i < lines.Length; i++)
+                        var lines = output.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+                        
+                        if (lines.Length > 1)
                         {
-                            var cols = ParseCsvLine(lines[i]);
-                            if (cols.Length < 2) continue;
+                            var headers = ParseCsvLine(lines[0]);
+                            int idxTaskName = Array.IndexOf(headers, "TaskName");
+                            int idxStatus = Array.IndexOf(headers, "Status");
+                            int idxAction = Array.IndexOf(headers, "Task To Run");
+                            int idxUser = Array.IndexOf(headers, "Run As User");
 
-                            string taskName = GetCol(cols, idxTaskName);
-                            
-                            // Skip if this is a repeated header row
-                            if (taskName == headers[idxTaskName]) continue;
+                            if (idxTaskName == -1) idxTaskName = 0; 
 
-                            // Skip if duplicate task (e.g. multiple triggers)
-                            string tnClean = taskName.Trim('"');
-                            if (addedTasks.Contains(tnClean)) continue;
+                            var addedTasks = new System.Collections.Generic.HashSet<string>();
 
-                            addedTasks.Add(tnClean);
-                           
-                            TasksData.Add(new ScheduledTaskItem
+                            for (int i = 1; i < lines.Length; i++)
                             {
-                                TaskName = tnClean,
-                                State = GetCol(cols, idxStatus),
-                                Action = GetCol(cols, idxAction),
-                                User = GetCol(cols, idxUser)
-                            });
+                                var cols = ParseCsvLine(lines[i]);
+                                if (cols.Length < 2) continue;
+
+                                string taskName = GetCol(cols, idxTaskName);
+                                
+                                // Skip if this is a repeated header row
+                                if (taskName == headers[idxTaskName]) continue;
+
+                                // Skip if duplicate task (e.g. multiple triggers)
+                                string tnClean = taskName.Trim('"');
+                                if (addedTasks.Contains(tnClean)) continue;
+
+                                addedTasks.Add(tnClean);
+                               
+                                // Split TaskPath and TaskName
+                                string fullPath = tnClean;
+                                string folder = "\\";
+                                string name = fullPath;
+
+                                int lastSlash = fullPath.LastIndexOf('\\');
+                                if (lastSlash >= 0)
+                                {
+                                    if (lastSlash == 0)
+                                    {
+                                        folder = "\\"; 
+                                        name = fullPath.Substring(1);
+                                    }
+                                    else
+                                    {
+                                        folder = fullPath.Substring(0, lastSlash);
+                                        name = fullPath.Substring(lastSlash + 1);
+                                    }
+                                    
+                                    // Simplify folder name
+                                    if (folder.StartsWith(@"\Microsoft\Windows"))
+                                    {
+                                        folder = folder.Substring(@"\Microsoft\Windows".Length);
+                                        if (folder.StartsWith("\\")) folder = folder.Substring(1);
+                                        if (string.IsNullOrEmpty(folder)) folder = "Windows System"; 
+                                    }
+                                }
+                               
+                                taskList.Add(new ScheduledTaskItem
+                                {
+                                    TaskName = name,
+                                    TaskPath = folder,
+                                    State = GetCol(cols, idxStatus),
+                                    Action = GetCol(cols, idxAction),
+                                    User = GetCol(cols, idxUser)
+                                });
+                            }
                         }
                     }
+                    return taskList;
+                });
+
+                // Update UI Collection on Main Thread
+                foreach (var t in tasks)
+                {
+                    TasksData.Add(t);
                 }
             }
             catch (Exception ex)
@@ -117,10 +178,14 @@ namespace DeviceMonitorCS.Views
 
             try
             {
+                string fullTaskPath = selected.TaskPath.EndsWith("\\") 
+                    ? selected.TaskPath + selected.TaskName 
+                    : selected.TaskPath + "\\" + selected.TaskName;
+
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = "schtasks.exe",
-                    Arguments = $"/TN \"{selected.TaskName}\" {args}",
+                    Arguments = $"/TN \"{fullTaskPath}\" {args}",
                     RedirectStandardError = true,
                     UseShellExecute = false,
                     CreateNoWindow = true

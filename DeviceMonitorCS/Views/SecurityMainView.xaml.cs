@@ -31,6 +31,7 @@ namespace DeviceMonitorCS.Views
                 
                 // Initialize if needed
                 if (_subViewCache[type] is OverviewView ov) _ = ov.LoadAllDataAsync();
+                else if (_subViewCache[type] is FirewallSettingsView fv) fv.InitializeAndLoad();
             }
             SubContentArea.Content = _subViewCache[type];
         }
