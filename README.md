@@ -2,7 +2,7 @@
 
 **Auto Command** is a high-fidelity Windows system monitoring and security command center. It combines real-time data accuracy with a premium "Aurora" glassmorphism interface, providing a professional workspace for power users to track system health and security telemetry.
 
-[![Download v3.9.5](https://img.shields.io/badge/Download-v3.9.5-00F0FF?style=for-the-badge&logo=windows)](https://github.com/dparksports/SystemMonitor/releases/download/v3.9.5/AutoCommand_v3.9.5.zip)
+[![Download v3.9.9](https://img.shields.io/badge/Download-v3.9.9-00F0FF?style=for-the-badge&logo=windows)](https://github.com/dparksports/SystemMonitor/releases/download/v3.9.9/AutoCommand-v3.9.9-win-x64.zip)
 
 ![Auto Command Dashboard](DeviceMonitorCS/app_dashboard_mockup.png)
 
@@ -26,7 +26,7 @@ The heart of Auto Command, providing one-click management for critical system in
 - **Firewall Controls**: Streamlined management of profiles and rule sets.
 
 ## 💎 Premium Design
-Current Stable Release: **v3.9.5** (Clean Code Edition)
+Current Stable Release: **v3.9.9** (Clean Code Edition)
 - **Glassmorphism UI**: Developed with modern WPF styling for a translucent material look.
 - **Integrated Window Chrome**: Precise control over title bar elements for a native "App" feel.
 - **Material Aura Lighting**: Sophisticated lighting effects that feel like light passing through glass.
@@ -38,7 +38,7 @@ Current Stable Release: **v3.9.5** (Clean Code Edition)
 - **Licensing**: Apache License, Version 2.0.
 
 ## 📦 Getting Started
-1.  **Download**: Get the [latest v3.9.5 portable archive (Clean Code Edition)](https://github.com/dparksports/SystemMonitor/releases/download/v3.9.5/AutoCommand_v3.9.5.zip).
+1.  **Download**: Get the [latest v3.9.9 portable archive (Clean Code Edition)](https://github.com/dparksports/SystemMonitor/releases/download/v3.9.9/AutoCommand-v3.9.9-win-x64.zip)..
 2.  **Unzip**: Extract the **entire folder** to a location of your choice.
 3.  **Elevation**: Run `AutoCommand.exe` as **Administrator**.
 
