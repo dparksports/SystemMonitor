@@ -10,7 +10,9 @@ namespace DeviceMonitorCS.Views
 {
     public partial class TasksView : UserControl
     {
-        public ObservableCollection<ScheduledTaskItem> TasksData { get; set; } = new ObservableCollection<ScheduledTaskItem>();
+        public ObservableCollection<ScheduledTaskItem> RunningTasks { get; set; } = new ObservableCollection<ScheduledTaskItem>();
+        public ObservableCollection<ScheduledTaskItem> ReadyTasks { get; set; } = new ObservableCollection<ScheduledTaskItem>();
+        public ObservableCollection<ScheduledTaskItem> DisabledTasks { get; set; } = new ObservableCollection<ScheduledTaskItem>();
 
         public TasksView()
         {
@@ -31,13 +33,28 @@ namespace DeviceMonitorCS.Views
 
         private void TasksView_Loaded(object sender, RoutedEventArgs e)
         {
+            // Initial load logic if needed
+        }
+
+        private void Grid_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is DataGrid grid)
+            {
+                UpdateGridLayout(grid);
+            }
+        }
+
+        private void UpdateGridLayout(DataGrid grid)
+        {
+            if (grid == null) return;
+            
             // Force re-layout to ensure headers are visible
-            TasksGrid.UpdateLayout();
+            grid.UpdateLayout();
             
             // Toggle visibility to force refresh if needed
-            if (TasksGrid.Columns.Count > 0)
+            if (grid.Columns.Count > 0)
             {
-                var col = TasksGrid.Columns[0];
+                var col = grid.Columns[0];
                 var width = col.Width;
                 col.Width = 0;
                 col.Width = width;
@@ -48,8 +65,10 @@ namespace DeviceMonitorCS.Views
         {
             try
             {
-                // Clear existing items on UI thread to show "loading" state (empty list) instantly
-                TasksData.Clear();
+                // Clear existing items on UI thread
+                RunningTasks.Clear();
+                ReadyTasks.Clear();
+                DisabledTasks.Clear();
                 
                 // Run the heavy 'schtasks.exe' query on a background thread
                 var tasks = await System.Threading.Tasks.Task.Run(() => 
@@ -142,10 +161,21 @@ namespace DeviceMonitorCS.Views
                     return taskList;
                 });
 
-                // Update UI Collection on Main Thread
+                // Update UI Collections on Main Thread
                 foreach (var t in tasks)
                 {
-                    TasksData.Add(t);
+                    if (string.Equals(t.State, "Running", StringComparison.OrdinalIgnoreCase))
+                    {
+                        RunningTasks.Add(t);
+                    }
+                    else if (string.Equals(t.State, "Ready", StringComparison.OrdinalIgnoreCase))
+                    {
+                        ReadyTasks.Add(t);
+                    }
+                    else // Disabled or Unknown
+                    {
+                        DisabledTasks.Add(t);
+                    }
                 }
             }
             catch (Exception ex)
@@ -169,7 +199,10 @@ namespace DeviceMonitorCS.Views
 
         private void RunSchTasks(string args, string successMsg)
         {
-            var selected = TasksGrid.SelectedItem as ScheduledTaskItem;
+            var selected = RunningGrid?.SelectedItem as ScheduledTaskItem 
+                        ?? ReadyGrid?.SelectedItem as ScheduledTaskItem 
+                        ?? DisabledGrid?.SelectedItem as ScheduledTaskItem;
+
             if (selected == null)
             {
                 MessageBox.Show("Please select a task first.", "No Selection", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -237,7 +270,10 @@ namespace DeviceMonitorCS.Views
 
         private void DeleteBtn_Click(object sender, RoutedEventArgs e)
         {
-             var selected = TasksGrid.SelectedItem as ScheduledTaskItem;
+             var selected = RunningGrid?.SelectedItem as ScheduledTaskItem 
+                         ?? ReadyGrid?.SelectedItem as ScheduledTaskItem 
+                         ?? DisabledGrid?.SelectedItem as ScheduledTaskItem;
+
             if (selected != null)
             {
                 var res = MessageBox.Show($"Are you sure you want to delete task '{selected.TaskName}'?", "Confirm Delete", MessageBoxButton.YesNo, MessageBoxImage.Warning);
