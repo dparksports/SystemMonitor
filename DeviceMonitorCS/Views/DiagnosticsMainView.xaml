@@ -18,7 +18,6 @@
                 <TextBlock Text="DIAGNOSTIC TOOLS" Foreground="#64748B" FontSize="10" FontWeight="Bold" Margin="10,0,0,15"/>
                 
                 <Button x:Name="PerfBtn" Content="System Performance" Click="PerfBtn_Click" Style="{StaticResource NavButton}"/>
-                <Button x:Name="OverviewBtn" Content="Overview" Click="OverviewBtn_Click" Style="{StaticResource NavButton}"/>
                 <Button x:Name="TimelineBtn" Content="System Timeline" Click="TimelineBtn_Click" Style="{StaticResource NavButton}"/>
                 <Button x:Name="FirmwareBtn" Content="Firmware Settings" Click="FirmwareBtn_Click" Style="{StaticResource NavButton}"/>
                 <Button x:Name="DeviceMgmtBtn" Content="Device Management" Click="DeviceMgmtBtn_Click" Style="{StaticResource NavButton}"/>

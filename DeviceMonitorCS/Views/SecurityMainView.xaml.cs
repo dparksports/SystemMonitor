@@ -10,9 +10,10 @@ namespace DeviceMonitorCS.Views
         public SecurityMainView()
         {
             InitializeComponent();
-            NavigateSub<PrivacyView>();
+            NavigateSub<OverviewView>(); // Default to Overview
         }
 
+        private void OverviewBtn_Click(object sender, RoutedEventArgs e) => NavigateSub<OverviewView>();
         private void PrivacyBtn_Click(object sender, RoutedEventArgs e) => NavigateSub<PrivacyView>();
         private void DefenderBtn_Click(object sender, RoutedEventArgs e) => NavigateSub<WindowsDefenderView>();
         private void FirewallBtn_Click(object sender, RoutedEventArgs e) => NavigateSub<FirewallSettingsView>();
@@ -27,6 +28,9 @@ namespace DeviceMonitorCS.Views
             if (!_subViewCache.ContainsKey(type))
             {
                 _subViewCache[type] = new T();
+                
+                // Initialize if needed
+                if (_subViewCache[type] is OverviewView ov) _ = ov.LoadAllDataAsync();
             }
             SubContentArea.Content = _subViewCache[type];
         }

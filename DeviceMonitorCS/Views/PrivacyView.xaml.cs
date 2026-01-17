@@ -19,23 +19,36 @@ namespace DeviceMonitorCS.Views
             Loaded += PrivacyView_Loaded;
         }
 
-        private void PrivacyView_Loaded(object sender, RoutedEventArgs e)
+        private async void PrivacyView_Loaded(object sender, RoutedEventArgs e)
         {
-            CheckStatus();
+            await CheckStatusAsync();
         }
 
-
-
-        // --- Moved Logic from MainWindow ---
         private readonly string[] _vpnServices = { "RasMan", "IKEEXT", "PolicyAgent", "RemoteAccess" };
 
-        private void CheckStatus()
+        private async Task CheckStatusAsync()
         {
-             // Check all
-             VpnToggle.IsChecked = CheckVpnStatus();
-             WifiDirectToggle.IsChecked = CheckWifiDirectStatus();
-             DebugToggle.IsChecked = CheckDebugStatus();
-             UsageDataToggle.IsChecked = IsUsageDataEnabled();
+             UpdateStatusText("Refreshing status...");
+
+             // Run heavy checks in background
+             var results = await Task.Run(() =>
+             {
+                 return new 
+                 {
+                     Vpn = CheckVpnStatus(),
+                     Wifi = CheckWifiDirectStatus(),
+                     Debug = CheckDebugStatus(),
+                     Usage = IsUsageDataEnabled()
+                 };
+             });
+
+             // Update UI on UI thread
+             VpnToggle.IsChecked = results.Vpn;
+             WifiDirectToggle.IsChecked = results.Wifi;
+             DebugToggle.IsChecked = results.Debug;
+             UsageDataToggle.IsChecked = results.Usage;
+
+             // Start async check
              CheckTamperProtectionStatus();
              
              UpdateStatusText("Statuses refreshed.");

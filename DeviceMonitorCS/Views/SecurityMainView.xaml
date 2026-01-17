@@ -17,6 +17,7 @@
             <StackPanel Margin="10,20,10,10">
                 <TextBlock Text="SECURITY MODULES" Foreground="#64748B" FontSize="10" FontWeight="Bold" Margin="10,0,0,15"/>
                 
+                <Button x:Name="OverviewBtn" Content="System Overview" Click="OverviewBtn_Click" Style="{StaticResource NavButton}"/>
                 <Button x:Name="PrivacyBtn" Content="Privacy Settings" Click="PrivacyBtn_Click" Style="{StaticResource NavButton}"/>
                 <Button x:Name="DefenderBtn" Content="Windows Defender" Click="DefenderBtn_Click" Style="{StaticResource NavButton}"/>
                 <Button x:Name="FirewallBtn" Content="Firewall Settings" Click="FirewallBtn_Click" Style="{StaticResource NavButton}"/>

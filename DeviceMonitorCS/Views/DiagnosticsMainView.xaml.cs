@@ -14,7 +14,6 @@ namespace DeviceMonitorCS.Views
         }
 
         private void PerfBtn_Click(object sender, RoutedEventArgs e) => NavigateSub<PerformanceView>();
-        private void OverviewBtn_Click(object sender, RoutedEventArgs e) => NavigateSub<OverviewView>();
         private void TimelineBtn_Click(object sender, RoutedEventArgs e) => NavigateSub<TimelineView>();
         private void FirmwareBtn_Click(object sender, RoutedEventArgs e) => NavigateSub<FirmwareSettingsView>();
         private void DeviceMgmtBtn_Click(object sender, RoutedEventArgs e) => NavigateSub<DeviceManagementView>();
@@ -29,7 +28,6 @@ namespace DeviceMonitorCS.Views
                 _subViewCache[type] = new T();
                 
                 // Initialize if needed
-                if (_subViewCache[type] is OverviewView ov) _ = ov.LoadAllDataAsync();
                 if (_subViewCache[type] is DeviceManagementView dmv) dmv.InitializeAndLoad();
                 if (_subViewCache[type] is FirewallSettingsView fsv) fsv.InitializeAndLoad();
                 if (_subViewCache[type] is ColdBootsView cbv) cbv.InitializeAndLoad();
