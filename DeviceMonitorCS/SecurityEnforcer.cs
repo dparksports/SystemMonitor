@@ -19,6 +19,13 @@ namespace DeviceMonitorCS
             _onThreatDetected = onThreatDetected;
         }
 
+        private static volatile bool _isSstpAllowed = false;
+        public static bool IsSstpAllowed 
+        { 
+            get => _isSstpAllowed; 
+            set => _isSstpAllowed = value; 
+        }
+
         public void Start()
         {
             if (_isRunning) return;
@@ -193,7 +200,17 @@ namespace DeviceMonitorCS
 
                 if (exists)
                 {
+                    // Check Whitelist
+                    if (IsSstpAllowed)
+                    {
+                        Services.InspectionService.Instance.Log("AGENCY PROTOCOL: SSTP DETECTED (USER WHITELISTED). TAKEDOWN BYPASSED.");
+                        // Allow it to run
+                        return;
+                    }
+
                     Debug.WriteLine("SecurityEnforcer: WAN Miniport (SSTP) detected. Initiating takedown...");
+                    Services.InspectionService.Instance.Log("AGENCY PROTOCOL: UNAUTHORIZED SSTP DEVICE DETECTED.");
+                    Services.InspectionService.Instance.Log("ACTION: INITIATING IMMEDIATE TAKEDOWN.");
 
                     // 1. Stop SstpSvc
                     RunCommand("powershell", "Stop-Service -Name SstpSvc -Force -ErrorAction SilentlyContinue");

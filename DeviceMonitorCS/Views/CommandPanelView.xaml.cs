@@ -88,7 +88,7 @@ namespace DeviceMonitorCS.Views
             }
         }
 
-        private void SstpToggleBtn_Click(object sender, RoutedEventArgs e)
+        private async void SstpToggleBtn_Click(object sender, RoutedEventArgs e)
         {
             try
             {
@@ -97,15 +97,36 @@ namespace DeviceMonitorCS.Views
                     if (sc.Status == ServiceControllerStatus.Running)
                     {
                         // Stop and Disable
-                        RunPowerShellCommand("Set-Service -Name SstpSvc -StartupType Disabled; Stop-Service -Name SstpSvc -Force", "Disable SSTP");
+                        SecurityEnforcer.IsSstpAllowed = false; // Revoke Whitelist
                         
-                        // User specifically requested to uninstall wan miniports when stopping sstpsvc
+                        InspectionService.Instance.Log("AGENCY PROTOCOL: REVOKING SSTP AUTHORIZATION.");
+                        await InspectionService.Instance.ExecuteCommandAsync("powershell.exe", "-Command \"Set-Service -Name SstpSvc -StartupType Disabled; Stop-Service -Name SstpSvc -Force\"");
+                        
+                        // Execute Removal
                         DeviceMonitorCS.Helpers.WanMiniportRemover.Execute();
+
+                        // User Feedback for Stop Action
+                        MessageBox.Show("Amending security hole... System Secured.", "Security Restored", MessageBoxButton.OK, MessageBoxImage.Information);
                     }
                     else
                     {
                         // Enable and Start
-                        RunPowerShellCommand("Set-Service -Name SstpSvc -StartupType Manual; Start-Service -Name SstpSvc", "Enable SSTP");
+                        
+                        // Use Custom Dialog with Gemini Integration
+                        var dialog = new DeviceMonitorCS.Views.SecurityWarningDialog();
+                        dialog.ShowDialog();
+
+                        if (dialog.Result == true)
+                        {
+                             SecurityEnforcer.IsSstpAllowed = true; // Grant Whitelist
+                             InspectionService.Instance.Log("AGENCY PROTOCOL: AUTHORIZING SSTP EXCEPTION (USER OVERRIDE).");
+                             
+                             await InspectionService.Instance.ExecuteCommandAsync("powershell.exe", "-Command \"Set-Service -Name SstpSvc -StartupType Manual; Start-Service -Name SstpSvc\"");
+                        }
+                        else
+                        {
+                            return; // Abort
+                        }
                     }
                 }
                 RefreshData();

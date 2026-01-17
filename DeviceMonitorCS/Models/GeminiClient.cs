@@ -9,15 +9,13 @@ namespace DeviceMonitorCS.Models
 {
     public class GeminiClient : IDisposable
     {
-        private static readonly HttpClient _http = new HttpClient();
+        private static readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         private readonly string _apiKey;
         private bool _disposed;
 
         public GeminiClient(string apiKey)
         {
             _apiKey = apiKey ?? throw new ArgumentNullException(nameof(apiKey));
-            // Set a reasonable timeout for the request.
-            _http.Timeout = TimeSpan.FromSeconds(30);
         }
 
         public async Task<string> AskAsync(string question, CancellationToken cancellationToken = default)
