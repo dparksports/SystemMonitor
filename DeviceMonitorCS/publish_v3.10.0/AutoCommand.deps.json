@@ -1,13 +1,12 @@
 {
   "runtimeTarget": {
-    "name": ".NETCoreApp,Version=v8.0/win-x64",
+    "name": ".NETCoreApp,Version=v8.0",
     "signature": ""
   },
   "compilationOptions": {},
   "targets": {
-    ".NETCoreApp,Version=v8.0": {},
-    ".NETCoreApp,Version=v8.0/win-x64": {
-      "AutoCommand/3.9.7": {
+    ".NETCoreApp,Version=v8.0": {
+      "AutoCommand/3.10.0": {
         "dependencies": {
           "Google.Apis.Auth": "1.60.0",
           "System.Management": "8.0.0",
@@ -65,7 +64,15 @@
       },
       "System.Management/8.0.0": {
         "runtime": {
+          "lib/net8.0/System.Management.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.23.53103"
+          }
+        },
+        "runtimeTargets": {
           "runtimes/win/lib/net8.0/System.Management.dll": {
+            "rid": "win",
+            "assetType": "runtime",
             "assemblyVersion": "8.0.0.0",
             "fileVersion": "8.0.23.53103"
           }
@@ -73,7 +80,15 @@
       },
       "System.ServiceProcess.ServiceController/8.0.0": {
         "runtime": {
+          "lib/net8.0/System.ServiceProcess.ServiceController.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.23.53103"
+          }
+        },
+        "runtimeTargets": {
           "runtimes/win/lib/net8.0/System.ServiceProcess.ServiceController.dll": {
+            "rid": "win",
+            "assetType": "runtime",
             "assemblyVersion": "8.0.0.0",
             "fileVersion": "8.0.23.53103"
           }
@@ -82,7 +97,7 @@
     }
   },
   "libraries": {
-    "AutoCommand/3.9.7": {
+    "AutoCommand/3.10.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

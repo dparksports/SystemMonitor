@@ -17,7 +17,6 @@ namespace DeviceMonitorCS.Views
         private void TimelineBtn_Click(object sender, RoutedEventArgs e) => NavigateSub<TimelineView>();
         private void FirmwareBtn_Click(object sender, RoutedEventArgs e) => NavigateSub<FirmwareSettingsView>();
         private void DeviceMgmtBtn_Click(object sender, RoutedEventArgs e) => NavigateSub<DeviceManagementView>();
-        private void ColdBootsBtn_Click(object sender, RoutedEventArgs e) => NavigateSub<ColdBootsView>();
         private void ShutdownBtn_Click(object sender, RoutedEventArgs e) => NavigateSub<TrueShutdownView>();
 
         private void NavigateSub<T>() where T : UserControl, new()

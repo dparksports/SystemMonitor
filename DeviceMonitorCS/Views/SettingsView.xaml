@@ -23,7 +23,6 @@
                 
                 <StackPanel Grid.Column="1" Orientation="Vertical" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <TextBlock x:Name="AppVersionText" Text="v0.0.0" Foreground="Cyan" FontSize="14" FontWeight="Bold" HorizontalAlignment="Right"/>
-                    <TextBlock Text="Beta Program Edition" Foreground="#808080" FontSize="11" FontStyle="Italic" HorizontalAlignment="Right"/>
                 </StackPanel>
             </Grid>
         </Border>

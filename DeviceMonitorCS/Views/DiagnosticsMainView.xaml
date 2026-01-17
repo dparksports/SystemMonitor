@@ -21,7 +21,6 @@
                 <Button x:Name="TimelineBtn" Content="System Timeline" Click="TimelineBtn_Click" Style="{StaticResource NavButton}"/>
                 <Button x:Name="FirmwareBtn" Content="Firmware Settings" Click="FirmwareBtn_Click" Style="{StaticResource NavButton}"/>
                 <Button x:Name="DeviceMgmtBtn" Content="Device Management" Click="DeviceMgmtBtn_Click" Style="{StaticResource NavButton}"/>
-                <Button x:Name="ColdBootsBtn" Content="Cold Boots" Click="ColdBootsBtn_Click" Style="{StaticResource NavButton}"/>
                 <Button x:Name="ShutdownBtn" Content="True Shutdown" Click="ShutdownBtn_Click" Style="{StaticResource NavButton}"/>
             </StackPanel>
         </Border>

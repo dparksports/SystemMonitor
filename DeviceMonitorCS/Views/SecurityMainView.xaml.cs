@@ -21,6 +21,7 @@ namespace DeviceMonitorCS.Views
         private void PanelBtn_Click(object sender, RoutedEventArgs e) => NavigateSub<CommandPanelView>();
         private void TasksBtn_Click(object sender, RoutedEventArgs e) => NavigateSub<TasksView>();
         private void ConnBtn_Click(object sender, RoutedEventArgs e) => NavigateSub<ConnectionsView>();
+        private void ColdBootsBtn_Click(object sender, RoutedEventArgs e) => NavigateSub<ColdBootsView>();
 
         private void NavigateSub<T>() where T : UserControl, new()
         {
@@ -32,6 +33,7 @@ namespace DeviceMonitorCS.Views
                 // Initialize if needed
                 if (_subViewCache[type] is OverviewView ov) _ = ov.LoadAllDataAsync();
                 else if (_subViewCache[type] is FirewallSettingsView fv) fv.InitializeAndLoad();
+                else if (_subViewCache[type] is ColdBootsView cbv) cbv.InitializeAndLoad();
             }
             SubContentArea.Content = _subViewCache[type];
         }
