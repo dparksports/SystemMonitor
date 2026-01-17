@@ -23,6 +23,8 @@ namespace DeviceMonitorCS.Views
             WanMiniportGrid.ItemsSource = WanMiniports;
             WifiDirectGrid.ItemsSource = WifiDirectDevices;
             KdnetGrid.ItemsSource = KdnetDevices;
+            
+            this.Loaded += (s, e) => RefreshData();
         }
 
         public void InitializeAndLoad()
