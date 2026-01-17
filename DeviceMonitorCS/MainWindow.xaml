@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:DeviceMonitorCS"
         xmlns:views="clr-namespace:DeviceMonitorCS.Views"
+        xmlns:services="clr-namespace:DeviceMonitorCS.Services"
         Title="Auto Command" Height="720" Width="1180" WindowStartupLocation="CenterScreen"
         Icon="app_icon.ico"
         WindowStyle="None"
@@ -82,6 +83,45 @@
                                 <Setter TargetName="border" Property="Background" Value="#221E293B"/>
                                 <Setter Property="Foreground" Value="#00F0FF"/>
                                 <Setter TargetName="indicator" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Toggle Button Style (Sidebar) -->
+        <Style TargetType="ToggleButton" x:Key="NavToggleButtonStyle">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="Padding" Value="10,15"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Margin" Value="5,8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="12" Padding="{TemplateBinding Padding}">
+                            <Grid>
+                                <!-- Selection Indicator equivalent (Right side maybe?) or just glow -->
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#1AFFFFFF"/>
+                                <Setter Property="Foreground" Value="#E2E8F0"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter Property="Foreground" Value="#00FF00"/>
+                                <Setter Property="Effect">
+                                    <Setter.Value>
+                                        <DropShadowEffect Color="#00FF00" BlurRadius="8" ShadowDepth="0" Opacity="0.6"/>
+                                    </Setter.Value>
+                                </Setter>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -258,6 +298,15 @@
                     <!-- Footer -->
                     <StackPanel Grid.Row="3" Margin="5,20,5,0">
                         <Separator Background="#1FFFFFFF" Margin="0,0,0,10"/>
+                        
+                <!-- Inspect Agent Toggle -->
+                        <ToggleButton x:Name="InspectAgentSidebarToggle" Style="{StaticResource NavToggleButtonStyle}" Click="InspectAgentSidebarToggle_Click">
+                            <StackPanel>
+                                <TextBlock Text="&#xE7B3;" FontFamily="Segoe MDL2 Assets" FontSize="20" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="LabelInspect" Text="Inspect Agent" Margin="0,5,0,0" FontSize="10" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </ToggleButton>
+
                         <Button x:Name="SettingsBtn" Style="{StaticResource NavButton}">
                             <StackPanel>
                                 <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="24" HorizontalAlignment="Center"/>
@@ -266,39 +315,50 @@
                         </Button>
                         
                         <StackPanel x:Name="SidebarFooter" Margin="0,15,0,0" Visibility="Visible">
-                            <TextBlock x:Name="AppVersionText" Text="v3.9.2" Foreground="#475569" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                            <TextBlock x:Name="AppVersionText" Text="v3.9.5" Foreground="#475569" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center"/>
                             <TextBlock Text="ACTIVE" Foreground="#00F0FF" FontSize="8" Margin="0,2,0,0" Opacity="0.7" HorizontalAlignment="Center"/>
                         </StackPanel>
                     </StackPanel>
                 </Grid>
             </Border>
 
-            <!-- Content Area -->
-            <Border Grid.Column="1" Margin="0,10,20,20" Style="{StaticResource GlassPanel}">
-                 <Grid>
-                    <!-- Top-Left Radiant Glow -->
-                    <Border CornerRadius="8" Opacity="0.6">
-                        <Border.Background>
-                            <RadialGradientBrush Center="0,0" GradientOrigin="0,0" RadiusX="0.8" RadiusY="0.8">
-                                <GradientStop Color="#3500F0FF" Offset="0"/>
-                                <GradientStop Color="Transparent" Offset="1"/>
-                            </RadialGradientBrush>
-                        </Border.Background>
-                    </Border>
+            <!-- Content Area + Console -->
+            <Grid Grid.Column="1" Margin="0,10,20,20">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-                    <!-- Bottom-Right Radiant Glow -->
-                    <Border CornerRadius="8" Opacity="0.5">
-                        <Border.Background>
-                            <RadialGradientBrush Center="1,1" GradientOrigin="1,1" RadiusX="0.7" RadiusY="0.7">
-                                <GradientStop Color="#2500F0FF" Offset="0"/>
-                                <GradientStop Color="Transparent" Offset="1"/>
-                            </RadialGradientBrush>
-                        </Border.Background>
-                    </Border>
+                <Border Grid.Row="0" Style="{StaticResource GlassPanel}" Margin="0,0,0,10">
+                     <Grid>
+                        <!-- Top-Left Radiant Glow -->
+                        <Border CornerRadius="8" Opacity="0.6">
+                            <Border.Background>
+                                <RadialGradientBrush Center="0,0" GradientOrigin="0,0" RadiusX="0.8" RadiusY="0.8">
+                                    <GradientStop Color="#3500F0FF" Offset="0"/>
+                                    <GradientStop Color="Transparent" Offset="1"/>
+                                </RadialGradientBrush>
+                            </Border.Background>
+                        </Border>
 
-                    <ContentControl x:Name="MainContentArea" Panel.ZIndex="1"/>
-                 </Grid>
-            </Border>
+                        <!-- Bottom-Right Radiant Glow -->
+                        <Border CornerRadius="8" Opacity="0.5">
+                            <Border.Background>
+                                <RadialGradientBrush Center="1,1" GradientOrigin="1,1" RadiusX="0.7" RadiusY="0.7">
+                                    <GradientStop Color="#2500F0FF" Offset="0"/>
+                                    <GradientStop Color="Transparent" Offset="1"/>
+                                </RadialGradientBrush>
+                            </Border.Background>
+                        </Border>
+
+                        <ContentControl x:Name="MainContentArea" Panel.ZIndex="1"/>
+                     </Grid>
+                </Border>
+                
+                <!-- Embedded Console -->
+                <views:ConsoleOutputView Grid.Row="1" 
+                                        Visibility="{Binding Source={x:Static services:InspectionService.Instance}, Path=ConsoleVisibility}"/>
+            </Grid>
         </Grid>
     </Grid>
 </Window>

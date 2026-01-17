@@ -22,6 +22,7 @@
                     </TextBlock.Effect>
                 </TextBlock>
                 <Button x:Name="RefreshBtn" Content="Refresh" Margin="20,0,0,0" Padding="10,5" Background="#2D2D30" Foreground="White" BorderBrush="#3E3E42" Click="RefreshBtn_Click"/>
+
             </StackPanel>
         </Grid>
 

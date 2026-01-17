@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
@@ -8,6 +9,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using DeviceMonitorCS.Models;
+using DeviceMonitorCS.Services;
 
 namespace DeviceMonitorCS.Views
 {
@@ -295,29 +297,48 @@ namespace DeviceMonitorCS.Views
             }
         }
 
-        private void UninstallWifiBtn_Click(object sender, RoutedEventArgs e)
+        private void InspectAgentToggle_Click(object sender, RoutedEventArgs e)
+        {
+            // Removed: Global Toggle Logic in MainWindow
+        }
+
+        private async void UninstallWifiBtn_Click(object sender, RoutedEventArgs e)
         {
             if (MessageBox.Show("Uninstall all WiFi Adapters (including physical)?\nWarning: This may disconnect your internet.", "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
             {
                 try
                 {
                     // Search for WiFi adapters to uninstall
-                    var searcher = new ManagementObjectSearcher("SELECT PNPDeviceID FROM Win32_NetworkAdapter WHERE AdapterType LIKE '%Wireless%' OR Name LIKE '%Wi-Fi%'");
-                    foreach (ManagementObject obj in searcher.Get())
+                    InspectionService.Instance.Log("AGENCY PROTOCOL: SCANNING FOR WIFI ADAPTERS...");
+                    
+                    var searcher = new ManagementObjectSearcher("SELECT PNPDeviceID, Name FROM Win32_NetworkAdapter WHERE AdapterType LIKE '%Wireless%' OR Name LIKE '%Wi-Fi%'");
+                    var collection = searcher.Get();
+                    
+                    if (collection.Count == 0)
                     {
-                        string id = obj["PNPDeviceID"]?.ToString();
-                        if (!string.IsNullOrEmpty(id))
-                        {
-                           Process.Start(new ProcessStartInfo {
-                               FileName = "pnputil.exe",
-                               Arguments = $"/remove-device \"{id}\"",
-                               CreateNoWindow = true,
-                               UseShellExecute = false
-                           }).WaitForExit();
-                        }
+                        InspectionService.Instance.Log("SCAN RESULT: 0 TARGETS IDENTIFIED.");
+                        InspectionService.Instance.Log("ACTION: ABORTING.");
                     }
-                    RefreshData();
-                    MessageBox.Show("WiFi Adapter removal attempt completed.", "Done");
+                    else
+                    {
+                        InspectionService.Instance.Log($"SCAN RESULT: {collection.Count} POTENTIAL TARGET(S).");
+                    
+                        foreach (ManagementObject obj in collection)
+                        {
+                            string id = obj["PNPDeviceID"]?.ToString();
+                            string name = obj["Name"]?.ToString();
+
+                            if (!string.IsNullOrEmpty(id))
+                            {
+                                InspectionService.Instance.Log($"TARGET ACQUIRED: {name} ({id})");
+                                
+                                // Use Global Service
+                                await InspectionService.Instance.ExecuteCommandAsync("pnputil.exe", $"/remove-device \"{id}\"");
+                            }
+                        }
+                        RefreshData();
+                        MessageBox.Show("WiFi Adapter removal attempt completed.", "Done");
+                    }
                 }
                 catch (Exception ex)
                 {

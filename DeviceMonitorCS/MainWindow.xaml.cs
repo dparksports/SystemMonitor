@@ -167,6 +167,14 @@ namespace DeviceMonitorCS
             NavigateTo<Views.SettingsView>();
         }
 
+        private void InspectAgentSidebarToggle_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.Primitives.ToggleButton toggle)
+            {
+                InspectionService.Instance.SetInspectMode(toggle.IsChecked == true);
+            }
+        }
+
         private void HamburgerBtn_Click(object sender, RoutedEventArgs e)
         {
             _isMinimized = !_isMinimized;
