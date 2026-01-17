@@ -63,7 +63,9 @@ namespace DeviceMonitorCS
         
         private SecurityEnforcer _enforcer;
         private PerformanceMonitor _perfMonitor;
-        private FirebaseTelemetryService _telemetryService;
+
+        // private FirebaseTelemetryService _telemetryService; // Old
+        private AuthenticationService _authService;
 
         private Dictionary<Type, UserControl> _viewCache = new Dictionary<Type, UserControl>();
 
@@ -132,7 +134,7 @@ namespace DeviceMonitorCS
             MainContentArea.Content = view;
 
             // Telemetry
-            _ = _telemetryService.SendEventAsync("screen_view", new Dictionary<string, object>
+            _ = Services.AnalyticsService.Instance.LogEventAsync("screen_view", new Dictionary<string, object>
             {
                 { "screen_name", viewType.Name },
                 { "screen_class", viewType.Name }
@@ -207,11 +209,21 @@ namespace DeviceMonitorCS
         {
             InitializeComponent();
             
-            _telemetryService = new FirebaseTelemetryService();
-            _ = _telemetryService.SendEventAsync("app_start", new Dictionary<string, object> 
-            { 
-               { "app_version", "3.9.2" }
-            });
+            _authService = new AuthenticationService();
+            // _analyticsService = new AnalyticsService(_authService); // Now Singleton
+
+            // Privacy Consent Check
+            // Privacy Consent Check Removed (Moved to App.xaml.cs)
+            Loaded += async (s, e) =>
+            {
+                await Services.AnalyticsService.Instance.LogEventAsync("app_start", new { app_version = "3.9.6" });
+            };
+
+            // _telemetryService = new FirebaseTelemetryService();
+            // _ = _telemetryService.SendEventAsync("app_start", new Dictionary<string, object> 
+            // { 
+            //    { "app_version", "3.9.2" }
+            // });
 
             AppVersionText.Text = "v3.9.2";
             this.AddHandler(Button.ClickEvent, new RoutedEventHandler(Global_ButtonClick));
@@ -277,7 +289,7 @@ namespace DeviceMonitorCS
                     
                     if (string.IsNullOrEmpty(btnName)) btnName = "UnnamedButton";
 
-                    _ = _telemetryService.SendEventAsync("ui_interaction", new Dictionary<string, object>
+                    _ = Services.AnalyticsService.Instance.LogEventAsync("ui_interaction", new Dictionary<string, object>
                     {
                         { "element_type", "button" },
                         { "element_name", btnName },
@@ -641,6 +653,7 @@ namespace DeviceMonitorCS
             // _logWatcher?.Enabled = false; // if using watcher
             Application.Current.Shutdown();
         }
+
         private void HandleFirewallDrift(List<string> driftItems)
         {
             if (driftItems == null || driftItems.Count == 0) return;

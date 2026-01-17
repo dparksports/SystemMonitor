@@ -11,6 +11,9 @@ namespace DeviceMonitorCS.Views
         public SettingsView()
         {
             InitializeComponent();
+            
+            // Sync UI with Service
+            AnalyticsToggle.IsChecked = Services.AnalyticsService.Instance.IsAnalyticsEnabled;
 
             IntervalSlider.ValueChanged += (s, e) =>
             {
@@ -18,6 +21,11 @@ namespace DeviceMonitorCS.Views
                 IntervalValueText.Text = $"{val} ms";
                 IntervalChanged?.Invoke(val);
             };
+        }
+        
+        private void AnalyticsToggle_Changed(object sender, System.Windows.RoutedEventArgs e)
+        {
+            Services.AnalyticsService.Instance.IsAnalyticsEnabled = AnalyticsToggle.IsChecked == true;
         }
 
         public void SetCurrentInterval(int interval)

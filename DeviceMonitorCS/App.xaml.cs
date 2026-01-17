@@ -12,7 +12,7 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        
+
         AppDomain.CurrentDomain.UnhandledException += (s, args) =>
         {
             MessageBox.Show($"Critical Error: {args.ExceptionObject}", "Crash", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -23,6 +23,35 @@ public partial class App : Application
             MessageBox.Show($"Error: {args.Exception.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             args.Handled = true;
         };
+
+        // Prevent automatic shutdown when the Privacy window closes
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+        // Privacy Consent Check
+        if (!DeviceMonitorCS.Services.AnalyticsService.Instance.HasUserConsented)
+        {
+            var privacyWin = new DeviceMonitorCS.Views.PrivacyConsentWindow();
+            bool? result = privacyWin.ShowDialog();
+
+            if (result == true)
+            {
+                DeviceMonitorCS.Services.AnalyticsService.Instance.IsAnalyticsEnabled = true;
+            }
+            else
+            {
+                // User Quit or Closed Window without Agreement
+                Shutdown();
+                return;
+            }
+        }
+
+        // Show Main Window
+        var mainWindow = new MainWindow();
+        MainWindow = mainWindow; // Set as the Application's Main Window
+        mainWindow.Show();
+        
+        // Restore standard shutdown behavior
+        ShutdownMode = ShutdownMode.OnMainWindowClose;
     }
 }
 

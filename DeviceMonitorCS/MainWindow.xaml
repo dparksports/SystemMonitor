@@ -235,6 +235,8 @@
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+
+
                 <Button Content="&#xE921;" Style="{StaticResource WindowControlBtn}" Click="MinimizeBtn_Click"/>
                 <Button Content="&#xE922;" Style="{StaticResource WindowControlBtn}" Click="MaximizeBtn_Click"/>
                 <Button Content="&#xE8BB;" Style="{StaticResource CloseBtn}" Click="CloseBtn_Click"/>
