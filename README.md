@@ -2,7 +2,7 @@
 
 **Auto Command** is a high-fidelity Windows system monitoring and security command center. It combines real-time data accuracy with a premium "Aurora" glassmorphism interface, providing a professional workspace for power users to track system health and security telemetry.
 
-[![Download v3.10.1](https://img.shields.io/badge/Download-v3.10.1-00F0FF?style=for-the-badge&logo=windows)](https://github.com/dparksports/SystemMonitor/releases/download/v3.10.1/AutoCommand-v3.10.1-win-x64.zip)
+[![Download v3.10.2](https://img.shields.io/badge/Download-v3.10.2-00F0FF?style=for-the-badge&logo=windows)](https://github.com/dparksports/SystemMonitor/releases/download/v3.10.2/AutoCommand_v3.10.2.zip)
 
 ![Auto Command Dashboard](DeviceMonitorCS/app_dashboard_mockup.png)
 
@@ -10,37 +10,48 @@
 
 ### 🛡️ Unified Command Panel
 The heart of Auto Command, providing one-click management for critical system interfaces often exploited as "Security Holes."
-- **Network Hole Management**: Instantly toggle and natively uninstall WAN Miniports, WiFi Direct Virtual Adapters, and Kernel Debug Network Adapters (KDNET).
-- **Privacy Toggles**: Global control over background VPN services, wireless entry points, and Windows flighting/telemetry tasks.
-- **Real-time Monitoring**: Integrated status checks for Windows Defender Tamper Protection and boot configuration flags.
+### 🛡️ **Advanced Firewall Management**
+- **Lazy Loading**: Firewall rules load on-demand, significantly improving app startup time.
+- **Nested Grouping**:
+  - **Inbound/Outbound Separation**: Dedicated tabs for rule direction.
+  - **Enabled/Disabled Partitioning**: Rules are intelligently separated into "Enabled Groups" and "Disabled Groups".
+  - **Smart Expansion**: Active groups (≤ 5 rules) are auto-expanded for quick visibility; larger groups are collapsed.
+- **Sorting**: Enabled groups are sorted by rule count (smallest first) to prioritize manageable sets.
+- **Column Visibility**: Fixed rendering issues to ensure all rule details (Ports, Protocols, Actions) are clearly visible.
 
-### 🔍 Advanced Diagnostics
-- **Firmware Explorer**: Deep dive into ACPI tables and UEFI variables with detailed byte-level views.
-- **Security Timeline**: Track historical system events to identify suspicious patterns or configuration changes.
-- **Device Management**: A high-performance replacement for Device Manager with advanced property enumeration and native uninstallation capabilities.
+### 📅 **Scheduled Task Manager** (New in v3.10)
+- **Tri-List View**: Tasks are organized into three clear tabs:
+  - **Running**: Currently executing tasks.
+  - **Ready**: Enabled tasks waiting for triggers.
+  - **Disabled**: Inactive tasks.
+- **Direct Control**: Run and Stop tasks directly from the dashboard.
+- **Async Loading**: Task lists load in the background to keep the UI responsive.
 
-### ⚙️ System Tools
-- **Scheduled Tasks**: Browse and audit Windows tasks with an intuitive Tri-List interface (Running, Ready, Disabled).
-- **Network Connections**: High-visibility monitoring of active network sockets and traffic.
-- **True Shutdown**: Bypass Windows "Fast Startup" to perform a complete hardware power-off, ensuring a fresh state on the next boot.
-- **Firewall Controls**: Streamlined management of profiles and rule sets.
+### 🔒 **Privacy & Security**
+- **Telemetry Blocking**: One-click disabling of Windows telemetry and tracking services.
+- **Service Management**: Toggle background services like SysMain, DiagTrack, and more.
+- **Ghost Process Detection**: Identify and terminate hidden background processes.
 
-## 💎 Premium Design
-Current Stable Release: **v3.10.1** (Clean Code Edition)
-- **Glassmorphism UI**: Developed with modern WPF styling for a translucent material look.
-- **Integrated Window Chrome**: Precise control over title bar elements for a native "App" feel.
-- **Material Aura Lighting**: Sophisticated lighting effects that feel like light passing through glass.
-
-## 🛠 Technical Overview
-- **Core Engine**: .NET 8.0 (C# 12)
-- **Data Access**: WMI, Windows Event Log API, and Native Win32 interop.
-- **Analytics**: Firebase Analytics integration for high-fidelity usage metrics.
-- **Licensing**: Apache License, Version 2.0.
-
-## 📦 Getting Started
-1.  **Download**: Get the [latest v3.10.1 portable archive (Clean Code Edition)](https://github.com/dparksports/SystemMonitor/releases/download/v3.10.1/AutoCommand-v3.10.1-win-x64.zip)..
-2.  **Unzip**: Extract the **entire folder** to a location of your choice.
-3.  **Elevation**: Run `AutoCommand.exe` as **Administrator**.
+### ⚡ **System Performance**
+- **Process Manager**: View and kill running processes with detailed resource usage.
+- **Cold Boots**: (Coming Soon) Optimized startup management.
 
 ---
-Made with ❤️ in California.
+
+## 📥 Installation
+1. Download the latest release: [Auto Command v3.10.2](https://github.com/dparksports/SystemMonitor/releases/download/v3.10.2/AutoCommand_v3.10.2.zip)
+2. Extract the ZIP file to a preferred location (e.g., `C:\Tools\AutoCommand`).
+3. Run `AutoCommand.exe` as Administrator.
+
+---
+
+## 🛠️ Build from Source
+Requirements:
+- .NET 8.0 SDK
+- Windows 10/11
+
+```powershell
+git clone https://github.com/dparksports/SystemMonitor.git
+cd SystemMonitor/DeviceMonitorCS
+dotnet build -c Release
+```
