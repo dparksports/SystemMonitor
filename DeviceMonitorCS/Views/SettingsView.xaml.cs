@@ -14,6 +14,7 @@ namespace DeviceMonitorCS.Views
             
             // Sync UI with Service
             AnalyticsToggle.IsChecked = Services.AnalyticsService.Instance.IsAnalyticsEnabled;
+            AppVersionText.Text = "v" + typeof(SettingsView).Assembly.GetName().Version.ToString(3);
 
             IntervalSlider.ValueChanged += (s, e) =>
             {

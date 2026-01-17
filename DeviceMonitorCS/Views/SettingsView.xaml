@@ -57,7 +57,12 @@
                 </StackPanel>
             </GroupBox>
             
-            <!-- Future settings can go here -->
+            <GroupBox Header="About Auto Command" Foreground="White" BorderBrush="#3E3E42" Padding="15" Margin="0,20,0,0">
+                <StackPanel>
+                    <TextBlock x:Name="AppVersionText" Text="v0.0.0" Foreground="Cyan" FontSize="14" FontWeight="Bold" Margin="0,0,0,5"/>
+                    <TextBlock Text="Beta Program Edition" Foreground="#808080" FontSize="11" FontStyle="Italic"/>
+                </StackPanel>
+            </GroupBox>
 
         </StackPanel>
     </Grid>
