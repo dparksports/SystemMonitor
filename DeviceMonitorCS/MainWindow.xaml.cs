@@ -225,7 +225,7 @@ namespace DeviceMonitorCS
             //    { "app_version", "3.9.2" }
             // });
 
-            AppVersionText.Text = "v3.9.2";
+            AppVersionText.Text = "v" + typeof(MainWindow).Assembly.GetName().Version.ToString(3);
             this.AddHandler(Button.ClickEvent, new RoutedEventHandler(Global_ButtonClick));
 
             // FAST Identity retrieval
