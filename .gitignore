@@ -55,7 +55,7 @@ publish_*/
 DeviceMonitorCS.zip
 
 # Secrets
-DeviceMonitorCS/firebase_config.json
-firebase_config.json
+# DeviceMonitorCS/firebase_config.json # Uncomment if you want to keep it private
+# firebase_config.json
 
 public*
