@@ -4,6 +4,8 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace DeviceMonitorCS.Services
 {
@@ -12,13 +14,29 @@ namespace DeviceMonitorCS.Services
         private static AnalyticsService _instance;
         public static AnalyticsService Instance => _instance ?? (_instance = new AnalyticsService());
 
-        private const string MeasurementId = "G-XXXXXXXXXX"; // Replace with your GA4 Measurement ID
-        private const string ApiSecret = "YOUR_API_SECRET"; // Replace with your GA4 API Secret
+        // Removed hardcoded constraints
         private const string GaUrl = "https://www.google-analytics.com/mp/collect";
         
         private readonly HttpClient _httpClient;
         private string _clientId;
         private bool _isAnalyticsEnabled;
+
+        // Configuration
+        private FirebaseConfig _config;
+        private string _telemetryStatus = "Initializing...";
+        public string TelemetryStatus
+        {
+            get => _telemetryStatus;
+            private set
+            {
+                if (_telemetryStatus != value)
+                {
+                    _telemetryStatus = value;
+                    StatusChanged?.Invoke(value);
+                }
+            }
+        }
+        public event Action<string> StatusChanged;
 
         public bool IsAnalyticsEnabled 
         { 
@@ -29,6 +47,7 @@ namespace DeviceMonitorCS.Services
                 {
                     _isAnalyticsEnabled = value;
                     SaveSettings();
+                    UpdateStatus();
                 }
             }
         }
@@ -38,8 +57,62 @@ namespace DeviceMonitorCS.Services
         private AnalyticsService()
         {
             _httpClient = new HttpClient();
+            LoadConfig();
             LoadSettings();
             _clientId = GetOrGenerateClientId();
+            UpdateStatus();
+        }
+
+        private void LoadConfig()
+        {
+            try
+            {
+                // Prioritize local file for Portable Directory mode (same logic as FirebaseTelemetryService)
+                string localPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "firebase_config.json");
+                if (File.Exists(localPath))
+                {
+                    string json = File.ReadAllText(localPath);
+                    _config = JsonSerializer.Deserialize<FirebaseConfig>(json);
+                    return;
+                }
+
+                // Fallback to Embedded Resource
+                var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+                var resourceName = "DeviceMonitorCS.firebase_config.json";
+
+                using (Stream stream = assembly.GetManifestResourceStream(resourceName))
+                {
+                    if (stream != null)
+                    {
+                        using (StreamReader reader = new StreamReader(stream))
+                        {
+                            string json = reader.ReadToEnd();
+                            _config = JsonSerializer.Deserialize<FirebaseConfig>(json);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading Firebase config: {ex.Message}");
+            }
+        }
+
+        private void UpdateStatus()
+        {
+            if (!IsAnalyticsEnabled)
+            {
+                TelemetryStatus = "Disabled (User Opt-out)";
+                return;
+            }
+
+            if (_config == null || string.IsNullOrEmpty(_config.MeasurementId) || string.IsNullOrEmpty(_config.ApiSecret))
+            {
+                TelemetryStatus = "Error: Mising Configuration";
+                return;
+            }
+
+            TelemetryStatus = "Active";
         }
 
         private string GetSettingsPath()
@@ -76,7 +149,7 @@ namespace DeviceMonitorCS.Services
         }
 
         private string GetOrGenerateClientId()
-         {
+        {
              var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DeviceMonitorCS");
              var path = Path.Combine(folder, "client_id.txt");
              if (File.Exists(path)) return File.ReadAllText(path);
@@ -85,7 +158,7 @@ namespace DeviceMonitorCS.Services
              Directory.CreateDirectory(folder);
              File.WriteAllText(path, newId);
              return newId;
-         }
+        }
 
         public async Task LogEventAsync(string eventName, Dictionary<string, string> parameters)
         {
@@ -96,6 +169,12 @@ namespace DeviceMonitorCS.Services
         public async Task LogEventAsync(string eventName, object parameters = null)
         {
             if (!IsAnalyticsEnabled) return;
+
+             if (_config == null || string.IsNullOrEmpty(_config.MeasurementId) || string.IsNullOrEmpty(_config.ApiSecret))
+            {
+                UpdateStatus(); // Updates to error state
+                return;
+            }
 
             try
             {
@@ -139,11 +218,22 @@ namespace DeviceMonitorCS.Services
 
                 // Send Fire-and-Forget
                 var content = new StringContent(System.Text.Json.JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
-                await _httpClient.PostAsync($"{GaUrl}?measurement_id={MeasurementId}&api_secret={ApiSecret}", content);
+                var response = await _httpClient.PostAsync($"{GaUrl}?measurement_id={_config.MeasurementId}&api_secret={_config.ApiSecret}", content);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    TelemetryStatus = $"Error: {response.StatusCode}";
+                }
+                else
+                {
+                     // Keep "Active" unless we want "Last Sent: <Time>"
+                     if (TelemetryStatus.StartsWith("Error")) TelemetryStatus = "Active";
+                }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Analytics Error: {ex.Message}");
+                TelemetryStatus = "Connection Error";
             }
         }
 
@@ -161,5 +251,15 @@ namespace DeviceMonitorCS.Services
 
             return input;
         }
+    }
+
+    // Config DTO
+    public class FirebaseConfig
+    {
+        public string measurementId { get; set; }
+        public string apiSecret { get; set; }
+        
+        public string MeasurementId => measurementId;
+        public string ApiSecret => apiSecret;
     }
 }

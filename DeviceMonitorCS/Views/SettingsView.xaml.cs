@@ -22,6 +22,22 @@ namespace DeviceMonitorCS.Views
                 IntervalValueText.Text = $"{val} ms";
                 IntervalChanged?.Invoke(val);
             };
+
+            // Status Binding
+            UpdateAnalyticsStatus(Services.AnalyticsService.Instance.TelemetryStatus);
+            Services.AnalyticsService.Instance.StatusChanged += UpdateAnalyticsStatus;
+        }
+
+        private void UpdateAnalyticsStatus(string status)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                AnalyticsStatusText.Text = $"Status: {status}";
+                
+                if (status == "Active") AnalyticsStatusText.Foreground = System.Windows.Media.Brushes.LightGreen;
+                else if (status.Contains("Disabled")) AnalyticsStatusText.Foreground = System.Windows.Media.Brushes.Gray;
+                else AnalyticsStatusText.Foreground = System.Windows.Media.Brushes.Red;
+            });
         }
         
         private void AnalyticsToggle_Changed(object sender, System.Windows.RoutedEventArgs e)
