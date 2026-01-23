@@ -2,7 +2,7 @@
 
 **Auto Command** is a high-fidelity Windows system monitoring and security command center. It combines real-time data accuracy with a premium "Aurora" glassmorphism interface, providing a professional workspace for power users to track system health and security telemetry.
 
-[![Download v3.10.2](https://img.shields.io/badge/Download-v3.10.2-00F0FF?style=for-the-badge&logo=windows)](https://github.com/dparksports/SystemMonitor/releases/download/v3.10.2/AutoCommand_v3.10.2.zip)
+[![Download v3.10.3](https://img.shields.io/badge/Download-v3.10.3-00F0FF?style=for-the-badge&logo=windows)](https://github.com/dparksports/SystemMonitor/releases/download/v3.10.3/AutoCommand_v3.10.3.zip)
 
 ![Auto Command Dashboard](DeviceMonitorCS/app_dashboard_mockup.png)
 
@@ -55,3 +55,7 @@ git clone https://github.com/dparksports/SystemMonitor.git
 cd SystemMonitor/DeviceMonitorCS
 dotnet build -c Release
 ```
+
+---
+
+<p align="center">Made with ❤️ in California</p>
