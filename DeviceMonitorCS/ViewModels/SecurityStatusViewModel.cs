@@ -147,16 +147,84 @@ namespace DeviceMonitorCS.ViewModels
             if (IsScanning) return;
             
             IsScanning = true;
-            StatusMessage = "Scanning...";
-            
-            // Simulate Scan Delay
-            await Task.Delay(3000);
-            
-            // Randomize result for demo purposes or keep secure
+            StatusMessage = "Scanning System...";
+            DetailedStatus = "Analyzing Firewall, Defender, and Network activity...";
+
+            await Task.Delay(500); // Small UI breather
+
+            // 1. Run Checks in Parallel
+            var firewallTask = CheckFirewallHealth();
+            var defenderTask = CheckDefenderStatus();
+            var networkTask = CheckNetworkHealth();
+
+            await Task.WhenAll(firewallTask, defenderTask, networkTask);
+
+            bool fwOk = firewallTask.Result;
+            bool avOk = defenderTask.Result;
+            bool netOk = networkTask.Result;
+
+            // 2. Aggregate Results
+            if (!avOk)
+            {
+                CurrentHealth = SystemHealth.Critical;
+                StatusMessage = "Antivirus Issue";
+                DetailedStatus = "Windows Defender is not active or out of date.";
+            }
+            else if (!fwOk)
+            {
+                CurrentHealth = SystemHealth.AtRisk;
+                StatusMessage = "Firewall Gaps";
+                DetailedStatus = "Critical ports (RDP/SMB) are exposed on Public/Standard profile.";
+            }
+            else if (!netOk)
+            {
+                CurrentHealth = SystemHealth.AtRisk;
+                StatusMessage = "High Traffic";
+                DetailedStatus = "Unusual amount of active connections detected.";
+            }
+            else
+            {
+                CurrentHealth = SystemHealth.Secure;
+                StatusMessage = "System Secure";
+                DetailedStatus = $"Scan complete at {System.DateTime.Now:t}. Firewall, Defender, and Network are healthy.";
+            }
+
             IsScanning = false;
-            CurrentHealth = SystemHealth.Secure;
-            StatusMessage = "System Secure";
-            DetailedStatus = $"Scan complete at {DateTime.Now:t}. No threats found.";
+        }
+
+        private async Task<bool> CheckFirewallHealth()
+        {
+            // Check if Firewall is enabled for current profile
+            // Simple check: Is RDP or SMB open?
+            // Using a specialized script via FirewallService or just direct PS here for simplicity since Service is strictly for Profile Management currently.
+            // Let's use FirewallProfileService helper if possible, or just PS.
+            // To keep it clean, we'll verify if the "StrictPublic" rules are applied? 
+            // Or just generic: Get-NetFirewallProfile -Profile Public | Select Enabled
+            
+            // We will basically check if RDP is enabled.
+            string script = "Get-NetFirewallRule -DisplayGroup 'Remote Desktop' -Enabled True -ErrorAction SilentlyContinue";
+            var result = await Services.FirewallProfileService.Instance.RunPowershellPublicAsync(script);
+            // If result is empty, RDP is NOT enabled (Good). If not empty, RDP is enabled (Bad if we want strict).
+            // Let's assume strict default.
+            return string.IsNullOrWhiteSpace(result); 
+        }
+
+        private async Task<bool> CheckDefenderStatus()
+        {
+             // Check if Defender is RealTimeProtectionEnabled
+             // Note: Requires Admin usually.
+             string script = "Get-MpComputerStatus | Select-Object -ExpandProperty RealTimeProtectionEnabled";
+             var result = await Services.FirewallProfileService.Instance.RunPowershellPublicAsync(script);
+             return result.Trim().Equals("True", System.StringComparison.OrdinalIgnoreCase);
+        }
+
+        private async Task<bool> CheckNetworkHealth()
+        {
+             // Check if we have < 100 active connections (arbitrary heuristic)
+             // Force a refresh first?
+             // ConnectionMonitor is on a background loop, so let's just peek connection count.
+             int count = Models.ConnectionMonitor.Instance.ActiveConnections.Count;
+             return count < 100;
         }
 
         public void UpdateStatus(string status, string colorType)

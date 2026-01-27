@@ -69,7 +69,7 @@ Get-NetFirewallRule -DisplayGroup 'Core Networking' | Set-NetFirewallRule -Enabl
             await RunPowershellAsync($"Set-NetFirewallRule -DisplayGroup '{group}' -Enabled False");
         }
 
-        private Task<string> RunPowershellAsync(string script)
+        public Task<string> RunPowershellPublicAsync(string script)
         {
             return Task.Run(() =>
             {
@@ -84,11 +84,14 @@ Get-NetFirewallRule -DisplayGroup 'Core Networking' | Set-NetFirewallRule -Enabl
                         RedirectStandardOutput = true
                     };
                     var p = Process.Start(psi);
+                    string output = p.StandardOutput.ReadToEnd();
                     p.WaitForExit();
-                    return "";
+                    return output;
                 }
                 catch { return ""; }
             });
         }
+
+        private Task<string> RunPowershellAsync(string script) => RunPowershellPublicAsync(script);
     }
 }
