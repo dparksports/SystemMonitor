@@ -198,7 +198,24 @@
                 <Button x:Name="RefreshBtn" Content="Refresh" Margin="20,0,0,0" Padding="10,5" Background="#2D2D30" Foreground="White" BorderBrush="#3E3E42" Click="RefreshBtn_Click"/>
             </StackPanel>
 
-            <Button x:Name="ResetBtn" Grid.Column="1" Content="Reset to Default" Padding="15,5" Background="#FF4444" Foreground="White" BorderBrush="Red" Click="ResetBtn_Click" FontWeight="Bold"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <TextBlock Text="Active Profile:" VerticalAlignment="Center" Foreground="#AAAAAA" Margin="0,0,10,0"/>
+                <ComboBox x:Name="ProfileSelector" Width="150" SelectionChanged="ProfileSelector_SelectionChanged" 
+                          Background="#2D2D30" Foreground="Black" BorderBrush="#3E3E42" VerticalContentAlignment="Center" Padding="5">
+                    <ComboBox.Resources>
+                        <Style TargetType="ComboBoxItem">
+                            <Setter Property="Background" Value="#2D2D30"/>
+                            <Setter Property="Foreground" Value="White"/>
+                        </Style>
+                    </ComboBox.Resources>
+                    <ComboBoxItem Content="Custom (Current)" IsSelected="True" Tag="Custom"/>
+                    <ComboBoxItem Content="Strict (Public)" Tag="StrictPublic"/>
+                    <ComboBoxItem Content="Home / Office" Tag="HomeTrusted"/>
+                    <ComboBoxItem Content="Gaming / Media" Tag="GamingMedia"/>
+                    <ComboBoxItem Content="Shield Up (Block All)" Tag="ShieldUp" Foreground="#FFAE00" FontWeight="Bold"/>
+                </ComboBox>
+                <Button x:Name="ResetBtn" Content="Reset Default" Margin="20,0,0,0" Padding="15,5" Background="#FF4444" Foreground="White" BorderBrush="Red" Click="ResetBtn_Click" FontWeight="Bold"/>
+            </StackPanel>
         </Grid>
 
         <!-- Main Tabs (Inbound / Outbound) -->

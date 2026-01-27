@@ -3,11 +3,17 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:controls="clr-namespace:DeviceMonitorCS.Controls"
+             xmlns:converters="clr-namespace:DeviceMonitorCS.Converters"
+             xmlns:vm="clr-namespace:DeviceMonitorCS.ViewModels"
              mc:Ignorable="d" 
              d:DesignHeight="700" d:DesignWidth="900"
              Loaded="UserControl_Loaded" Unloaded="UserControl_Unloaded">
 
     <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <converters:ActivityFeedConverter x:Key="ActivityFeedConverter"/>
+        
         <Style x:Key="MetricCard" TargetType="Border">
             <Setter Property="Background" Value="#CC1E293B"/>
             <Setter Property="BorderBrush" Value="#22FFFFFF"/>
@@ -15,20 +21,6 @@
             <Setter Property="CornerRadius" Value="10"/>
             <Setter Property="Padding" Value="15"/>
             <Setter Property="Margin" Value="5"/>
-        </Style>
-
-        <Style x:Key="GlowTopLine" TargetType="Border">
-            <Setter Property="Height" Value="2"/>
-            <Setter Property="VerticalAlignment" Value="Top"/>
-            <Setter Property="CornerRadius" Value="10,10,0,0"/>
-            <Setter Property="Margin" Value="1,1,1,0"/>
-        </Style>
-
-        <Style x:Key="GlowBottomLine" TargetType="Border">
-            <Setter Property="Height" Value="2"/>
-            <Setter Property="VerticalAlignment" Value="Bottom"/>
-            <Setter Property="CornerRadius" Value="0,0,10,10"/>
-            <Setter Property="Margin" Value="1,0,1,1"/>
         </Style>
 
         <Style x:Key="CardTitle" TargetType="TextBlock">
@@ -48,13 +40,86 @@
 
     <Grid Margin="10">
         <Grid.RowDefinitions>
-            <RowDefinition Height="220"/>
-            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/> <!-- Tier 1: Hero Shield -->
+            <RowDefinition Height="*"/>    <!-- Tier 2: Activity Feed -->
+            <RowDefinition Height="Auto"/> <!-- Tier 3: Expert Metrics (Collapsible) -->
         </Grid.RowDefinitions>
 
-        <!-- Top Row: Metrics -->
-        <Grid Grid.Row="0">
-            <Grid.ColumnDefinitions>
+        <!-- Tier 1: Status Shield (Hero) -->
+        <Border Grid.Row="0" Margin="0,0,0,20" Padding="20">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <controls:StatusShieldControl Grid.Column="1" HorizontalAlignment="Center"/>
+                
+                <!-- Action Buttons -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,220,0,0">
+                    <Button Content="Scan Now" Command="{Binding Source={x:Static vm:SecurityStatusViewModel.Instance}, Path=ScanCommand}"
+                            Width="120" Height="40" Background="#2563EB" Foreground="White" BorderThickness="0" FontSize="14" FontWeight="SemiBold" Margin="0,0,10,0">
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="20"/>
+                            </Style>
+                        </Button.Resources>
+                    </Button>
+                    
+                    <Button Content="Shield Up" Command="{Binding Source={x:Static vm:SecurityStatusViewModel.Instance}, Path=ShieldUpCommand}"
+                            Width="120" Height="40" Background="#FFAE00" Foreground="Black" BorderThickness="0" FontSize="14" FontWeight="SemiBold">
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="20"/>
+                            </Style>
+                        </Button.Resources>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Tier 2: Activity Feed -->
+        <Border Grid.Row="1" Style="{StaticResource MetricCard}" Margin="5,0,5,20">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <TextBlock Text="Recent Activity" Style="{StaticResource CardTitle}"/>
+                
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl x:Name="TimelineList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    
+                                    <!-- Time -->
+                                    <TextBlock Text="{Binding Time, StringFormat=t}" Foreground="#64748B" FontSize="12" Margin="0,0,15,0" VerticalAlignment="Center" Width="60"/>
+                                    
+                                    <!-- Activity (Humanized) -->
+                                    <TextBlock Text="{Binding Title, Converter={StaticResource ActivityFeedConverter}}" Foreground="#E2E8F0" FontSize="14" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    
+                                    <!-- Original Type (Debug/Expert tooltip) -->
+                                    <Grid Grid.Column="2" Visibility="{Binding Source={x:Static vm:SecurityStatusViewModel.Instance}, Path=IsExpertMode, Converter={StaticResource BoolToVis}}">
+                                        <TextBlock Text="{Binding Title}" Foreground="#40FFFFFF" FontSize="10" FontStyle="Italic" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <!-- Tier 3: Advanced Metrics (Expert Mode Only) -->
+        <Grid Grid.Row="2" Visibility="{Binding Source={x:Static vm:SecurityStatusViewModel.Instance}, Path=IsExpertMode, Converter={StaticResource BoolToVis}}">
+             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
@@ -67,23 +132,14 @@
                         <TextBlock x:Name="CpuText" Text="0%" Foreground="#00F0FF" FontWeight="Bold"/>
                     </Border>
                     
-                    <!-- Chart Background (Grid Lines) -->
                     <Grid Margin="0,40,0,25" ClipToBounds="False">
                         <StackPanel VerticalAlignment="Stretch">
                             <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,0,1" Height="33"/>
                             <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,0,1" Height="33"/>
                             <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,0,1" Height="33"/>
                         </StackPanel>
-                        <!-- Y-Axis Labels (higher Z-order) -->
-                        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="5,0,0,0" Panel.ZIndex="10">
-                            <TextBlock Text="60" Foreground="#BBE2E8F0" FontSize="10" Height="33"/>
-                            <TextBlock Text="40" Foreground="#BBE2E8F0" FontSize="10" Height="33"/>
-                            <TextBlock Text="20" Foreground="#BBE2E8F0" FontSize="10" Height="33"/>
-                            <TextBlock Text="0" Foreground="#BBE2E8F0" FontSize="10"/>
-                        </StackPanel>
-
-                        <!-- The Graph -->
-                        <Path x:Name="CpuPath" Stroke="#00F0FF" StrokeThickness="2" Margin="30,0,0,0">
+                        <!-- Graph -->
+                        <Path x:Name="CpuPath" Stroke="#00F0FF" StrokeThickness="2" Margin="5,0,0,0">
                             <Path.Fill>
                                 <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
                                     <GradientStop Color="#4000F0FF" Offset="0"/>
@@ -91,16 +147,6 @@
                                 </LinearGradientBrush>
                             </Path.Fill>
                         </Path>
-                        
-                        <!-- X-Axis Labels -->
-                        <UniformGrid Columns="6" VerticalAlignment="Bottom" Margin="30,0,0,-25" Panel.ZIndex="10">
-                            <TextBlock Text="00" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
-                            <TextBlock Text="10" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
-                            <TextBlock Text="20" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
-                            <TextBlock Text="30" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
-                            <TextBlock Text="40" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
-                            <TextBlock Text="50" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
-                        </UniformGrid>
                     </Grid>
                 </Grid>
             </Border>
@@ -113,199 +159,25 @@
                         <TextBlock x:Name="MemText" Text="0 GB" Foreground="#FFAE00" FontWeight="Bold"/>
                     </Border>
                     
-                    <!-- Chart Background (Grid Lines) -->
                     <Grid Margin="0,40,0,25" ClipToBounds="False">
                         <StackPanel VerticalAlignment="Stretch">
                             <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,0,1" Height="33"/>
                             <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,0,1" Height="33"/>
                             <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,0,1" Height="33"/>
                         </StackPanel>
-                        <!-- Y-Axis Labels -->
-                        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="5,0,0,0" Panel.ZIndex="10">
-                            <TextBlock Text="60" Foreground="#BBE2E8F0" FontSize="10" Height="33"/>
-                            <TextBlock Text="40" Foreground="#BBE2E8F0" FontSize="10" Height="33"/>
-                            <TextBlock Text="20" Foreground="#BBE2E8F0" FontSize="10" Height="33"/>
-                            <TextBlock Text="0" Foreground="#BBE2E8F0" FontSize="10"/>
-                        </StackPanel>
-
-                        <!-- The Graph -->
-                        <Path x:Name="MemPath" Stroke="#FFAE00" StrokeThickness="2" Margin="30,0,0,0">
-                             <Path.Fill>
+                        <!-- Graph -->
+                        <Path x:Name="MemPath" Stroke="#FFAE00" StrokeThickness="2" Margin="5,0,0,0">
+                            <Path.Fill>
                                 <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
                                     <GradientStop Color="#40FFAE00" Offset="0"/>
                                     <GradientStop Color="#00FFAE00" Offset="1"/>
                                 </LinearGradientBrush>
                             </Path.Fill>
                         </Path>
-
-                        <!-- X-Axis Labels -->
-                        <UniformGrid Columns="6" VerticalAlignment="Bottom" Margin="30,0,0,-25" Panel.ZIndex="10">
-                            <TextBlock Text="00" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
-                            <TextBlock Text="10" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
-                            <TextBlock Text="20" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
-                            <TextBlock Text="30" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
-                            <TextBlock Text="40" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
-                            <TextBlock Text="50" Foreground="#BBE2E8F0" FontSize="10" HorizontalAlignment="Center"/>
-                        </UniformGrid>
                     </Grid>
                 </Grid>
             </Border>
-        </Grid>
-
-        <!-- Bottom Row: Timeline & Status -->
-        <Grid Grid.Row="1" Margin="0,10,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*"/>
-                <ColumnDefinition Width="1*"/>
-            </Grid.ColumnDefinitions>
-
-            <!-- Security Timeline -->
-            <Border Grid.Column="0" Style="{StaticResource MetricCard}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    <TextBlock Text="Security Timeline" Style="{StaticResource CardTitle}"/>
-                    
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden">
-                        <ItemsControl x:Name="TimelineList">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid Margin="0,0,0,15">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="20"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <!-- Dot -->
-                                        <Ellipse Width="8" Height="8" Fill="{Binding ColorBrush}" VerticalAlignment="Top" Margin="5,6,0,0"/>
-                                        <!-- Line -->
-                                        <Rectangle Width="1" Fill="#33FFFFFF" HorizontalAlignment="Center" Margin="0,14,0,-15" Grid.Column="0"/>
-                                        
-                                        <!-- Content -->
-                                        <StackPanel Grid.Column="1" Margin="10,0,0,0">
-                                            <TextBlock Text="{Binding Title}" Foreground="#E2E8F0" FontSize="13"/>
-                                            <TextBlock Text="{Binding TimeDisplay}" Foreground="#64748B" FontSize="11"/>
-                                        </StackPanel>
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
-                </Grid>
-            </Border>
-
-            <!-- Status Column -->
-            <Grid Grid.Column="1">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-
-                <!-- Windows Defender -->
-                <Border Grid.Row="0" Style="{StaticResource MetricCard}" Margin="0,0,0,5">
-                    <Grid>
-                        <!-- Inner Radiant Glow (Top-Center, Ultra-Soft Aurora) -->
-                        <Border CornerRadius="10">
-                            <Border.Background>
-                                <RadialGradientBrush Center="0.5,0" GradientOrigin="0.5,0" RadiusX="0.8" RadiusY="1.2">
-                                    <GradientStop Color="#184ADE80" Offset="0"/>
-                                    <GradientStop Color="Transparent" Offset="1"/>
-                                </RadialGradientBrush>
-                            </Border.Background>
-                        </Border>
-                        
-                        <!-- Top Radiant Line -->
-                        <Border Style="{StaticResource GlowTopLine}">
-                            <Border.Background>
-                                <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                                    <GradientStop Color="Transparent" Offset="0"/>
-                                    <GradientStop Color="#4ADE80" Offset="0.5"/>
-                                    <GradientStop Color="Transparent" Offset="1"/>
-                                </LinearGradientBrush>
-                            </Border.Background>
-                        </Border>
-
-                        <!-- Bottom Radiant Line -->
-                        <Border Style="{StaticResource GlowBottomLine}">
-                            <Border.Background>
-                                <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                                    <GradientStop Color="Transparent" Offset="0"/>
-                                    <GradientStop Color="#4ADE80" Offset="0.5"/>
-                                    <GradientStop Color="Transparent" Offset="1"/>
-                                </LinearGradientBrush>
-                            </Border.Background>
-                        </Border>
-
-                        <Grid VerticalAlignment="Center" Margin="10,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Grid Grid.Column="0" Width="48" Height="48" Margin="0,0,15,0">
-                                <Ellipse Fill="#4ADE80"/>
-                                <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="24" Foreground="#0F172A" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold"/>
-                            </Grid>
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                 <TextBlock Text="Windows Defender:" Foreground="#E2E8F0" FontSize="14"/>
-                                 <TextBlock Text="Active" Foreground="#4ADE80" FontSize="22" FontWeight="Bold" Margin="0,-2,0,0"/>
-                            </StackPanel>
-                        </Grid>
-                    </Grid>
-                </Border>
-
-                <!-- Firewall -->
-                <Border Grid.Row="1" Style="{StaticResource MetricCard}" Margin="0,5,0,0">
-                    <Grid>
-                        <!-- Inner Radiant Glow (Top-Center, Ultra-Soft Aurora) -->
-                        <Border CornerRadius="10">
-                            <Border.Background>
-                                <RadialGradientBrush Center="0.5,0" GradientOrigin="0.5,0" RadiusX="0.8" RadiusY="1.2">
-                                    <GradientStop Color="#18F59E0B" Offset="0"/>
-                                    <GradientStop Color="Transparent" Offset="1"/>
-                                </RadialGradientBrush>
-                            </Border.Background>
-                        </Border>
-
-                        <!-- Top Radiant Line -->
-                        <Border Style="{StaticResource GlowTopLine}">
-                            <Border.Background>
-                                <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                                    <GradientStop Color="Transparent" Offset="0"/>
-                                    <GradientStop Color="#F59E0B" Offset="0.5"/>
-                                    <GradientStop Color="Transparent" Offset="1"/>
-                                </LinearGradientBrush>
-                            </Border.Background>
-                        </Border>
-
-                        <!-- Bottom Radiant Line -->
-                        <Border Style="{StaticResource GlowBottomLine}">
-                            <Border.Background>
-                                <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                                    <GradientStop Color="Transparent" Offset="0"/>
-                                    <GradientStop Color="#F59E0B" Offset="0.5"/>
-                                    <GradientStop Color="Transparent" Offset="1"/>
-                                </LinearGradientBrush>
-                            </Border.Background>
-                        </Border>
-
-                        <Grid VerticalAlignment="Center" Margin="10,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Grid Grid.Column="0" Width="48" Height="48" Margin="0,0,15,0">
-                                <Ellipse Fill="#F59E0B"/>
-                                <TextBlock Text="&#xE727;" FontFamily="Segoe MDL2 Assets" FontSize="24" Foreground="#0F172A" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold"/>
-                            </Grid>
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                 <TextBlock Text="Firewall Status:" Foreground="#E2E8F0" FontSize="14"/>
-                                 <TextBlock Text="Strict" Foreground="#F59E0B" FontSize="22" FontWeight="Bold" Margin="0,-2,0,0"/>
-                            </StackPanel>
-                        </Grid>
-                    </Grid>
-                </Border>
-            </Grid>
         </Grid>
     </Grid>
 </UserControl>
+

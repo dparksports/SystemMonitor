@@ -18,6 +18,12 @@ namespace DeviceMonitorCS.Models
             _apiKey = apiKey ?? throw new ArgumentNullException(nameof(apiKey));
         }
 
+        public async Task<string> AnalyzeThreatAsync(string threatType, string details)
+        {
+            string prompt = $"A security event was detected on a Windows PC. Type: '{threatType}'. Details: '{details}'. Explain this to a non-technical user in one short, reassuring sentence, and suggest a simple action.";
+            return await AskAsync(prompt);
+        }
+
         public async Task<string> AskAsync(string question, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(question))

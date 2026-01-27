@@ -66,8 +66,8 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel>
-                                <TextBlock Text="VPN Services" FontWeight="Bold" Foreground="White"/>
-                                <TextBlock Text="Disable background VPN services" FontSize="12" Foreground="Gray"/>
+                                <TextBlock Text="VPN Backdoor" FontWeight="Bold" Foreground="White"/>
+                                <TextBlock Text="Disable background VPN services (SSTP)" FontSize="12" Foreground="Gray"/>
                             </StackPanel>
                             <CheckBox x:Name="VpnToggle" Grid.Column="1" Style="{StaticResource ToggleSwitchStyle}" Click="VpnToggle_Click"/>
                         </Grid>
@@ -80,7 +80,7 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel>
-                                <TextBlock Text="WiFi Direct" FontWeight="Bold" Foreground="White"/>
+                                <TextBlock Text="Ghost Hotspot" FontWeight="Bold" Foreground="White"/>
                                 <TextBlock Text="Disable peer-to-peer wireless features" FontSize="12" Foreground="Gray"/>
                             </StackPanel>
                             <CheckBox x:Name="WifiDirectToggle" Grid.Column="1" Style="{StaticResource ToggleSwitchStyle}" Click="WifiDirectToggle_Click"/>
@@ -94,8 +94,8 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel>
-                                <TextBlock Text="Kernel Debug Mode" FontWeight="Bold" Foreground="White"/>
-                                <TextBlock Text="Security risk if enabled on production systems" FontSize="12" Foreground="Gray"/>
+                                <TextBlock Text="Hacker Access Mode" FontWeight="Bold" Foreground="White"/>
+                                <TextBlock Text="Security risk if enabled (Kernel Debug)" FontSize="12" Foreground="Gray"/>
                             </StackPanel>
                             <CheckBox x:Name="DebugToggle" Grid.Column="1" Style="{StaticResource ToggleSwitchStyle}" Click="DebugToggle_Click"/>
                         </Grid>
@@ -108,8 +108,8 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel>
-                                <TextBlock Text="Windows Usage Data" FontWeight="Bold" Foreground="White"/>
-                                <TextBlock Text="Telemetry and data collection (UsageDataReceiver)" FontSize="12" Foreground="Gray"/>
+                                <TextBlock Text="Microsoft Tracking" FontWeight="Bold" Foreground="White"/>
+                                <TextBlock Text="Telemetry and usage data collection" FontSize="12" Foreground="Gray"/>
                             </StackPanel>
                             <CheckBox x:Name="UsageDataToggle" Grid.Column="1" Style="{StaticResource ToggleSwitchStyle}" Click="UsageDataToggle_Click"/>
                         </Grid>

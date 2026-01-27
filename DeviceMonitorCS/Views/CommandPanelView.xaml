@@ -37,8 +37,9 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Quarter 1 (Top-Left): Microsoft VPN Hole -->
-            <GroupBox Grid.Row="0" Grid.Column="0" Header="Microsoft VPN Hole" Margin="0,0,10,10" BorderBrush="#3E3E42" Foreground="White" Padding="10">
+            <!-- Quarter 1 (Top-Left): System VPN Backdoors -->
+            <GroupBox Grid.Row="0" Grid.Column="0" Header="System VPN Backdoors" Margin="0,0,10,10" BorderBrush="#3E3E42" Foreground="White" Padding="10"
+                      ToolTip="Technical: Microsoft VPN Hole (WAN Miniport SSTP)">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/> <!-- SSTP Service -->
@@ -85,8 +86,9 @@
                 </Grid>
             </GroupBox>
 
-            <!-- Quarter 2 (Top-Right): WiFi Direct Hole -->
-            <GroupBox Grid.Row="0" Grid.Column="1" Header="WiFi Direct Hole" Margin="10,0,0,10" BorderBrush="#3E3E42" Foreground="White" Padding="10">
+            <!-- Quarter 2 (Top-Right): Hidden Hotspots -->
+            <GroupBox Grid.Row="0" Grid.Column="1" Header="Ghost Hotspots" Margin="10,0,0,10" BorderBrush="#3E3E42" Foreground="White" Padding="10"
+                      ToolTip="Technical: WiFi Direct Hosted Network">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/> <!-- Status & Control -->
@@ -130,8 +132,9 @@
                 </Grid>
             </GroupBox>
 
-            <!-- Quarter 3 (Bottom-Left): Microsoft Kernel Debug Network Hole -->
-            <GroupBox Grid.Row="1" Grid.Column="0" Header="Microsoft Kernel Debug Network Hole" Margin="0,10,10,0" BorderBrush="#3E3E42" Foreground="White" Padding="10">
+            <!-- Quarter 3 (Bottom-Left): Hacker Access Mode -->
+            <GroupBox Grid.Row="1" Grid.Column="0" Header="Hacker Access Mode" Margin="0,10,10,0" BorderBrush="#3E3E42" Foreground="White" Padding="10"
+                      ToolTip="Technical: Microsoft Kernel Debug Network Hole (KDNET)">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/> <!-- Status & Control -->

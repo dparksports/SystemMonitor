@@ -14,6 +14,7 @@ namespace DeviceMonitorCS.Views
             
             // Sync UI with Service
             AnalyticsToggle.IsChecked = Services.AnalyticsService.Instance.IsAnalyticsEnabled;
+            ExpertModeToggle.IsChecked = Services.SettingsManager.Instance.IsExpertMode;
             AppVersionText.Text = "v" + typeof(SettingsView).Assembly.GetName().Version.ToString(3);
 
             IntervalSlider.ValueChanged += (s, e) =>
@@ -45,13 +46,22 @@ namespace DeviceMonitorCS.Views
             Services.AnalyticsService.Instance.IsAnalyticsEnabled = AnalyticsToggle.IsChecked == true;
         }
 
+        private void ExpertModeToggle_Changed(object sender, System.Windows.RoutedEventArgs e)
+        {
+            Services.SettingsManager.Instance.IsExpertMode = ExpertModeToggle.IsChecked == true;
+        }
+
         public void SetCurrentInterval(int interval)
         {
             IntervalSlider.Value = interval;
             IntervalValueText.Text = $"{interval} ms";
         }
 
-
+        private void RunWizardBtn_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            var wizard = new SecurityAuditWizardView();
+            wizard.ShowDialog();
+        }
         private void InstallTaskBtn_Click(object sender, System.Windows.RoutedEventArgs e)
         {
             try

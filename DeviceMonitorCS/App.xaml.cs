@@ -44,6 +44,15 @@ public partial class App : Application
                 return;
             }
         }
+        
+        // Security Audit Wizard (First Run)
+        if (DeviceMonitorCS.Services.SettingsManager.Instance.IsFirstRun)
+        {
+            var wizard = new DeviceMonitorCS.Views.SecurityAuditWizardView();
+            bool? wizResult = wizard.ShowDialog();
+            
+            // Note: Wizard handles updating IsFirstRun to false on completion/skip.
+        }
 
         // Show Main Window
         var mainWindow = new MainWindow();

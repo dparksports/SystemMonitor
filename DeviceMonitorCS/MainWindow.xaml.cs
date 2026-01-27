@@ -248,6 +248,8 @@ namespace DeviceMonitorCS
                              {
                                  ((Views.OverviewView)view).UpdateLiveStatus(status, color);
                              }
+                             // Update Unified ViewModel
+                             ViewModels.SecurityStatusViewModel.Instance.UpdateStatus(status, color);
                          });
                     };
                     
@@ -608,18 +610,20 @@ namespace DeviceMonitorCS
                 try
                 {
                     var client = new GeminiClient(apiKey);
-                    string explanation = await client.AskAsync($"System Threat Blocked: {type}. Details: {details}. Explain why this is dangerous in 1 sentence.");
+                    // Use new AnalyzeThreatAsync method for "Active Advisor" persona
+                    string explanation = await client.AnalyzeThreatAsync(type, details);
                 
                     Dispatcher.Invoke(() => {
                          SecurityData.Insert(0, new SecurityEvent { 
                              Time = DateTime.Now.ToString("HH:mm:ss"), 
-                             Activity = "Threat Analysis", 
-                             Type = explanation, // Details Column
-                             Account = "Gemini AI", // Source Column
+                             Activity = "Active Advisor", 
+                             Type = explanation, 
+                             Account = "Gemini AI", 
                              Id = 999 
                         });
                          
-                         MessageBox.Show($"Security Enforcer Intervention!\n\nBlocked: {type}\n\nAI Explanation: {explanation}", "Security Alert", MessageBoxButton.OK, MessageBoxImage.Warning);
+                         // Show Toast instead of intrusive MessageBox
+                         Services.ToastNotificationService.Instance.ShowToast("Security Threat Blocked", $"{type}\n{explanation}");
                     });
                 }
                 catch {}

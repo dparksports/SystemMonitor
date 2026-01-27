@@ -411,6 +411,39 @@ $rules | ForEach-Object {{
             }
         }
 
+        private async void ProfileSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!_isInitialized) return;
+            
+            if (ProfileSelector.SelectedItem is ComboBoxItem item && item.Tag is string tag)
+            {
+                if (tag == "Custom") return; // No action
+
+                Mouse.OverrideCursor = Cursors.Wait;
+                try
+                {
+                    Services.FirewallProfileService.ProfileType profile;
+                    if (Enum.TryParse(tag, out profile))
+                    {
+                        await Services.FirewallProfileService.Instance.ApplyProfile(profile);
+                        MessageBox.Show($"Profile '{item.Content}' applied successfully.", "Profile Updated");
+                        
+                        // Reload Rules
+                       if (_inboundLoaded) await LoadRules("Inbound");
+                       if (_outboundLoaded) await LoadRules("Outbound");
+                    }
+                }
+                catch (Exception ex)
+                {
+                     MessageBox.Show($"Error applying profile: {ex.Message}");
+                }
+                finally
+                {
+                    Mouse.OverrideCursor = null;
+                }
+            }
+        }
+
         private Task<string> RunPowershellAsync(string script)
         {
             return Task.Run(() =>
