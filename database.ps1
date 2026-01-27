@@ -1,35 +1,61 @@
-function Check-SecureBootUpdate {
-    Write-Host "--- Checking Secure Boot 'db' Database ---" -ForegroundColor Cyan
+function Get-AllSecureBootStrings {
+    param ( [string]$DBName, [string]$Description )
     
+    Write-Host "=============================================" -ForegroundColor Cyan
+    Write-Host " Contents of: $DBName ($Description)" -ForegroundColor Cyan
+    Write-Host "============================================="
+
     try {
-        # 1. Get the raw data
-        $uefiVar = Get-SecureBootUEFI -Name "db" -ErrorAction Stop
+        # 1. Fetch the raw binary data
+        $blob = Get-SecureBootUEFI -Name $DBName -ErrorAction Stop
         
-        # 2. Decode as simple text (ignoring special formatting)
-        $rawDataAscii = [System.Text.Encoding]::Default.GetString($uefiVar.Bytes)
-        
-        # 3. Check for the specific keys
-        $hasOldKey = $rawDataAscii -match "Windows Production PCA 2011"
-        $hasNewKey = $rawDataAscii -match "Windows UEFI CA 2023"
-        
-        # 4. Report Results
-        if ($hasOldKey) {
-            Write-Host "  [YES] Found Old Standard: 'Microsoft Windows Production PCA 2011'" -ForegroundColor Green
-        } else {
-            Write-Host "  [NO]  Missing Old Standard (Unusual)" -ForegroundColor Yellow
+        if (-not $blob) { 
+            Write-Host "  [Empty] Variable has no data." -ForegroundColor DarkGray
+            return 
         }
 
-        if ($hasNewKey) {
-            Write-Host "  [YES] Found New Update:   'Windows UEFI CA 2023'" -ForegroundColor Green
-            Write-Host "`n  SUCCESS: The BlackLotus mitigation update is installed." -ForegroundColor Cyan
+        # 2. Convert bytes to text (Try both ASCII and Unicode)
+        # This catches names regardless of how the vendor encoded them.
+        $textAscii   = [System.Text.Encoding]::ASCII.GetString($blob.Bytes)
+        $textUnicode = [System.Text.Encoding]::Unicode.GetString($blob.Bytes)
+
+        # 3. Regex: Find all "words" longer than 3 characters
+        # This filters out random binary noise but keeps names like "Microsoft", "Canonical", "Intel"
+        $pattern = "[A-Za-z0-9][A-Za-z0-9 \-\.]{3,}"
+        
+        $foundStrings = @()
+        $foundStrings += ([Regex]::Matches($textAscii,   $pattern) | ForEach-Object { $_.Value })
+        $foundStrings += ([Regex]::Matches($textUnicode, $pattern) | ForEach-Object { $_.Value })
+
+        # 4. Clean up and Print
+        # We select 'Unique' to remove duplicates (Certs often repeat the Issuer name)
+        $cleanList = $foundStrings | Select-Object -Unique | Sort-Object
+
+        if ($cleanList.Count -gt 0) {
+            foreach ($item in $cleanList) {
+                # specific cleanup to ignore common noise
+                if ($item -notmatch "^(M)?[A-Z]{3,}$") { 
+                    Write-Host "  Found: '$item'" -ForegroundColor Green 
+                }
+            }
         } else {
-            Write-Host "  [NO]  Missing New Update: 'Windows UEFI CA 2023'" -ForegroundColor Red
-            Write-Host "`n  STATUS: The update is NOT installed yet." -ForegroundColor Yellow
+            Write-Host "  [Binary Only] No readable names found (Likely File Hashes)." -ForegroundColor Yellow
         }
 
     } catch {
-        Write-Error "Could not read the database. Ensure you are Administrator."
+        Write-Error "Could not read $DBName."
     }
+    Write-Host ""
 }
 
-Check-SecureBootUpdate
+# --- Execute ---
+
+# 1. THE WHITELIST (Who can boot)
+Get-AllSecureBootStrings "db" "Allowed Database"
+
+# 2. THE ADMINS (Who can update the whitelist)
+Get-AllSecureBootStrings "KEK" "Key Exchange Keys"
+
+# 3. THE BLACKLIST (Who is banned)
+# Note: This is usually empty of names because it stores hashes (fingerprints) of files, not vendor names.
+Get-AllSecureBootStrings "dbx" "Forbidden Database"
