@@ -161,6 +161,10 @@ namespace DeviceMonitorCS.ViewModels
         private readonly Action<object> _execute;
         public RelayCommand(Action<object> execute) { _execute = execute; }
         public event EventHandler CanExecuteChanged;
+#pragma warning disable CS0067
+        // Method to raise the event manually if needed
+        public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+#pragma warning restore CS0067
         public bool CanExecute(object parameter) => true;
         public void Execute(object parameter) => _execute(parameter);
     }
