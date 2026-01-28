@@ -79,7 +79,7 @@
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="Action Required:" Foreground="#FF4444" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0"/>
                             <TextBlock Text="Install the latest Windows Updates to apply the Secure Boot DBX update (KB5012170)." Foreground="#CCCCCC" VerticalAlignment="Center"/>
-                            <Button Content="How to Fix" Click="FixBtn_Click" Margin="20,0,0,0" Padding="15,4" Background="#333333" Foreground="White" BorderBrush="#555555"/>
+                            <Button Content="Auto-Fix" Click="FixBtn_Click" Margin="20,0,0,0" Padding="15,4" Background="#333333" Foreground="White" BorderBrush="#555555" ToolTip="Downloads and applies the official UEFI DBX update. Use with caution."/>
                         </StackPanel>
                     </StackPanel>
                 </Border>

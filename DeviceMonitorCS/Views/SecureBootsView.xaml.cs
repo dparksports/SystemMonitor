@@ -93,17 +93,48 @@ namespace DeviceMonitorCS.Views
             }
         }
 
-        private void FixBtn_Click(object sender, RoutedEventArgs e)
+        private async void FixBtn_Click(object sender, RoutedEventArgs e)
         {
-            try
+            LoadingOverlay.Visibility = Visibility.Visible;
+
+            // 1. Download and get checksum
+            var result = await DeviceMonitorCS.Helpers.DbxRemediator.DownloadUpdateAsync();
+            
+            LoadingOverlay.Visibility = Visibility.Collapsed;
+
+            if (string.IsNullOrEmpty(result.Path))
             {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = "https://support.microsoft.com/en-us/topic/kb5012170-security-update-for-secure-boot-dbx-72ff5eed-25b4-47c7-be28-c42bd211bb15",
-                    UseShellExecute = true
-                });
+                 MessageBox.Show("Failed to download the update file from uefi.org.", "Download Failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                 return;
             }
-            catch { }
+
+            // 2. Show Confirmation with Checksum
+            string message = $"Downloaded UEFI DBX Update (KB5012170).\n\n" +
+                             $"Source: uefi.org\n" +
+                             $"SHA256: {result.Checksum}\n\n" +
+                             "This file is digitally signed by Microsoft (KEK).\n" +
+                             "The firmware will REJECT it if the signature is invalid.\n\n" +
+                             "Proceed with installation? (Requires Admin / Restart)";
+
+            if (MessageBox.Show(message, "Verify & Install", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+            {
+                LoadingOverlay.Visibility = Visibility.Visible;
+                bool success = await DeviceMonitorCS.Helpers.DbxRemediator.InstallUpdateAsync(result.Path);
+                LoadingOverlay.Visibility = Visibility.Collapsed;
+
+                if (success)
+                {
+                    MessageBox.Show("Update command executed successfully.\n\nPlease RESTART your computer for the changes to take effect.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                    await InitializeAndLoad();
+                }
+                else
+                {
+                    MessageBox.Show("Update failed to install.\nPossible reasons: Admin denied, or Firmware rejected the file.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            
+            // Cleanup
+            try { if (System.IO.File.Exists(result.Path)) System.IO.File.Delete(result.Path); } catch { }
         }
     }
 }

@@ -2,16 +2,16 @@
 
 **Auto Command** is a next-generation system security monitor for Windows, designed to bring enterprise-grade forensics to a premium, consumer-friendly interface. It goes beyond simple monitoring to provide active protection, firmware-level inspection, and automated vulnerability mitigation.
 
-[![Download v3.12.0](https://img.shields.io/badge/Download-v3.12.0-00F0FF?style=for-the-badge&logo=windows)](https://github.com/dparksports/SystemMonitor/releases/tag/v3.12.0)
+[![Download v3.13.0](https://img.shields.io/badge/Download-v3.13.0-00F0FF?style=for-the-badge&logo=windows)](https://github.com/dparksports/SystemMonitor/releases/tag/v3.13.0)
 
 ![Secure Boot Dashboard](DeviceMonitorCS/secure_boot_dashboard_v3_12.png)
 
 ## 🚀 Key Capabilities
 
-### 🔒 **Advanced Firmware Protection (New in v3.12)**
+### 🔒 **Advanced Firmware Protection (New in v3.13)**
 Directly interface with your motherboard's NVRAM to detect and mitigate stealthy bootkits.
 *   **BlackLotus Detection**: Built-in scanner specifically targets CVE-2022-21894 ("Baton Drop"), checking your `dbx` revocation list for the required hashes.
-*   **One-Click Remediation**: If your system is vulnerable, Auto Command provides direct access to the official Microsoft mitigation path.
+*   **Auto-Fix Remediation**: Automatically downloads and applies the official Microsoft DBX update (KB5012170) to patch vulnerable systems, complete with SHA256 checksum verification for safety.
 *   **Real-time Monitoring**: Watch for unauthorized changes to your Secure Boot policy (`db` allowed signatures and `dbx` revocations).
 
 ### ⚡ **Interactive Security Dashboard**
