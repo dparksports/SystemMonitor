@@ -1,58 +1,60 @@
 # ⚔ Auto Command
 
-**Auto Command** is a high-fidelity Windows system monitoring and security command center. It combines real-time data accuracy with a premium "Aurora" glassmorphism interface, providing a professional workspace for power users to track system health and security telemetry.
+**Auto Command** is a high-fidelity system command center for Windows. It bridges the gap between raw system forensics and premium user experience, offering a "glassmorphism" interface to monitor, secure, and optimize your machine.
 
-[![Download v3.10.4](https://img.shields.io/badge/Download-v3.10.4-00F0FF?style=for-the-badge&logo=windows)](https://github.com/dparksports/SystemMonitor/releases/download/v3.10.4/AutoCommand_v3.10.4.zip)
+[![Download v3.11.1](https://img.shields.io/badge/Download-v3.11.1-00F0FF?style=for-the-badge&logo=windows)](https://github.com/dparksports/SystemMonitor/releases/tag/v3.11.1)
 
 ![Auto Command Dashboard](DeviceMonitorCS/app_dashboard_mockup.png)
 
-## 🚀 Key Features
+## ✨ Key Features
 
-### 🛡️ Unified Command Panel
-The heart of Auto Command, providing one-click management for critical system interfaces often exploited as "Security Holes."
-### 🛡️ **Advanced Firewall Management**
-- **Lazy Loading**: Firewall rules load on-demand, significantly improving app startup time.
-- **Nested Grouping**:
-  - **Inbound/Outbound Separation**: Dedicated tabs for rule direction.
-  - **Enabled/Disabled Partitioning**: Rules are intelligently separated into "Enabled Groups" and "Disabled Groups".
-  - **Smart Expansion**: Active groups (≤ 5 rules) are auto-expanded for quick visibility; larger groups are collapsed.
-- **Sorting**: Enabled groups are sorted by rule count (smallest first) to prioritize manageable sets.
-- **Column Visibility**: Fixed rendering issues to ensure all rule details (Ports, Protocols, Actions) are clearly visible.
+### 🔒 Secure Boot Forensics (New in v3.11)
+Directly inspect the UEFI Secure Boot databases hidden in NVRAM.
+- **Allowed Signatures (`db`)**: View all certificates authorized to boot on your system.
+- **Revocation List (`dbx`)**: Search forbidden hashes (including known threats like BlackLotus).
+- **Change Detection**: Real-time alerts if your Secure Boot policy is modified by an attacker or update.
 
-### 📅 **Scheduled Task Manager** (New in v3.10)
-- **Tri-List View**: Tasks are organized into three clear tabs:
-  - **Running**: Currently executing tasks.
-  - **Ready**: Enabled tasks waiting for triggers.
-  - **Disabled**: Inactive tasks.
-- **Direct Control**: Run and Stop tasks directly from the dashboard.
-- **Async Loading**: Task lists load in the background to keep the UI responsive.
+### 🛡️ Firewall Commander
+Stop wrestling with the legacy Windows Firewall console.
+- **Smart Grouping**: Rules are automatically grouped and sorted by relevance.
+- **Drift Detection**: Alerts you when rules change unexpectedly.
+- **One-Click Hardening**: Block telemetry and unnecessary outbound traffic instantly.
 
-### 🔒 **Privacy & Security**
-- **Telemetry Blocking**: One-click disabling of Windows telemetry and tracking services.
-- **Service Management**: Toggle background services like SysMain, DiagTrack, and more.
-- **Ghost Process Detection**: Identify and terminate hidden background processes.
+### ⚡ System Intelligence
+- **Process Manager**: Kill hidden background processes and ghost tasks.
+- **Service Control**: Toggle Windows services (SysMain, DiagTrack) without navigating `services.msc`.
+- **Connections**: Monitor active network connections and identify "phone home" behavior.
 
-### ⚡ **System Performance**
-- **Process Manager**: View and kill running processes with detailed resource usage.
-- **Cold Boots**: (Coming Soon) Optimized startup management.
+### 🎨 Premium Experience
+- **Aurora UI**: A modern, translucent interface that feels at home on Windows 11.
+- **Performance First**: Lazy loading and async operations ensure the UI never freezes, even when parsing thousands of system events.
 
 ---
 
 ## 📥 Installation
-1. Download the latest release: [Auto Command v3.10.4](https://github.com/dparksports/SystemMonitor/releases/download/v3.10.4/AutoCommand_v3.10.4.zip)
-2. Extract the ZIP file to a preferred location (e.g., `C:\Tools\AutoCommand`).
-3. Run `AutoCommand.exe` as Administrator.
+
+1. **Download**: Grab the latest release from the [Releases Page](https://github.com/dparksports/SystemMonitor/releases).
+2. **Extract**: Unzip the archive to a permanent location (e.g., `C:\Tools\AutoCommand`).
+3. **Run**: Launch `AutoCommand.exe` as Administrator.
+
+> **Note**: Administrator privileges are required to access low-level system details like UEFI variables and Firewall rules.
 
 ---
 
 ## 🛠️ Build from Source
-Requirements:
-- .NET 8.0 SDK
+
+**Prerequisites**:
 - Windows 10/11
+- .NET 8.0 SDK
 
 ```powershell
+# Clone the repository
 git clone https://github.com/dparksports/SystemMonitor.git
+
+# Navigate to the project
 cd SystemMonitor/DeviceMonitorCS
+
+# Build Release
 dotnet build -c Release
 ```
 
