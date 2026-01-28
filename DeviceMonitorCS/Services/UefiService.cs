@@ -19,6 +19,7 @@ namespace DeviceMonitorCS.Services
         public string Thumbprint { get; set; } = string.Empty;
         public string GuidType { get; set; } = string.Empty;
         public string RawData { get; set; } = string.Empty; // For search/tally
+        public bool IsNew { get; set; } // Added for highlighting
     }
 
     public class DbxEntry
@@ -29,6 +30,97 @@ namespace DeviceMonitorCS.Services
 
     public class UefiService
     {
+        // Singleton Instance
+        private static UefiService? _instance;
+        public static UefiService Instance => _instance ??= new UefiService();
+
+        private const string SnapshotFileName = "uefi_snapshot.json";
+        
+        public event EventHandler<UefiChangeEventArgs>? UefiChanged;
+
+        public class UefiChangeEventArgs : EventArgs
+        {
+            public List<UefiEntry> NewDbEntries { get; set; } = new();
+            public int DbxCountDifference { get; set; }
+        }
+
+        private class UefiSnapshot
+        {
+            public List<string> DbThumbprints { get; set; } = new();
+            public int DbxCount { get; set; }
+        }
+
+        public async System.Threading.Tasks.Task CheckForChangesAsync()
+        {
+            await System.Threading.Tasks.Task.Run(() =>
+            {
+                try
+                {
+                    // 1. Get Current State
+                    var currentDb = GetDbEntries();
+                    var currentDbx = GetDbxInfo();
+                    int currentDbxCount = currentDbx.Count;
+
+                    // 2. Load Snapshot
+                    var snapshotPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, SnapshotFileName);
+                    UefiSnapshot snapshot;
+
+                    if (System.IO.File.Exists(snapshotPath))
+                    {
+                        var json = System.IO.File.ReadAllText(snapshotPath);
+                        snapshot = System.Text.Json.JsonSerializer.Deserialize<UefiSnapshot>(json) ?? new UefiSnapshot();
+                    }
+                    else
+                    {
+                        // First run, just save current state and return
+                        SaveSnapshot(snapshotPath, currentDb, currentDbxCount);
+                        return;
+                    }
+
+                    // 3. Compare
+                    var newEntries = new List<UefiEntry>();
+                    foreach (var entry in currentDb)
+                    {
+                        if (!snapshot.DbThumbprints.Contains(entry.Thumbprint))
+                        {
+                            entry.IsNew = true;
+                            newEntries.Add(entry);
+                        }
+                    }
+
+                    int dbxDiff = currentDbxCount - snapshot.DbxCount;
+
+                    // 4. Notify if changes
+                    if (newEntries.Count > 0 || dbxDiff != 0)
+                    {
+                        // Save new state immediately so we don't alert again
+                        SaveSnapshot(snapshotPath, currentDb, currentDbxCount);
+
+                        UefiChanged?.Invoke(this, new UefiChangeEventArgs 
+                        { 
+                            NewDbEntries = newEntries, 
+                            DbxCountDifference = dbxDiff 
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error checking UEFI changes: {ex.Message}");
+                }
+            });
+        }
+
+        private void SaveSnapshot(string path, List<UefiEntry> db, int dbxCount)
+        {
+            var snapshot = new UefiSnapshot
+            {
+                DbThumbprints = db.Select(e => e.Thumbprint).ToList(),
+                DbxCount = dbxCount
+            };
+            var json = System.Text.Json.JsonSerializer.Serialize(snapshot);
+            System.IO.File.WriteAllText(path, json);
+        }
+
         private static readonly Guid EFI_GLOBAL_VARIABLE = new Guid("8be4df61-93ca-11d2-aa0d-00e098032b8c");
         private static readonly Guid EFI_IMAGE_SECURITY_DATABASE = new Guid("d719b2cb-3d3a-4596-a3bc-dad00e67656f");
         private static readonly Guid EFI_CERT_X509_GUID = new Guid("a5c059a1-94e4-4138-87ab-5a5cd152628f");
@@ -242,3 +334,4 @@ namespace DeviceMonitorCS.Services
         public struct TOKEN_PRIVILEGES { public uint PrivilegeCount; public long Luid; public uint Attributes; }
     }
 }
+

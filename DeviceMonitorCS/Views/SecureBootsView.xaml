@@ -109,6 +109,13 @@
                                         </ControlTemplate>
                                     </Setter.Value>
                                 </Setter>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsNew}" Value="True">
+                                        <Setter Property="Background" Value="#33FFAE00"/>
+                                        <Setter Property="Foreground" Value="#FFFFFF"/>
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
                             </Style>
                         </DataGrid.CellStyle>
 
@@ -135,6 +142,7 @@
                         <TextBlock Text="Search DBX Hashes:" VerticalAlignment="Center" Foreground="#AAAAAA" Margin="0,0,10,0"/>
                         <TextBox x:Name="SearchBox" Width="300" Height="30" VerticalContentAlignment="Center" Background="#22FFFFFF" Foreground="White" BorderThickness="0" Padding="5,0"/>
                         <Button Content="Search" Width="80" Height="30" Margin="10,0,0,0" Click="SearchBtn_Click" Background="#33FFFFFF" Foreground="White" BorderThickness="0"/>
+                        <TextBlock Text="try '459458' for BlackLotus" VerticalAlignment="Center" Foreground="#666666" Margin="15,0,0,0" FontStyle="Italic"/>
                     </StackPanel>
 
                     <ListView x:Name="DbxList" Grid.Row="1" Background="Transparent" BorderThickness="0" Foreground="#CCCCCC">

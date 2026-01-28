@@ -239,7 +239,7 @@ namespace DeviceMonitorCS
                 {
                     StartSecurityMonitoring();
                     
-                    _enforcer = new SecurityEnforcer(HandleThreatDetected);
+                    _enforcer = new SecurityEnforcer(HandleThreatDetected); // existing
                     _enforcer.StatusChanged += (status, color) => 
                     {
                          Dispatcher.Invoke(() => 
@@ -255,6 +255,44 @@ namespace DeviceMonitorCS
                     
                     _enforcer.ConfigurationDriftDetected += (driftItems) => Dispatcher.Invoke(() => HandleFirewallDrift(driftItems));
                     _enforcer.Start();
+
+                    // --- SECURE BOOT MONITORING ---
+                    UefiService.Instance.UefiChanged += (s, args) =>
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            string msg = "";
+                            if (args.NewDbEntries.Count > 0) msg += $"{args.NewDbEntries.Count} new allowed signature(s) detected.\n";
+                            if (args.DbxCountDifference != 0) msg += $"Revocation list changed ({args.DbxCountDifference:+0;-0} entries).";
+
+                            // 1. Toast
+                            Services.ToastNotificationService.Instance.ShowToast("UEFI Secure Boot Change", msg.Trim());
+
+                            // 2. Global Log
+                            SecurityData.Insert(0, new SecurityEvent
+                            {
+                                Time = DateTime.Now.ToString("HH:mm:ss"),
+                                Activity = "UEFI Policy Change",
+                                Type = msg.Replace("\n", " "),
+                                Account = "System Firmware",
+                                Id = 8007
+                            });
+
+                            // 3. Dashboard Timeline (if active)
+                            if (_viewCache.TryGetValue(typeof(Views.DashboardView), out var dbView))
+                            {
+                                var dashboard = (Views.DashboardView)dbView;
+                                dashboard.RecentEvents.Insert(0, new Views.TimelineItem 
+                                { 
+                                    Title = "Secure Boot Policy Changed", 
+                                    Time = DateTime.Now, 
+                                    Color = "#FFAE00" 
+                                });
+                            }
+                        });
+                    };
+                    _ = UefiService.Instance.CheckForChangesAsync();
+                    // ------------------------------
 
                     _perfMonitor = new PerformanceMonitor();
                     var perfTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
