@@ -44,14 +44,45 @@
             <StackPanel>
                 <TextBlock Text="Secure Boot Configuration" FontSize="24" FontWeight="SemiBold" Foreground="White" Margin="0,0,0,5"/>
                 <TextBlock Text="Inspect allowed and forbidden boot signatures stored in NVRAM." Foreground="#A0A0A0" FontSize="14"/>
+                
                 <StackPanel Orientation="Horizontal" Margin="0,15,0,0">
                      <Border Background="#2200FF00" CornerRadius="4" Padding="10,5" Margin="0,0,10,0">
                         <TextBlock x:Name="DbCountText" Text="Allowed (db): Loading..." Foreground="#00FF00" FontWeight="SemiBold"/>
                     </Border>
-                    <Border Background="#22FF0000" CornerRadius="4" Padding="10,5">
+                    <Border Background="#22FF0000" CornerRadius="4" Padding="10,5" Margin="0,0,10,0">
                         <TextBlock x:Name="DbxCountText" Text="Revocations (dbx): Loading..." Foreground="#FF4444" FontWeight="SemiBold"/>
                     </Border>
+                    <!-- BlackLotus Status -->
+                    <Border x:Name="BlackLotusBadge" Background="#22888888" CornerRadius="4" Padding="10,5">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="BlackLotus Protection: " Foreground="#AAAAAA"/>
+                            <TextBlock x:Name="BlackLotusStatusText" Text="Checking..." Foreground="White" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
+
+                <!-- Vulnerability Explanation Panel -->
+                <Border x:Name="VulnerabilityInfoPanel" Background="#1A1A1A" BorderBrush="#FF4444" BorderThickness="1,0,0,0" Margin="0,15,0,0" Padding="15" CornerRadius="4" Visibility="Collapsed">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <TextBlock Text="⚠️ Security Risk: CVE-2022-21894 (BlackLotus)" Foreground="#FF4444" FontWeight="Bold" FontSize="14"/>
+                        </StackPanel>
+                        <TextBlock TextWrapping="Wrap" Foreground="#CCCCCC" FontSize="13" LineHeight="20">
+                            <Run Foreground="White" FontWeight="SemiBold">The Problem:</Run> Your "dbx" (Revocation List) is missing the hash for a vulnerable Microsoft Boot Manager (<Run FontStyle="Italic">459458...</Run>).<LineBreak/>
+                            <Run Foreground="White" FontWeight="SemiBold">The Exploit:</Run> Malware like BlackLotus can bring this old, vulnerable bootloader ("Baton Drop") to bypass Secure Boot and infect your OS.<LineBreak/><LineBreak/>
+                            <Run Foreground="White" FontWeight="SemiBold">Why it should be in dbx:</Run> Microsoft pushed an update to list this hash as <Run Foreground="#FF4444">FORBIDDEN</Run>. Finding this hash in your dbx is <Run Foreground="#00FF00">GOOD</Run>—it means your BIOS knows to block this vulnerability.<LineBreak/><LineBreak/>
+                            <Run Text="Your system is currently vulnerable to downgrade attacks." Foreground="#FF4444"/>
+                        </TextBlock>
+
+                        <!-- Remediation Section -->
+                        <Separator Background="#33FFFFFF" Margin="0,15,0,15"/>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="Action Required:" Foreground="#FF4444" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <TextBlock Text="Install the latest Windows Updates to apply the Secure Boot DBX update (KB5012170)." Foreground="#CCCCCC" VerticalAlignment="Center"/>
+                            <Button Content="How to Fix" Click="FixBtn_Click" Margin="20,0,0,0" Padding="15,4" Background="#333333" Foreground="White" BorderBrush="#555555"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </Border>
 

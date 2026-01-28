@@ -17,12 +17,13 @@ namespace DeviceMonitorCS.Views
         private PerformanceCounter _cpuCounter;
         private PerformanceCounter _ramCounter;
         private double _totalRamMB;
-        public ObservableCollection<TimelineItem> RecentEvents { get; set; }
+        public ObservableCollection<TimelineItem> RecentEvents { get; set; } = new ObservableCollection<TimelineItem>();
+
+        public event Action<string> NavigationRequested;
 
         public DashboardView()
         {
             InitializeComponent();
-            RecentEvents = new ObservableCollection<TimelineItem>();
             TimelineList.ItemsSource = RecentEvents;
 
             // Sample Data
@@ -60,6 +61,11 @@ namespace DeviceMonitorCS.Views
             {
                 Debug.WriteLine("PerfCounter Error: " + ex.Message);
             }
+        }
+
+        private void StatusShield_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            NavigationRequested?.Invoke("SecureBoots");
         }
 
         private void UserControl_Unloaded(object sender, RoutedEventArgs e)

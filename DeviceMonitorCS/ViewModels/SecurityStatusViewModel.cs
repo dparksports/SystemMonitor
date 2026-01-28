@@ -153,15 +153,18 @@ namespace DeviceMonitorCS.ViewModels
             await Task.Delay(500); // Small UI breather
 
             // 1. Run Checks in Parallel
+            // 1. Run Checks in Parallel
             var firewallTask = CheckFirewallHealth();
             var defenderTask = CheckDefenderStatus();
             var networkTask = CheckNetworkHealth();
+            var uefiTask = CheckUefiHealth();
 
-            await Task.WhenAll(firewallTask, defenderTask, networkTask);
+            await Task.WhenAll(firewallTask, defenderTask, networkTask, uefiTask);
 
             bool fwOk = firewallTask.Result;
             bool avOk = defenderTask.Result;
             bool netOk = networkTask.Result;
+            bool uefiOk = uefiTask.Result;
 
             // 2. Aggregate Results
             if (!avOk)
@@ -169,6 +172,12 @@ namespace DeviceMonitorCS.ViewModels
                 CurrentHealth = SystemHealth.Critical;
                 StatusMessage = "Antivirus Issue";
                 DetailedStatus = "Windows Defender is not active or out of date.";
+            }
+            else if (!uefiOk)
+            {
+                CurrentHealth = SystemHealth.AtRisk;
+                StatusMessage = "Firmware Risk";
+                DetailedStatus = "System is vulnerable to BlackLotus (CVE-2022-21894). See Secure Boots tab.";
             }
             else if (!fwOk)
             {
@@ -186,10 +195,15 @@ namespace DeviceMonitorCS.ViewModels
             {
                 CurrentHealth = SystemHealth.Secure;
                 StatusMessage = "System Secure";
-                DetailedStatus = $"Scan complete at {System.DateTime.Now:t}. Firewall, Defender, and Network are healthy.";
+                DetailedStatus = $"Scan complete at {System.DateTime.Now:t}. Firewall, Defender, Network, and Firmware are healthy.";
             }
 
             IsScanning = false;
+        }
+
+        private async Task<bool> CheckUefiHealth()
+        {
+            return await Task.Run(() => Services.UefiService.Instance.IsBlackLotusMitigated());
         }
 
         private async Task<bool> CheckFirewallHealth()

@@ -103,7 +103,11 @@ namespace DeviceMonitorCS
             // Perform View-Specific "On Show" Logic
             if (view is Views.DashboardView dv)
             {
-                 // No action needed, DashboardView handles its own timer on Loaded/Unloaded
+                 // Wire up navigation if not already wired (check for duplicates? event += handles it but need to avoid multiple subs)
+                 // Best practice: unsubscribe then subscribe, or just ensure once. 
+                 // Simple approach: Always unsub then sub.
+                 dv.NavigationRequested -= OnDashboardNavRequested;
+                 dv.NavigationRequested += OnDashboardNavRequested;
             }
             if (view is Views.OverviewView ov)
             {
@@ -205,6 +209,23 @@ namespace DeviceMonitorCS
             selected.Tag = "Selected";
         }
 
+        private void OnDashboardNavRequested(string destination)
+        {
+            if (destination == "SecureBoots")
+            {
+                Dispatcher.Invoke(() => 
+                {
+                    UpdateSelectedNavTag(NavSecurityBtn);
+                    NavigateTo<Views.SecurityMainView>();
+                    
+                    if (_viewCache.TryGetValue(typeof(Views.SecurityMainView), out var view) && view is Views.SecurityMainView smv)
+                    {
+                        smv.NavigateSub<Views.SecureBootsView>();
+                    }
+                });
+            }
+        }
+
         public MainWindow()
         {
             InitializeComponent();
@@ -216,7 +237,7 @@ namespace DeviceMonitorCS
             // Privacy Consent Check Removed (Moved to App.xaml.cs)
             Loaded += async (s, e) =>
             {
-                await Services.AnalyticsService.Instance.LogEventAsync("app_start", new { app_version = "3.9.6" });
+                await Services.AnalyticsService.Instance.LogEventAsync("app_start", new { app_version = "3.12.0" });
             };
 
             // _telemetryService = new FirebaseTelemetryService();
@@ -257,12 +278,14 @@ namespace DeviceMonitorCS
                     _enforcer.Start();
 
                     // --- SECURE BOOT MONITORING ---
+                    // --- SECURE BOOT MONITORING ---
                     UefiService.Instance.UefiChanged += (s, args) =>
                     {
                         Dispatcher.Invoke(() =>
                         {
                             string msg = "";
                             if (args.NewDbEntries.Count > 0) msg += $"{args.NewDbEntries.Count} new allowed signature(s) detected.\n";
+                            if (args.DbCountDifference != 0) msg += $"Allowed signature list changed ({args.DbCountDifference:+0;-0} entries).\n";
                             if (args.DbxCountDifference != 0) msg += $"Revocation list changed ({args.DbxCountDifference:+0;-0} entries).";
 
                             // 1. Toast
@@ -291,7 +314,38 @@ namespace DeviceMonitorCS
                             }
                         });
                     };
+                    
+                    // BlackLotus Vulnerability Check (CVE-2022-21894)
+                    bool isPatched = UefiService.Instance.IsBlackLotusMitigated();
+                    Dispatcher.Invoke(() => {
+                        if (isPatched)
+                        {
+                             SecurityData.Insert(0, new SecurityEvent { 
+                                 Time = DateTime.Now.ToString("HH:mm:ss"), 
+                                 Activity = "Vulnerability Scan", 
+                                 Type = "System is PATCHED against BlackLotus (CVE-2022-21894).", 
+                                 Account = "System Firmware", 
+                                 Id = 8008 
+                            });
+                        }
+                        else
+                        {
+                             string warning = "Hash 459458... not found in DBX.\nSystem may be vulnerable to CVE-2022-21894 (BlackLotus/Baton Drop).";
+                             
+                             SecurityData.Insert(0, new SecurityEvent { 
+                                 Time = DateTime.Now.ToString("HH:mm:ss"), 
+                                 Activity = "Vulnerability Detected", 
+                                 Type = warning.Replace("\n", " "), 
+                                 Account = "System Firmware", 
+                                 Id = 8009 
+                            });
+
+                             Services.ToastNotificationService.Instance.ShowToast("Security Warning: BlackLotus", warning);
+                        }
+                    });
+
                     _ = UefiService.Instance.CheckForChangesAsync();
+                    // ------------------------------
                     // ------------------------------
 
                     _perfMonitor = new PerformanceMonitor();

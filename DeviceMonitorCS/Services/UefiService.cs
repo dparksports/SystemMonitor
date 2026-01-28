@@ -42,6 +42,7 @@ namespace DeviceMonitorCS.Services
         {
             public List<UefiEntry> NewDbEntries { get; set; } = new();
             public int DbxCountDifference { get; set; }
+            public int DbCountDifference { get; set; }
         }
 
         private class UefiSnapshot
@@ -89,18 +90,20 @@ namespace DeviceMonitorCS.Services
                     }
 
                     int dbxDiff = currentDbxCount - snapshot.DbxCount;
+                    int dbDiff = currentDb.Count - snapshot.DbThumbprints.Count;
 
                     // 4. Notify if changes
-                    if (newEntries.Count > 0 || dbxDiff != 0)
+                    if (newEntries.Count > 0 || dbxDiff != 0 || dbDiff != 0)
                     {
-                        // Save new state immediately so we don't alert again
-                        SaveSnapshot(snapshotPath, currentDb, currentDbxCount);
-
                         UefiChanged?.Invoke(this, new UefiChangeEventArgs 
                         { 
                             NewDbEntries = newEntries, 
-                            DbxCountDifference = dbxDiff 
+                            DbxCountDifference = dbxDiff,
+                            DbCountDifference = dbDiff
                         });
+
+                        // Save new state AFTER notification (so if app crashes/UI fails, we retry next time)
+                        SaveSnapshot(snapshotPath, currentDb, currentDbxCount);
                     }
                 }
                 catch (Exception ex)
@@ -119,6 +122,18 @@ namespace DeviceMonitorCS.Services
             };
             var json = System.Text.Json.JsonSerializer.Serialize(snapshot);
             System.IO.File.WriteAllText(path, json);
+        }
+
+        // CVE-2022-21894 "BlackLotus" / "Baton Drop" Vulnerable Bootloader Hash
+        // Microsoft-signed Windows Boot Manager (bootmgfw.efi)
+        public const string BLACKLOTUS_HASH = "4594588E40707C2A7156372D627C28266922332617300C7E283226343202652A";
+
+        public bool IsBlackLotusMitigated()
+        {
+            // We need to check if the DBX contains the specific hash
+             var dbxInfo = GetDbxInfo();
+             // Check if any entry matches the hash
+             return dbxInfo.Entries.Any(e => e.Hash.Equals(BLACKLOTUS_HASH, StringComparison.OrdinalIgnoreCase));
         }
 
         private static readonly Guid EFI_GLOBAL_VARIABLE = new Guid("8be4df61-93ca-11d2-aa0d-00e098032b8c");

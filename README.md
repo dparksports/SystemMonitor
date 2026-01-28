@@ -1,51 +1,47 @@
-# ⚔ Auto Command
+# 🛡️ Auto Command
 
-**Auto Command** is a high-fidelity system command center for Windows. It bridges the gap between raw system forensics and premium user experience, offering a "glassmorphism" interface to monitor, secure, and optimize your machine.
+**Auto Command** is a next-generation system security monitor for Windows, designed to bring enterprise-grade forensics to a premium, consumer-friendly interface. It goes beyond simple monitoring to provide active protection, firmware-level inspection, and automated vulnerability mitigation.
 
-[![Download v3.11.1](https://img.shields.io/badge/Download-v3.11.1-00F0FF?style=for-the-badge&logo=windows)](https://github.com/dparksports/SystemMonitor/releases/tag/v3.11.1)
+[![Download v3.12.0](https://img.shields.io/badge/Download-v3.12.0-00F0FF?style=for-the-badge&logo=windows)](https://github.com/dparksports/SystemMonitor/releases/tag/v3.12.0)
 
-![Auto Command Dashboard](DeviceMonitorCS/app_dashboard_mockup.png)
+![Secure Boot Dashboard](DeviceMonitorCS/secure_boot_dashboard_v3_12.png)
 
-## ✨ Key Features
+## 🚀 Key Capabilities
 
-### 🔒 Secure Boot Forensics (New in v3.11)
-Directly inspect the UEFI Secure Boot databases hidden in NVRAM.
-- **Allowed Signatures (`db`)**: View all certificates authorized to boot on your system.
-- **Revocation List (`dbx`)**: Search forbidden hashes (including known threats like BlackLotus).
-- **Change Detection**: Real-time alerts if your Secure Boot policy is modified by an attacker or update.
+### 🔒 **Advanced Firmware Protection (New in v3.12)**
+Directly interface with your motherboard's NVRAM to detect and mitigate stealthy bootkits.
+*   **BlackLotus Detection**: Built-in scanner specifically targets CVE-2022-21894 ("Baton Drop"), checking your `dbx` revocation list for the required hashes.
+*   **One-Click Remediation**: If your system is vulnerable, Auto Command provides direct access to the official Microsoft mitigation path.
+*   **Real-time Monitoring**: Watch for unauthorized changes to your Secure Boot policy (`db` allowed signatures and `dbx` revocations).
 
-### 🛡️ Firewall Commander
-Stop wrestling with the legacy Windows Firewall console.
-- **Smart Grouping**: Rules are automatically grouped and sorted by relevance.
-- **Drift Detection**: Alerts you when rules change unexpectedly.
-- **One-Click Hardening**: Block telemetry and unnecessary outbound traffic instantly.
+### ⚡ **Interactive Security Dashboard**
+*   **Live Threat Status**: The main dashboard gives you an instant, color-coded health status (e.g., "Firmware Risk").
+*   **Deep Drill-Down**: Click on any status card or shield to instantly navigate to the relevant deep-dive inspection tool.
+*   **System Activity Feed**: A unified timeline of all security events, firewall changes, and device connections.
 
-### ⚡ System Intelligence
-- **Process Manager**: Kill hidden background processes and ghost tasks.
-- **Service Control**: Toggle Windows services (SysMain, DiagTrack) without navigating `services.msc`.
-- **Connections**: Monitor active network connections and identify "phone home" behavior.
+### 🛡️ **Network & Firewall Dominance**
+*   **Clarified Rules**: Auto Command groups and organizes your firewall rules, making it easy to spot anomalies.
+*   **Drift Defense**: Get alerted immediately if a program or Windows Update silently modifies your firewall configuration.
+*   **Traffic Analysis**: Monitor active connections in real-time to identify suspicious "phone home" activity.
 
-### 🎨 Premium Experience
-- **Aurora UI**: A modern, translucent interface that feels at home on Windows 11.
-- **Performance First**: Lazy loading and async operations ensure the UI never freezes, even when parsing thousands of system events.
-
----
-
-## 📥 Installation
-
-1. **Download**: Grab the latest release from the [Releases Page](https://github.com/dparksports/SystemMonitor/releases).
-2. **Extract**: Unzip the archive to a permanent location (e.g., `C:\Tools\AutoCommand`).
-3. **Run**: Launch `AutoCommand.exe` as Administrator.
-
-> **Note**: Administrator privileges are required to access low-level system details like UEFI variables and Firewall rules.
+### 🧠 **Intelligent Automation**
+*   **Process Assassin**: Identify and terminate hidden background processes that standard Task Manager misses.
+*   **Smart Debloat**: Toggle telemetry and bloatware services without needing deep technical knowledge.
+*   **Zero-Lag UI**: Built on a modern, multi-threaded architecture that ensures the interface remains fluid even during intensive scans.
 
 ---
 
-## 🛠️ Build from Source
+## 📥 Getting Started
 
-**Prerequisites**:
-- Windows 10/11
-- .NET 8.0 SDK
+1.  **Download**: Get the latest `AutoCommand.zip` from the [Releases Page](https://github.com/dparksports/SystemMonitor/releases).
+2.  **Extract**: Unzip to a permanent location (e.g., `C:\Program Files\AutoCommand`).
+3.  **Run**: Launch `AutoCommand.exe` as Administrator (required for low-level hardware access).
+
+---
+
+## 🛠️ Build it Yourself
+
+**Requirements**: Windows 10/11, .NET 8.0 SDK
 
 ```powershell
 # Clone the repository
@@ -60,4 +56,4 @@ dotnet build -c Release
 
 ---
 
-<p align="center">Made with ❤️ in California</p>
+<p align="center">Made with ❤️ for the Windows enthusiast community.</p>

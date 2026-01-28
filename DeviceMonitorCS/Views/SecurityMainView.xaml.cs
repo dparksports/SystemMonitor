@@ -24,7 +24,7 @@ namespace DeviceMonitorCS.Views
         private void SecureBootsBtn_Click(object sender, RoutedEventArgs e) => NavigateSub<SecureBootsView>();
         private void ColdBootsBtn_Click(object sender, RoutedEventArgs e) => NavigateSub<ColdBootsView>();
 
-        private void NavigateSub<T>() where T : UserControl, new()
+        public void NavigateSub<T>() where T : UserControl, new()
         {
             Type type = typeof(T);
             if (!_subViewCache.ContainsKey(type))
@@ -32,10 +32,17 @@ namespace DeviceMonitorCS.Views
                 _subViewCache[type] = new T();
                 
                 // Initialize if needed
-                if (_subViewCache[type] is OverviewView ov) _ = ov.LoadAllDataAsync();
+                if (_subViewCache[type] is OverviewView ov)
+                {
+                    _ = ov.LoadAllDataAsync();
+                    ov.NavigationRequested += (dest) =>
+                    {
+                        if (dest == "SecureBoots") NavigateSub<SecureBootsView>();
+                    };
+                }
                 else if (_subViewCache[type] is FirewallSettingsView fv) fv.InitializeAndLoad();
                 else if (_subViewCache[type] is ColdBootsView cbv) cbv.InitializeAndLoad();
-                else if (_subViewCache[type] is SecureBootsView sbv) sbv.InitializeAndLoad();
+                else if (_subViewCache[type] is SecureBootsView sbv) _ = sbv.InitializeAndLoad();
             }
             SubContentArea.Content = _subViewCache[type];
         }

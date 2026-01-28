@@ -20,6 +20,8 @@ namespace DeviceMonitorCS.Views
         private ConnectionMonitor _connectionMonitor;
         private DispatcherTimer _refreshTimer;
 
+        public event Action<string> NavigationRequested;
+
         public OverviewView()
         {
             InitializeComponent();
@@ -35,6 +37,11 @@ namespace DeviceMonitorCS.Views
                 _refreshTimer.Start();
             };
             this.Unloaded += (s, e) => _refreshTimer.Stop();
+        }
+
+        private void SecurityCard_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            NavigationRequested?.Invoke("SecureBoots");
         }
 
         /// <summary>
@@ -554,22 +561,15 @@ namespace DeviceMonitorCS.Views
                     NetworkText.Foreground = targetBrush;
                 }
 
-                if (colorType != "Green")
+                if (colorType == "Red")
                 {
-                    await Task.Delay(5000);
-
-                    StatusText.Text = "Protected";
-                    StatusText.Foreground = (Brush)Application.Current.Resources["NeonGreenBrush"];
-                    SecurityIcon.Foreground = (Brush)Application.Current.Resources["NeonGreenBrush"];
-                    SecurityGlow.Color = (Color)Application.Current.Resources["NeonGreen"];
-
-                    NetworkText.Text = "Active";
-                    NetworkText.Foreground = (Brush)Application.Current.Resources["NeonBlueBrush"];
-                    NetworkIcon.Foreground = (Brush)Application.Current.Resources["NeonBlueBrush"];
-                    NetworkGlow.Color = (Color)Application.Current.Resources["NeonBlue"];
-
-                    TaskText.Text = "Monitoring";
+                    NetworkIcon.Foreground = targetBrush;
+                    NetworkGlow.Color = targetColor;
+                    NetworkText.Foreground = targetBrush;
                 }
+
+                // REMOVED: Auto-revert logic. The dashboard should reflect the actual persistent state.
+                // Status will remain until explicitly changed by SecurityStatusViewModel or SecurityEnforcer.
             });
         }
 

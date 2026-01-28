@@ -64,7 +64,7 @@
             </Grid.ColumnDefinitions>
 
             <!-- Card 1: System Security -->
-            <Border Grid.Column="0" Style="{StaticResource StatusCard}">
+            <Border Grid.Column="0" Style="{StaticResource StatusCard}" Cursor="Hand" MouseLeftButtonDown="SecurityCard_Click">
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                     <TextBlock Text="System Security" Foreground="#CCCCCC" FontSize="14" HorizontalAlignment="Center" Margin="0,0,0,15"/>
                     <TextBlock x:Name="SecurityIcon" Text="&#xE8E8;" FontFamily="{StaticResource IconFont}" FontSize="48" 

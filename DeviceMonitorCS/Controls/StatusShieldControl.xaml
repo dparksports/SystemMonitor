@@ -9,7 +9,7 @@
          <FontFamily x:Key="IconFont">Segoe MDL2 Assets</FontFamily>
     </UserControl.Resources>
     
-    <Grid>
+    <Grid Background="Transparent" Cursor="Hand">
         <!-- Resources for Rotating Animation -->
         <Grid.Resources>
             <Storyboard x:Key="RotateInternalRing">

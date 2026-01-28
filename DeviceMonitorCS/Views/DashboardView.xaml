@@ -54,7 +54,7 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-                <controls:StatusShieldControl Grid.Column="1" HorizontalAlignment="Center"/>
+                <controls:StatusShieldControl Grid.Column="1" HorizontalAlignment="Center" MouseLeftButtonDown="StatusShield_Click"/>
                 
                 <!-- Action Buttons -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,220,0,0">
