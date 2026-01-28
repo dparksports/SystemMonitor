@@ -4,7 +4,7 @@
 
 [![Download v3.10.4](https://img.shields.io/badge/Download-v3.10.4-00F0FF?style=for-the-badge&logo=windows)](https://github.com/dparksports/SystemMonitor/releases/download/v3.10.4/AutoCommand_v3.10.4.zip)
 
-![Secure Boots Dashboard](secure_boots.png)
+![Auto Command Dashboard](DeviceMonitorCS/app_dashboard_mockup.png)
 
 ## 🚀 Key Features
 
