@@ -63,7 +63,7 @@ namespace DeviceMonitorCS.Services
                     int currentDbxCount = currentDbx.Count;
 
                     // 2. Load Snapshot
-                    var snapshotPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, SnapshotFileName);
+                    var snapshotPath = System.IO.Path.Combine("C:\\ProgramData\\Auto-Command", SnapshotFileName);
                     UefiSnapshot snapshot;
 
                     if (System.IO.File.Exists(snapshotPath))
@@ -115,6 +115,9 @@ namespace DeviceMonitorCS.Services
 
         private void SaveSnapshot(string path, List<UefiEntry> db, int dbxCount)
         {
+            var dir = System.IO.Path.GetDirectoryName(path);
+            if (dir != null && !System.IO.Directory.Exists(dir)) System.IO.Directory.CreateDirectory(dir);
+
             var snapshot = new UefiSnapshot
             {
                 DbThumbprints = db.Select(e => e.Thumbprint).ToList(),

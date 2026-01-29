@@ -115,9 +115,11 @@ namespace DeviceMonitorCS.Services
             TelemetryStatus = "Active";
         }
 
+        private string GetBaseDataDir() => @"C:\ProgramData\Auto-Command";
+
         private string GetSettingsPath()
         {
-            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DeviceMonitorCS", "analytics_settings.txt");
+            return Path.Combine(GetBaseDataDir(), "analytics_settings.txt");
         }
 
         private void LoadSettings()
@@ -141,8 +143,8 @@ namespace DeviceMonitorCS.Services
         {
             try
             {
-                string folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DeviceMonitorCS");
-                Directory.CreateDirectory(folder);
+                string folder = GetBaseDataDir();
+                if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
                 File.WriteAllText(GetSettingsPath(), _isAnalyticsEnabled.ToString());
             }
             catch {}
@@ -150,12 +152,12 @@ namespace DeviceMonitorCS.Services
 
         private string GetOrGenerateClientId()
         {
-             var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DeviceMonitorCS");
+             var folder = GetBaseDataDir();
              var path = Path.Combine(folder, "client_id.txt");
              if (File.Exists(path)) return File.ReadAllText(path);
              
              var newId = Guid.NewGuid().ToString();
-             Directory.CreateDirectory(folder);
+             if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
              File.WriteAllText(path, newId);
              return newId;
         }

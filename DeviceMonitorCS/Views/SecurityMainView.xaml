@@ -24,6 +24,7 @@
                 <Button x:Name="PrivacyBtn" Content="↳ Privacy Settings" Click="PrivacyBtn_Click" Style="{StaticResource NavButton}" Margin="25,2,10,2" Height="35" FontSize="12" Opacity="0.8"/>
                 <Button x:Name="EventsBtn" Content="↳ Event Management" Click="EventsBtn_Click" Style="{StaticResource NavButton}" Margin="25,2,10,2" Height="35" FontSize="12" Opacity="0.8"/>
                 <Button x:Name="SecureBootsBtn" Content="↳ Secure Boots" Click="SecureBootsBtn_Click" Style="{StaticResource NavButton}" Margin="25,2,10,2" Height="35" FontSize="12" Opacity="0.8"/>
+                <Button x:Name="DbxSafetyBtn" Content="↳ DBX Safety Check" Click="DbxSafetyBtn_Click" Style="{StaticResource NavButton}" Margin="25,2,10,2" Height="35" FontSize="12" Opacity="0.8"/>
                 <Button x:Name="ColdBootsBtn" Content="↳ Cold Boots" Click="ColdBootsBtn_Click" Style="{StaticResource NavButton}" Margin="25,2,10,8" Height="35" FontSize="12" Opacity="0.8"/>
 
                 <Separator Background="#22FFFFFF" Margin="10,10,10,10"/>

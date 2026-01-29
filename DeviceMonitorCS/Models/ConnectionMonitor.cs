@@ -45,9 +45,10 @@ namespace DeviceMonitorCS.Models
         private static ConnectionMonitor _instance;
         public static ConnectionMonitor Instance => _instance ?? (_instance = new ConnectionMonitor());
 
-        private readonly string _historyFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "connection_history.json");
-        private readonly string _mutedFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "muted_connections.json");
-        private readonly string _ipCacheFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ip_cache.json");
+        private const string BaseDataDir = @"C:\ProgramData\Auto-Command";
+        private readonly string _historyFile = Path.Combine(BaseDataDir, "connection_history.json");
+        private readonly string _mutedFile = Path.Combine(BaseDataDir, "muted_connections.json");
+        private readonly string _ipCacheFile = Path.Combine(BaseDataDir, "ip_cache.json");
 
         // Cache for Process Names and WhoIs to avoid spamming
         private ConcurrentDictionary<int, string> _processCache = new ConcurrentDictionary<int, string>();
@@ -69,6 +70,8 @@ namespace DeviceMonitorCS.Models
         {
             try
             {
+                if (!Directory.Exists(BaseDataDir)) Directory.CreateDirectory(BaseDataDir);
+
                 var historyData = JsonSerializer.Serialize(HistoricalConnections);
                 File.WriteAllText(_historyFile, historyData);
 

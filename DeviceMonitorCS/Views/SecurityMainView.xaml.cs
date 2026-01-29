@@ -22,6 +22,7 @@ namespace DeviceMonitorCS.Views
         private void TasksBtn_Click(object sender, RoutedEventArgs e) => NavigateSub<TasksView>();
         private void ConnBtn_Click(object sender, RoutedEventArgs e) => NavigateSub<ConnectionsView>();
         private void SecureBootsBtn_Click(object sender, RoutedEventArgs e) => NavigateSub<SecureBootsView>();
+        private void DbxSafetyBtn_Click(object sender, RoutedEventArgs e) => NavigateSub<DbxSafetyView>();
         private void ColdBootsBtn_Click(object sender, RoutedEventArgs e) => NavigateSub<ColdBootsView>();
 
         public void NavigateSub<T>() where T : UserControl, new()

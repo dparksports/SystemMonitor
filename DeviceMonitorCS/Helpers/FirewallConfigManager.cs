@@ -18,7 +18,7 @@ namespace DeviceMonitorCS.Helpers
 
         public FirewallConfigManager()
         {
-            _configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "firewall_config.json");
+            _configPath = Path.Combine(@"C:\ProgramData\Auto-Command", "firewall_config.json");
             Load();
         }
 
@@ -43,6 +43,9 @@ namespace DeviceMonitorCS.Helpers
         {
             try
             {
+                var dir = Path.GetDirectoryName(_configPath);
+                if (dir != null && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
                 string json = JsonSerializer.Serialize(RuleOverrides, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(_configPath, json);
             }

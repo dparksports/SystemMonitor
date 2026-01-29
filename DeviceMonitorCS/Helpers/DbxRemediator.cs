@@ -8,48 +8,57 @@ namespace DeviceMonitorCS.Helpers
 {
     public static class DbxRemediator
     {
-        // Official UEFI.org DBX Update (x64)
-        private const string DbxUrl = "https://uefi.org/sites/default/files/resources/dbxupdate_amd64.bin";
-        private const string DbxFileName = "dbxupdate_amd64.bin";
+        // Official UEFI DBX Update (x64) - Hosted by Microsoft on GitHub
+        // Using raw link ensures direct access to the binary file from the official repo.
+        private const string DbxUrl = "https://raw.githubusercontent.com/microsoft/secureboot_objects/main/PostSignedObjects/DBX/amd64/DBXUpdate.bin";
+        private const string DbxFileName = "DBXUpdate.bin";
 
-        public static async Task<(string Path, string Checksum)> DownloadUpdateAsync()
+        public static string GetInstallCommand(string path)
+        {
+            return $"Set-SecureBootUEFI -Name dbx -ContentFilePath '{path}'";
+        }
+
+        public static async Task<(string Path, string Checksum, string Error)> DownloadUpdateAsync()
         {
             string tempPath = Path.Combine(Path.GetTempPath(), DbxFileName);
             try
             {
                 using (var client = new HttpClient())
                 {
+                    // Add User-Agent to avoid being blocked by some servers
+                    client.DefaultRequestHeaders.Add("User-Agent", "DeviceMonitorCS/1.0");
+                    
                     var data = await client.GetByteArrayAsync(DbxUrl);
                     await File.WriteAllBytesAsync(tempPath, data);
                     
                     using (var sha256 = System.Security.Cryptography.SHA256.Create())
                     {
                         var hash = sha256.ComputeHash(data);
-                        return (tempPath, BitConverter.ToString(hash).Replace("-", ""));
+                        return (tempPath, BitConverter.ToString(hash).Replace("-", ""), null);
                     }
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Download Failed: {ex.Message}");
-                return (string.Empty, string.Empty);
+                return (string.Empty, string.Empty, ex.Message);
             }
         }
 
-        public static async Task<bool> InstallUpdateAsync(string path)
+        public static async Task<(bool Success, string Error)> InstallUpdateAsync(string path)
         {
-            if (string.IsNullOrEmpty(path) || !File.Exists(path)) return false;
+            if (string.IsNullOrEmpty(path) || !File.Exists(path)) return (false, "File not found");
 
             try
             {
                 // 2. Apply via PowerShell (Set-SecureBootUEFI)
-                var psCommand = $"Set-SecureBootUEFI -Name dbx -ContentFilePath '{path}'";
+                var psCommand = GetInstallCommand(path);
 
                 var psi = new ProcessStartInfo
                 {
                     FileName = "powershell",
                     Arguments = $"-Command \"{psCommand}\"",
-                    Verb = "runas", // Request Admin
+                    // Verb = "runas", // REMOVED: App is already elevated via manifest
                     UseShellExecute = true,
                     CreateNoWindow = true,
                     WindowStyle = ProcessWindowStyle.Hidden
@@ -59,14 +68,21 @@ namespace DeviceMonitorCS.Helpers
                 if (process != null)
                 {
                     await process.WaitForExitAsync();
-                    return process.ExitCode == 0;
+                    if (process.ExitCode == 0)
+                    {
+                        return (true, null);
+                    }
+                    else
+                    {
+                        return (false, $"PowerShell process exited with code {process.ExitCode}. This usually means the firmware rejected the update or the command failed.");
+                    }
                 }
-                return false;
+                return (false, "Failed to start PowerShell process.");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Installation Failed: {ex.Message}");
-                return false;
+                return (false, ex.Message);
             }
         }
     }

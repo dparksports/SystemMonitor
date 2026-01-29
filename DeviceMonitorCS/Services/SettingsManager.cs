@@ -37,6 +37,20 @@ namespace DeviceMonitorCS.Services
             }
         }
 
+        private bool _isRemediationDebug;
+        public bool IsRemediationDebug
+        {
+            get => _isRemediationDebug;
+            set
+            {
+                if (_isRemediationDebug != value)
+                {
+                    _isRemediationDebug = value;
+                    SaveSettings();
+                }
+            }
+        }
+
         public event Action<bool> ExpertModeChanged;
 
         private SettingsManager()
@@ -56,26 +70,24 @@ namespace DeviceMonitorCS.Services
                 string path = GetSettingsPath();
                 if (File.Exists(path))
                 {
-                    string content = File.ReadAllText(path);
-                    // Simple format: Key=Value lines, or just single boolean for now since it's the only setting here.
-                    // For robustness let's just assume it stores IsExpertMode bool for now.
-                    // Future: JSON or Key-Value parsing.
-                    // Temp Hack: IsFirstRun is line 2 (optional)
                     var lines = File.ReadAllLines(path);
-                    bool.TryParse(lines[0], out _isExpertMode);
+                    if (lines.Length > 0) bool.TryParse(lines[0], out _isExpertMode);
                     if (lines.Length > 1) bool.TryParse(lines[1], out _isFirstRun);
-                    else _isFirstRun = true; // Default to true if not present (new version)
+                    else _isFirstRun = true;
+                    if (lines.Length > 2) bool.TryParse(lines[2], out _isRemediationDebug);
                 }
                 else
                 {
-                    _isExpertMode = false; // Default to Novice mode
+                    _isExpertMode = false;
                     _isFirstRun = true;
+                    _isRemediationDebug = false;
                 }
             }
             catch
             {
                 _isExpertMode = false;
                 _isFirstRun = true;
+                _isRemediationDebug = false;
             }
         }
 
@@ -85,7 +97,7 @@ namespace DeviceMonitorCS.Services
             {
                 string folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DeviceMonitorCS");
                 Directory.CreateDirectory(folder);
-                File.WriteAllLines(GetSettingsPath(), new[] { _isExpertMode.ToString(), _isFirstRun.ToString() });
+                File.WriteAllLines(GetSettingsPath(), new[] { _isExpertMode.ToString(), _isFirstRun.ToString(), _isRemediationDebug.ToString() });
             }
             catch { }
         }

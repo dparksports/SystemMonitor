@@ -82,6 +82,15 @@
                 </StackPanel>
             </GroupBox>
 
+            <GroupBox Header="Debug &amp; Testing" Foreground="White" BorderBrush="#3E3E42" Padding="15" Margin="0,20,0,0">
+                <StackPanel>
+                    <CheckBox x:Name="RemediationDebugToggle" Content="Force Show Remediation Panel (Debug)"
+                              Foreground="#FF4444" Margin="0,0,0,5" Checked="RemediationDebugToggle_Changed" Unchecked="RemediationDebugToggle_Changed"/>
+                    <TextBlock Text="Enables the 'Repair Bootloader' options even if system status is Safe. Use with caution." 
+                               Foreground="#808080" FontSize="11" Margin="20,0,0,0" FontStyle="Italic"/>
+                </StackPanel>
+            </GroupBox>
+
         </StackPanel>
     </Grid>
 </UserControl>
