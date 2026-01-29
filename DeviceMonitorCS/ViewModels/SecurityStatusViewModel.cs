@@ -203,7 +203,10 @@ namespace DeviceMonitorCS.ViewModels
 
         private async Task<bool> CheckUefiHealth()
         {
-            return await Task.Run(() => Services.UefiService.Instance.IsBlackLotusMitigated());
+            // Migrated to DBX Safety Check view. 
+            // We no longer flag the main dashboard for BlackLotus to avoid alarm fatigue
+            // as users are directed to the specific sidebar item now.
+            return await Task.FromResult(true);
         }
 
         private async Task<bool> CheckFirewallHealth()
