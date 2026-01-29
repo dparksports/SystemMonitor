@@ -568,8 +568,31 @@ namespace DeviceMonitorCS.Views
         {
             if (!File.Exists(DbxUpdatePath))
             {
+                 Dispatcher.Invoke(() => 
+                 {
+                     DbxStatusSource.Text = "Not Found (Integrity Check Only)";
+                     DbxStatusSource.Foreground = Brushes.Orange;
+                     DbxStatusDate.Text = "-";
+                     DbxStatusCount.Text = "-";
+                 });
                  return (true, "DBXUpdate.bin not found. Integrity check only.");
             }
+
+            // Show Date & Count
+            try
+            {
+                DateTime lastWrite = File.GetLastWriteTime(DbxUpdatePath);
+                int entryCount = CountDbxEntries(DbxUpdatePath);
+                
+                Dispatcher.Invoke(() => 
+                {
+                    DbxStatusSource.Text = Helpers.DbxRemediator.DbxUrl;
+                    DbxStatusSource.Foreground = Brushes.LightSkyBlue; // Highlight URL
+                    DbxStatusDate.Text = $"{lastWrite:g}";
+                    DbxStatusCount.Text = $"{entryCount} signatures reviewed";
+                });
+            }
+            catch { }
 
             string peHash = info.ContainsKey("PE256") ? info["PE256"] : null;
             string fileHash = info.ContainsKey("SHA256") ? info["SHA256"] : null;
@@ -595,6 +618,64 @@ namespace DeviceMonitorCS.Views
             catch (Exception ex)
             {
                 return (false, $"Error reading DBX: {ex.Message}");
+            }
+        }
+
+        private int CountDbxEntries(string path)
+        {
+            try
+            {
+                byte[] data = File.ReadAllBytes(path);
+                // DBXUpdate.bin is likely EFI_VARIABLE_AUTHENTICATION_2
+                // [EFI_TIME (16)] + [WIN_CERTIFICATE (Length at +0)] + [Payload]
+                
+                if (data.Length < 20) return 0; // Too small
+
+                // Read Auth Info Length (at offset 16)
+                int authLength = BitConverter.ToInt32(data, 16);
+                int payloadOffset = 16 + authLength;
+
+                if (payloadOffset >= data.Length) 
+                {
+                     // Maybe it's raw? Try offset 0.
+                     payloadOffset = 0;
+                }
+
+                int count = 0;
+                int offset = payloadOffset;
+
+                while (offset < data.Length)
+                {
+                    if (offset + 28 > data.Length) break;
+                    
+                    // EFI_SIGNATURE_LIST header
+                    // Guid (16) + ListSize (4) + HeaderSize (4) + SignatureSize (4)
+                    int listSize = BitConverter.ToInt32(data, offset + 16);
+                    int headerSize = BitConverter.ToInt32(data, offset + 20);
+                    int signatureSize = BitConverter.ToInt32(data, offset + 24);
+
+                    int currentSigOffset = offset + 28 + headerSize;
+                    int endOfList = offset + listSize;
+
+                    if (signatureSize > 0)
+                    {
+                        // Calculate payload area for signatures
+                        int payloadArea = endOfList - currentSigOffset;
+                        if (payloadArea > 0)
+                        {
+                            count += payloadArea / signatureSize;
+                        }
+                    }
+                    
+                    // Advance
+                    if (listSize <= 0) break; // Safety
+                    offset += listSize;
+                }
+                return count;
+            }
+            catch 
+            {
+                return -1; // Error
             }
         }
 

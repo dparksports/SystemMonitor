@@ -10,7 +10,7 @@ namespace DeviceMonitorCS.Helpers
     {
         // Official UEFI DBX Update (x64) - Hosted by Microsoft on GitHub
         // Using raw link ensures direct access to the binary file from the official repo.
-        private const string DbxUrl = "https://raw.githubusercontent.com/microsoft/secureboot_objects/main/PostSignedObjects/DBX/amd64/DBXUpdate.bin";
+        public const string DbxUrl = "https://raw.githubusercontent.com/microsoft/secureboot_objects/main/PostSignedObjects/DBX/amd64/DBXUpdate.bin";
         private const string DbxFileName = "DBXUpdate.bin";
 
         public static string GetInstallCommand(string path)

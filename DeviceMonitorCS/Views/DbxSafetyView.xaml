@@ -43,6 +43,46 @@
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="20,0,0,0">
                     <TextBlock x:Name="StatusText" Text="Ready to scan." Foreground="#E2E8F0" FontSize="14"/>
                     <TextBlock x:Name="BaselineStatusText" Text="Baseline: Not Checked" Foreground="#64748B" FontSize="12"/>
+                    
+                    <!-- DBX File Info -->
+                    <Border Margin="0,8,0,0" Padding="10,5" Background="#11FFFFFF" CornerRadius="4" BorderBrush="#22FFFFFF" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="Local DBX Verification" Foreground="#00F0FF" FontSize="10" FontWeight="Bold" Margin="0,0,0,4"/>
+                            
+                            <!-- Source -->
+                            <Grid Margin="0,2,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="60"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Source:" Foreground="#94A3B8" FontSize="10"/>
+                                <TextBox x:Name="DbxStatusSource" Grid.Column="1" Text="-" Foreground="#E2E8F0" FontSize="10" 
+                                         Background="Transparent" BorderThickness="0" IsReadOnly="True" TextWrapping="Wrap" 
+                                         ToolTip="Official Microsoft UEFI Secure Boot Objects Repository"/>
+                            </Grid>
+                            <TextBlock Text="(Verified Official Microsoft Repository)" Foreground="#64748B" FontSize="9" Margin="60,1,0,3" FontStyle="Italic"/>
+
+                            <!-- Date -->
+                            <Grid Margin="0,2,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="60"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Published:" Foreground="#94A3B8" FontSize="10"/>
+                                <TextBlock x:Name="DbxStatusDate" Grid.Column="1" Text="-" Foreground="#E2E8F0" FontSize="10"/>
+                            </Grid>
+
+                            <!-- Count -->
+                            <Grid Margin="0,2,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="60"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Entires:" Foreground="#94A3B8" FontSize="10"/>
+                                <TextBlock x:Name="DbxStatusCount" Grid.Column="1" Text="-" Foreground="#E2E8F0" FontSize="10"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
 
                  <!-- Badge -->
