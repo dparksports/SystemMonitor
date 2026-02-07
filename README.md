@@ -2,7 +2,7 @@
 
 **Auto Command** is a next-generation system security monitor for Windows, bringing enterprise-grade forensics to a premium, consumer-friendly interface. It provides active protection, deep firmware inspection, and automated vulnerability remediation.
 
-[![Download v3.14.5](https://img.shields.io/badge/Download-v3.14.5-0078D7?style=for-the-badge&logo=windows)](https://github.com/dparksports/SystemMonitor/releases/tag/v3.14.5)
+[![Download v3.15.1](https://img.shields.io/badge/Download-v3.15.1-0078D7?style=for-the-badge&logo=windows)](https://github.com/dparksports/SystemMonitor/releases/tag/v3.15.1)
 
 ![DBX Safety Dashboard](assets/dashboard_v3.14.0.png)
 

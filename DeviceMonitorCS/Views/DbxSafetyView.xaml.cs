@@ -27,6 +27,12 @@ namespace DeviceMonitorCS.Views
             _sigcheckPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "sigcheck64.exe");
         }
 
+        private void UserControl_Loaded(object sender, RoutedEventArgs e)
+        {
+            // Verify integrity immediately when view loads
+            VerifySigcheckIntegrity();
+        }
+
         private async void RunCheckBtn_Click(object sender, RoutedEventArgs e)
         {
             LoadingOverlay.Visibility = Visibility.Visible;
