@@ -59,4 +59,4 @@ dotnet build -c Release
 
 ---
 
-<p align="center">Made with ❤️ for the Windows enthusiast community.</p>
+<p align="center">Made with ❤️ in California.</p>
