@@ -280,9 +280,80 @@ namespace DeviceMonitorCS.Views
             }
         }
 
+        private void VerifySigcheckIntegrity()
+        {
+            try
+            {
+                string expectedHash = "5D9E06BA65BB4D365E98FBB468F44FA8926F05984BF1A77EC7B1DF19C43DC5EF"; // v2.90
+                
+                if (File.Exists(_sigcheckPath))
+                {
+                    long size = new FileInfo(_sigcheckPath).Length;
+                    SigcheckSizeDisplay.Text = $"{size:N0} bytes";
+
+                    using (var sha = SHA256.Create())
+                    using (var stream = File.OpenRead(_sigcheckPath))
+                    {
+                        var hashBytes = sha.ComputeHash(stream);
+                        string hash = BitConverter.ToString(hashBytes).Replace("-", "").ToUpperInvariant();
+                        SigcheckHashDisplay.Text = hash;
+
+                        if (hash == expectedHash)
+                        {
+                            SigcheckIntegrityStatus.Text = "(VERIFIED)";
+                            SigcheckIntegrityStatus.Foreground = Brushes.LimeGreen;
+                        }
+                        else
+                        {
+                            SigcheckIntegrityStatus.Text = "(MISMATCH - TAMPERED)";
+                            SigcheckIntegrityStatus.Foreground = Brushes.Red;
+                        }
+                    }
+                }
+                else
+                {
+                    SigcheckIntegrityStatus.Text = "(MISSING)";
+                    SigcheckIntegrityStatus.Foreground = Brushes.Red;
+                }
+            }
+            catch (Exception ex)
+            {
+                SigcheckIntegrityStatus.Text = $"(ERROR: {ex.Message})";
+                SigcheckIntegrityStatus.Foreground = Brushes.Red;
+            }
+        }
+
+        private void OpenLogBtn_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "sigcheck_debug.log");
+                if (File.Exists(logPath))
+                {
+                    Process.Start(new ProcessStartInfo(logPath) { UseShellExecute = true });
+                }
+                else
+                {
+                    MessageBox.Show("Log file not found.", "Debug Log", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to open log: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private Dictionary<string, string> AnalyzeBootloader(string path)
         {
             var info = new Dictionary<string, string>();
+            
+            // DEBUG: Check if Sigcheck exists
+            if (!File.Exists(_sigcheckPath))
+            {
+                info["DEBUG_ERROR"] = $"Sigcheck MISSING at: {_sigcheckPath}";
+                return info;
+            }
+
             if (!File.Exists(path))
             {
                 info["Status"] = "File Not Found";
@@ -294,6 +365,7 @@ namespace DeviceMonitorCS.Views
                 FileName = _sigcheckPath,
                 Arguments = $"-accepteula -a -h \"{path}\"",
                 RedirectStandardOutput = true,
+                RedirectStandardError = true,
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
@@ -301,16 +373,31 @@ namespace DeviceMonitorCS.Views
             using (var p = Process.Start(psi))
             {
                 string output = p.StandardOutput.ReadToEnd();
+                string err = p.StandardError.ReadToEnd();
                 p.WaitForExit();
+
+                // SANITIZE
+                output = output.Replace("\0", "");
+                err = err.Replace("\0", "");
+
+                // LOGGING (Kept per user request)
+                try 
+                { 
+                    string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "sigcheck_debug.log");
+                    File.WriteAllText(logPath, $"Sigcheck Path: {_sigcheckPath}\r\nSigcheck Size: {(File.Exists(_sigcheckPath) ? new FileInfo(_sigcheckPath).Length : -1)}\r\n\r\nSTDOUT:\r\n{output}\r\n\r\nSTDERR:\r\n{err}"); 
+                } 
+                catch { }
 
                 var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
                 foreach (var line in lines)
                 {
-                     var match = Regex.Match(line, @"^\s+([^:]+):\s+(.*)$");
+                     // Relaxed Regex
+                     var match = Regex.Match(line, @"^\s*([^:]+)\s*:\s*(.*)$");
                      if (match.Success)
                      {
                          string key = match.Groups[1].Value.Trim();
                          string val = match.Groups[2].Value.Trim();
+
                          // Filter essential keys
                          if (key.Contains("Publisher") || key.Contains("Verified") || key.Contains("date") || 
                              key.Contains("Product") || key.Contains("Version") || 
@@ -319,6 +406,12 @@ namespace DeviceMonitorCS.Views
                              info[key] = val;
                          }
                      }
+                }
+                
+                if (info.Count < 3)
+                {
+                     string rawLimited = output.Length > 200 ? output.Substring(0, 200) + "..." : output;
+                     info["DEBUG_ERROR"] = $"Sigcheck Parse Failed. Keys: {info.Count}. see sigcheck_debug.log.\nRaw: {rawLimited}";
                 }
             }
             return info;
@@ -593,6 +686,11 @@ namespace DeviceMonitorCS.Views
                 });
             }
             catch { }
+
+            if (info.ContainsKey("DEBUG_ERROR"))
+            {
+                return (false, info["DEBUG_ERROR"]);
+            }
 
             string peHash = info.ContainsKey("PE256") ? info["PE256"] : null;
             string fileHash = info.ContainsKey("SHA256") ? info["SHA256"] : null;

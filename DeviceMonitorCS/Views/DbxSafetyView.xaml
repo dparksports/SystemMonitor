@@ -104,11 +104,59 @@
             </StackPanel>
         </Grid>
 
-        <!-- DBX File Info (Moved) -->
+
+
+        <!-- Tool Integrity Info (New) -->
         <Border Grid.Row="3" Margin="0,15,0,0" Padding="10,5" Background="#11FFFFFF" CornerRadius="4" BorderBrush="#22FFFFFF" BorderThickness="1" HorizontalAlignment="Stretch">
              <StackPanel>
-                <TextBlock Text="Local DBX Verification" Foreground="#00F0FF" FontSize="10" FontWeight="Bold" Margin="0,0,0,4"/>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Security Tooling &amp; Integrity" Foreground="#00F0FF" FontSize="10" FontWeight="Bold"/>
+                    <Button Content="VIEW LOG" Click="OpenLogBtn_Click" Grid.Column="1" 
+                            FontSize="9" Background="Transparent" Foreground="#94A3B8" BorderThickness="0" Cursor="Hand"
+                            Padding="5,0"/>
+                </Grid>
                 
+                <!-- Sigcheck Hash -->
+                <Grid Margin="0,2,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Tool:" Foreground="#94A3B8" FontSize="10"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <TextBlock Text="Sigcheck v2.90" Foreground="#E2E8F0" FontSize="10"/>
+                        <TextBlock x:Name="SigcheckIntegrityStatus" Text="(Verifying...)" Foreground="#FFAA00" FontSize="10" Margin="5,0,0,0" FontWeight="Bold"/>
+                    </StackPanel>
+                </Grid>
+
+                <Grid Margin="0,2,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="SHA256:" Foreground="#94A3B8" FontSize="10"/>
+                    <TextBox x:Name="SigcheckHashDisplay" Grid.Column="1" Text="-" Foreground="#64748B" FontSize="9" 
+                             Background="Transparent" BorderThickness="0" IsReadOnly="True" TextWrapping="Wrap" FontFamily="Consolas"/>
+                </Grid>
+                
+                <Grid Margin="0,2,0,0">
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Size:" Foreground="#94A3B8" FontSize="10"/>
+                    <TextBlock x:Name="SigcheckSizeDisplay" Grid.Column="1" Text="-" Foreground="#64748B" FontSize="10"/>
+                </Grid>
+                
+                <!-- Spacer -->
+                <Rectangle Height="1" Fill="#22FFFFFF" Margin="0,5,0,5"/>
+
+                <TextBlock Text="Local DBX Verification" Foreground="#00F0FF" FontSize="10" FontWeight="Bold" Margin="0,0,0,4"/>
+
                 <!-- Source -->
                 <Grid Margin="0,2,0,0">
                     <Grid.ColumnDefinitions>
