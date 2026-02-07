@@ -60,7 +60,7 @@ if (Test-Path $BootloaderPath) {
     # 6. Get PE SHA256 Hash (Using Sigcheck)
     # We parse the output because Sigcheck formats it as text
     Write-Host "[-] Calculating Authenticode (PE) Hash..." -ForegroundColor Cyan
-    $SigOutput = & $SigcheckPath -h $BootloaderPath
+    $SigOutput = & $SigcheckPath -accepteula -h $BootloaderPath
     
     # Extract the line starting with "PE SHA256:"
     $PEHashLine = $SigOutput | Where-Object { $_ -match "PE SHA256:\s+([A-Fa-f0-9]+)" }

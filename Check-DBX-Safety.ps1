@@ -174,7 +174,7 @@ $Bootloader = "Z:\EFI\Microsoft\Boot\bootmgfw.efi"
 
 if (Test-Path $Bootloader) {
     # Run Sigcheck
-    $RawOutput = & $SigcheckPath -a -h $Bootloader
+    $RawOutput = & $SigcheckPath -accepteula -a -h $Bootloader
     
     # Parse Output
     $Info = @{}

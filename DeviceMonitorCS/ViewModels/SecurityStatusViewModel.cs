@@ -235,13 +235,13 @@ namespace DeviceMonitorCS.ViewModels
              return result.Trim().Equals("True", System.StringComparison.OrdinalIgnoreCase);
         }
 
-        private async Task<bool> CheckNetworkHealth()
+        private Task<bool> CheckNetworkHealth()
         {
              // Check if we have < 100 active connections (arbitrary heuristic)
              // Force a refresh first?
              // ConnectionMonitor is on a background loop, so let's just peek connection count.
              int count = Models.ConnectionMonitor.Instance.ActiveConnections.Count;
-             return count < 100;
+             return Task.FromResult(count < 100);
         }
 
         public void UpdateStatus(string status, string colorType)

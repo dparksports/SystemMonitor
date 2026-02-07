@@ -292,7 +292,7 @@ namespace DeviceMonitorCS.Views
             var psi = new ProcessStartInfo
             {
                 FileName = _sigcheckPath,
-                Arguments = $"-a -h \"{path}\"",
+                Arguments = $"-accepteula -a -h \"{path}\"",
                 RedirectStandardOutput = true,
                 UseShellExecute = false,
                 CreateNoWindow = true

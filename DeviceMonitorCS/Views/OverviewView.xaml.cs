@@ -530,7 +530,7 @@ namespace DeviceMonitorCS.Views
 
         public void UpdateLiveStatus(string status, string colorType)
         {
-            Dispatcher.Invoke(async () =>
+            Dispatcher.Invoke(() =>
             {
                 StatusText.Text = status;
 
