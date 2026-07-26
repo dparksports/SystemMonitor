@@ -44,12 +44,12 @@ namespace DeviceMonitorCS.Views
 
                 await Task.Run(() =>
                 {
-                    string script = @"$tp = (Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows Defender\Features' -ErrorAction SilentlyContinue).TamperProtection; if ($tp -eq 1) { 'ENABLED' } elseif ($tp -eq 0) { 'DISABLED' } else { 'UNKNOWN' }";
+                    string script = @"$tp = (Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows Defender\Features' -ErrorAction SilentlyContinue).TamperProtection; if ($tp -eq 1 -or $tp -eq 5) { 'ENABLED' } elseif ($tp -eq 0 -or $tp -eq 4) { 'DISABLED' } else { 'UNKNOWN' }";
                     
                     var psi = new ProcessStartInfo
                     {
                         FileName = "powershell.exe",
-                        Arguments = $"-Command \"{script}\"",
+                        Arguments = $"-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"{script}\"",
                         RedirectStandardOutput = true,
                         UseShellExecute = false,
                         CreateNoWindow = true
@@ -57,8 +57,11 @@ namespace DeviceMonitorCS.Views
 
                     using (var p = Process.Start(psi))
                     {
-                        string result = p.StandardOutput.ReadToEnd().Trim();
+                        string raw = p.StandardOutput.ReadToEnd().Trim();
                         p.WaitForExit();
+
+                        string[] lines = raw.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                        string result = lines.Length > 0 ? lines[lines.Length - 1].Trim() : "";
 
                         Dispatcher.Invoke(() =>
                         {
