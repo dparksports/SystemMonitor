@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://github.com/dparksports/SystemMonitor/releases/tag/v3.15.2"><img src="https://img.shields.io/badge/Release-v3.15.2-0078D7?style=for-the-badge&logo=windows" alt="Download v3.15.2"></a>
   <a href="https://dotnet.microsoft.com/"><img src="https://img.shields.io/badge/.NET-8.0%20%7C%2010.0-512BD4?style=for-the-badge&logo=dotnet" alt=".NET 8.0/10.0"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.style=for-the-badge" alt="License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge" alt="License"></a>
   <a href="https://github.com/dparksports/SystemMonitor/stargazers"><img src="https://img.shields.io/github/stars/dparksports/SystemMonitor?style=for-the-badge&color=yellow" alt="Stars"></a>
 </p>
 
@@ -103,7 +103,7 @@ The output executable will be generated at `DeviceMonitorCS/bin/Release/net8.0-w
 
 ## 📄 License & Author
 
-Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for details.
+Distributed under the **Apache License 2.0**. See [`LICENSE`](LICENSE) for details.
 
 * **Author**: Dan Park ([dpark@magicpoint.ai](mailto:dpark@magicpoint.ai))
 * **Repository**: [github.com/dparksports/SystemMonitor](https://github.com/dparksports/SystemMonitor)
