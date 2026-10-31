@@ -68,6 +68,9 @@ namespace AutoCommand.Views
         // Scheduled-task attribution for taskhostw rows (who/what/why launched)
         private readonly TaskAttributionService _taskAttribution = new();
 
+        // Traffic Peek windows, one per remote IP ("Peer into this connection")
+        private readonly Dictionary<string, ConnectionPeekWindow> _peekWindows = new(StringComparer.OrdinalIgnoreCase);
+
         /// <summary>The live monitor instance — the Blocks tab reads current
         /// connections from it for its "last traffic" column.</summary>
         public static SvchostMonitorView Current { get; private set; }
@@ -626,6 +629,14 @@ namespace AutoCommand.Views
                 ? $"🔎 Trace PID {sel.ProcessId} — how was it spawned?"
                 : "🔎 Trace: how was this PID spawned?";
 
+            // Peer needs a real remote endpoint to scope the capture to.
+            bool peerable = sel != null &&
+                System.Net.IPAddress.TryParse(sel.RemoteIp, out _);
+            PeerMenuItem.IsEnabled = peerable;
+            PeerMenuItem.Header = peerable
+                ? $"🔬 Peer into this connection ({sel.RemoteIp})"
+                : "🔬 Peer into this connection";
+
             ResolveNowMenuItem.IsEnabled = sel != null &&
                 System.Net.IPAddress.TryParse(sel.RemoteIp, out _) && !sel.IsResolved;
             ResolveNowMenuItem.Visibility = ResolveNowMenuItem.IsEnabled
@@ -772,6 +783,42 @@ namespace AutoCommand.Views
         {
             if (SvchostGrid.SelectedItem is SvchostMonitorItem item)
                 OpenPidTrace(item.ProcessId, item);
+        }
+
+        // -----------------------------------------------------------------------
+        // Traffic Peek — peer into what a connection carries
+        // -----------------------------------------------------------------------
+
+        private void PeerMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (SvchostGrid.SelectedItem is not SvchostMonitorItem item ||
+                string.IsNullOrEmpty(item.RemoteIp))
+                return;
+
+            // One peek per remote IP: a second request focuses the existing
+            // window instead of stacking two captures on the same endpoint.
+            if (_peekWindows.TryGetValue(item.RemoteIp, out var existing))
+            {
+                if (existing != null && existing.IsLoaded)
+                {
+                    existing.Activate();
+                    return;
+                }
+                _peekWindows.Remove(item.RemoteIp);
+            }
+
+            var win = new ConnectionPeekWindow(
+                item.RemoteIp,
+                item.ProcessName,
+                item.ProcessId,
+                item.HostedServicesCsv,
+                item.Hostname)
+            {
+                Owner = Window.GetWindow(this)
+            };
+            win.Closed += (_, _) => _peekWindows.Remove(item.RemoteIp);
+            _peekWindows[item.RemoteIp] = win;
+            win.Show();
         }
 
         /// <summary>

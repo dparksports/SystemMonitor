@@ -1,8 +1,10 @@
 // NetWatch self-test — TcpConnectionTable (dual-family kernel enumeration,
 // incl. a LIVE held [::1] connection) + SysmonArchiveService (watermark
-// dedupe, day-file rotation, search, prune, corrupt-line tolerance).
-// Archive persistence runs against a temp dir; nothing touches the real
-// %LOCALAPPDATA% archive or the live Sysmon channel.
+// dedupe, day-file rotation, search, prune, corrupt-line tolerance) +
+// FlowDossier (Traffic Peek: synthetic-packet capture → TLS-metadata-only
+// honesty, remote-IP scoping, pid tagging, refcount lifecycle). Archive and
+// keylog persistence run against temp dirs; nothing touches the real
+// %LOCALAPPDATA% archive, keylog or the live Sysmon channel.
 using System;
 using AutoCommand.NetWatch.Core;
 using System.Collections.Generic;
@@ -10,6 +12,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 
 int failures = 0;
@@ -190,6 +193,184 @@ Check("queued-by-idle address reports resolving",
 dns.SeedFromSysmon("203.0.113.8", "203.0.113.8");   // second placeholder
 Check("idle batch honors the batch size (all candidates fit)",
       dns.RunIdlePassForTest(() => TimeSpan.FromMinutes(10)) == 1);
+
+// ─────────────────────────────────────────────────────────────────────
+// 6. FlowDossier — the Traffic Peek engine, offline: synthetic IPv4/TCP
+//    packets fed straight into the shared capture's self-test seam. The
+//    peered IP is a TEST-NET address (never routed) so real machine
+//    traffic can never pollute the assertions; the keylog lives in a
+//    temp DataRoot, so the decryptor's "no keys" honesty is deterministic.
+// ─────────────────────────────────────────────────────────────────────
+string peerRoot = Path.Combine(Path.GetTempPath(), "netwatch-peer-" + Guid.NewGuid().ToString("N")[..8]);
+AutoCommand.Engines.Watch.WatchConfig.Configure(new AutoCommand.Engines.Core.AppIdentity(
+    "NetWatchSelfTest", peerRoot, "TEST-IP ", "TEST-APP ",
+    Microsoft.FSharp.Collections.ListModule.OfSeq(Array.Empty<string>()), 47821, "netwatch-selftest"));
+
+const string PeerIp = "198.51.100.10"; // TEST-NET-2 — never routed, never real traffic
+var dossier = new AutoCommand.Engines.Watch.FlowDossierService(PeerIp);
+var collected = new List<AutoCommand.Engines.Watch.FlowDossierEntry>();
+var dossierNotes = new List<string>();
+object entryGate = new object();
+dossier.OnEntry += e => { lock (entryGate) collected.Add(e); };
+dossier.OnError += m => { lock (entryGate) dossierNotes.Add(m); };
+
+dossier.Start();
+Check("dossier start arms the shared capture", AutoCommand.Engines.Watch.TcpStreamCaptureService.Shared.IsRunning);
+Check("dossier shortens the idle sweep to 10 s",
+      AutoCommand.Engines.Watch.TcpStreamCaptureService.Shared.IdleTimeout == TimeSpan.FromSeconds(10));
+Check("dossier registers as the active peer", AutoCommand.Engines.Watch.FlowDossierService.ActiveCount == 1);
+
+// Flow A — TLS ClientHello to the peered IP:443, closed by RST (the
+// reassembler finalizes a reset flow immediately — no sweep wait).
+byte[] hello = BuildClientHello("fe3cr.delivery.mp.microsoft.com");
+var cap = AutoCommand.Engines.Watch.TcpStreamCaptureService.Shared;
+Feed(cap, Tcp4("192.0.2.10", 51234, PeerIp, 443, 1, 0x18, hello));
+Feed(cap, Tcp4("192.0.2.10", 51234, PeerIp, 443, 1 + (uint)hello.Length, 0x04, Array.Empty<byte>()));
+
+// Flow B — plain HTTP to the same IP (the dossier keeps non-TLS flows on
+// purpose; the honest verdict is the point).
+byte[] req = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: fe3cr.delivery.mp.microsoft.com\r\n\r\n");
+Feed(cap, Tcp4("192.0.2.10", 51236, PeerIp, 80, 1, 0x18, req));
+Feed(cap, Tcp4("192.0.2.10", 51236, PeerIp, 80, 1 + (uint)req.Length, 0x04, Array.Empty<byte>()));
+
+// Flow C — a different remote IP entirely: must never appear.
+byte[] noise = Encoding.ASCII.GetBytes("GET /elsewhere HTTP/1.1\r\nHost: elsewhere.test\r\n\r\n");
+Feed(cap, Tcp4("192.0.2.10", 51238, "203.0.113.7", 80, 1, 0x18, noise));
+Feed(cap, Tcp4("192.0.2.10", 51238, "203.0.113.7", 80, 1 + (uint)noise.Length, 0x04, Array.Empty<byte>()));
+
+Check("peered flows arrive and the foreign IP stays out", WaitForEntries(collected, entryGate, 2, 15000),
+      $"collected={collected.Count} notes={string.Join(" | ", dossierNotes.Take(2))}");
+Check("exactly the two peered flows arrived", collected.Count == 2, collected.Count.ToString());
+
+var tlsEntry = collected.FirstOrDefault(e => e.Status == "encrypted (no keys)");
+Check("TLS flow reports honestly 'encrypted (no keys)'", tlsEntry != null,
+      string.Join(", ", collected.Select(e => e.Status)));
+Check("SNI extracted from the ClientHello without keys",
+      tlsEntry != null && tlsEntry.Decrypt.Sni == "fe3cr.delivery.mp.microsoft.com",
+      tlsEntry?.Decrypt.Sni ?? "(none)");
+Check("no-keys status names the real reason (not instrumented)",
+      tlsEntry != null && (tlsEntry.Decrypt.Status?.Contains("Not instrumented") ?? false),
+      tlsEntry?.Decrypt.Status);
+Check("client bytes preserved through reassembly",
+      tlsEntry != null && tlsEntry.Flow.ClientBytes == hello.Length && tlsEntry.Decrypt.ClientAppBytes == 0,
+      tlsEntry != null ? $"{tlsEntry.Flow.ClientBytes} wire / {tlsEntry.Decrypt.ClientAppBytes} app" : "");
+Check("remote endpoint scoped to the peered IP",
+      tlsEntry != null && tlsEntry.RemoteEndpoint == PeerIp + ":443",
+      tlsEntry?.RemoteEndpoint);
+Check("plain flow reported as 'not TLS'", collected.Any(e => e.Status == "not TLS"),
+      string.Join(", ", collected.Select(e => e.Status)));
+
+// Flow D — PID attribution: the seam the Sysmon EID 3 watcher drives,
+// exercised directly (TagFlow is first-writer-wins).
+Feed(cap, Tcp4("192.0.2.10", 51240, PeerIp, 443, 1, 0x18, hello));
+Check("TagFlow tags the live flow",
+      cap.TagFlow("192.0.2.10", 51240, PeerIp, 443, 4242, @"C:\Windows\System32\svchost.exe"));
+Feed(cap, Tcp4("192.0.2.10", 51240, PeerIp, 443, 1 + (uint)hello.Length, 0x04, Array.Empty<byte>()));
+Check("tagged pid/image ride the dossier entry", WaitForEntries(collected, entryGate, 3, 15000) &&
+      collected[^1].ProcessDisplay.Contains("svchost.exe") && collected[^1].ProcessDisplay.Contains("4242"),
+      collected[^1].ProcessDisplay);
+
+// Service-activity probe: must never throw, and stays inside its budget —
+// on CI the channels are absent (empty result); on a dev box it reads real events.
+var probe = AutoCommand.Engines.Watch.ServiceLogProbe.QueryEvents(
+    DateTime.UtcNow.AddMinutes(-5), DateTime.UtcNow);
+Check("service event probe is bounded and quiet", probe.Count <= 60, probe.Count.ToString());
+
+dossier.Stop();
+Check("dossier stop releases the capture",
+      !AutoCommand.Engines.Watch.TcpStreamCaptureService.Shared.IsRunning &&
+      AutoCommand.Engines.Watch.FlowDossierService.ActiveCount == 0);
+Check("idle sweep restored to the 60 s default",
+      AutoCommand.Engines.Watch.TcpStreamCaptureService.Shared.IdleTimeout == TimeSpan.FromSeconds(60));
+
+// A window close/reopen cycle must re-arm cleanly (one peek per IP, reused).
+var dossier2 = new AutoCommand.Engines.Watch.FlowDossierService(PeerIp);
+dossier2.Start();
+bool reArmed = AutoCommand.Engines.Watch.TcpStreamCaptureService.Shared.IsRunning;
+dossier2.Stop();
+Check("close/reopen re-arms and re-releases the capture", reArmed &&
+      !AutoCommand.Engines.Watch.TcpStreamCaptureService.Shared.IsRunning);
+
+try { Directory.Delete(peerRoot, true); } catch { }
+
+// ── synthetic packet builders for section 6 ──────────────────────────
+
+/// <summary>Feeds one synthetic packet through the capture's self-test seam.</summary>
+static void Feed(AutoCommand.Engines.Watch.TcpStreamCaptureService capture, byte[] packet)
+    => capture.ProcessIpPacket(packet, packet.Length);
+
+static byte[] Tcp4(string srcIp, int srcPort, string dstIp, int dstPort, uint seq, byte flags, byte[] payload)
+{
+    int total = 20 + 20 + payload.Length;
+    var buf = new byte[total];
+    buf[0] = 0x45; // IPv4, IHL 20
+    buf[2] = (byte)(total >> 8);
+    buf[3] = (byte)(total & 0xFF);
+    buf[8] = 64;   // TTL (unchecked by the reassembler)
+    buf[9] = 6;    // TCP
+    IPAddress.Parse(srcIp).GetAddressBytes().CopyTo(buf, 12);
+    IPAddress.Parse(dstIp).GetAddressBytes().CopyTo(buf, 16);
+    int t = 20;
+    buf[t] = (byte)(srcPort >> 8);
+    buf[t + 1] = (byte)(srcPort & 0xFF);
+    buf[t + 2] = (byte)(dstPort >> 8);
+    buf[t + 3] = (byte)(dstPort & 0xFF);
+    buf[t + 4] = (byte)(seq >> 24);
+    buf[t + 5] = (byte)((seq >> 16) & 0xFF);
+    buf[t + 6] = (byte)((seq >> 8) & 0xFF);
+    buf[t + 7] = (byte)(seq & 0xFF);
+    buf[t + 12] = 0x50; // data offset 5 (20-byte header)
+    buf[t + 13] = flags;
+    payload.CopyTo(buf, t + 20);
+    return buf;
+}
+
+/// <summary>A minimal RFC-8446-style ClientHello with one SNI entry and one
+/// offered TLS 1.3 suite — exactly what the decryptor's metadata path reads.</summary>
+static byte[] BuildClientHello(string sni)
+{
+    byte[] name = Encoding.ASCII.GetBytes(sni);
+    int listLen = 3 + name.Length;          // type(1) + len(2) + name
+    int extDataLen = 2 + listLen;           // server_name_list len(2) + list
+    int extLen = 4 + extDataLen;            // type(2) + ext len(2) + data
+    int bodyLen = 2 + 32 + 1 + 2 + 2 + 1 + 1 + 2 + extLen;
+    int hsLen = 4 + bodyLen;
+
+    var b = new List<byte>
+    {
+        0x16, 0x03, 0x01, (byte)(hsLen >> 8), (byte)(hsLen & 0xFF),   // handshake record
+        0x01, 0x00, (byte)(bodyLen >> 8), (byte)(bodyLen & 0xFF),     // ClientHello
+        0x03, 0x03,                                                   // client_version TLS 1.2
+    };
+    var random = new byte[32];
+    Random.Shared.NextBytes(random);
+    b.AddRange(random);                                               // client random
+    b.Add(0x00);                                                      // session_id: empty
+    b.AddRange(new byte[] { 0x00, 0x02, 0x13, 0x01 });                // one suite: TLS_AES_128_GCM_SHA256
+    b.AddRange(new byte[] { 0x01, 0x00 });                            // compression: null
+    b.Add((byte)(extLen >> 8));
+    b.Add((byte)(extLen & 0xFF));                                     // extensions length
+    b.AddRange(new byte[] { 0x00, 0x00, (byte)(extDataLen >> 8), (byte)(extDataLen & 0xFF) }); // server_name
+    b.Add((byte)(listLen >> 8));
+    b.Add((byte)(listLen & 0xFF));
+    b.Add(0x00);                                                      // host_name
+    b.Add((byte)(name.Length >> 8));
+    b.Add((byte)(name.Length & 0xFF));
+    b.AddRange(name);
+    return b.ToArray();
+}
+
+static bool WaitForEntries(List<AutoCommand.Engines.Watch.FlowDossierEntry> collected, object gate, int count, int timeoutMs)
+{
+    var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+    while (DateTime.UtcNow < deadline)
+    {
+        lock (gate)
+            if (collected.Count >= count) return true;
+        Thread.Sleep(50);
+    }
+    lock (gate) return collected.Count >= count;
+}
 
 Console.WriteLine(failures == 0 ? "\nALL CHECKS PASSED" : $"\n{failures} CHECK(S) FAILED");
 return failures == 0 ? 0 : 1;

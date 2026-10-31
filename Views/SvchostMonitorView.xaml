@@ -151,6 +151,7 @@
             <DataGrid.ContextMenu>
                 <ContextMenu Opened="RowMenu_Opened">
                     <MenuItem x:Name="TracePidMenuItem" Header="🔎 Trace: how was this PID spawned?" Click="TracePidMenuItem_Click"/>
+                    <MenuItem x:Name="PeerMenuItem" Header="🔬 Peer into this connection" Click="PeerMenuItem_Click"/>
                     <MenuItem x:Name="RevealNameMenuItem" Header="🏷 Reveal real process name (Sysmon record)" Click="RevealNameMenuItem_Click"/>
                     <MenuItem x:Name="ResolveNowMenuItem" Header="🔄 Resolve now (re-ask hostname/org)" Click="ResolveNowMenuItem_Click"/>
                     <Separator/>

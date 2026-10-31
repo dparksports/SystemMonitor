@@ -44,5 +44,6 @@
     <Compile Include="TransmissionsCore.fs" />
     <Compile Include="TransmissionsArchive.fs" />
     <Compile Include="TransmissionsPipeline.fs" />
+    <Compile Include="FlowDossier.fs" />
   </ItemGroup>
 </Project>
