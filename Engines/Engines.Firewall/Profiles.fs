@@ -40,6 +40,47 @@ module private ProfileCom =
     let setEnabled (rule: obj) (value: bool) : unit = setProp rule "Enabled" value
 
 /// <summary>
+/// The canonical Shield Up whitelist. The 2026-10-30 field report (§3) caught
+/// a mass-disable with only mDNS + Core Networking surviving, which silently
+/// took WSL2/Hyper-V VM egress down with it — forwarded VM traffic dies below
+/// the per-app rule model, with no attribution anywhere in the UI. VM
+/// infrastructure groups stay ON so a lockdown never kills virtual machines.
+/// Both C# copies (Contain.Core facade, vendored Shields Up core) delegate
+/// their Shield Up preset here rather than carry their own table; the pure
+/// predicate is public so HardenSelfTest can pin it without touching COM.
+/// </summary>
+module ShieldsUpWhitelist =
+
+    /// Friendly display names to keep enabled.
+    let Display = [| "mDNS"; "Core Networking" |]
+
+    /// Raw-group tokens (resource-string groups like icsvc.dll,-700 and the
+    /// WSL ms-resource package group never resolve to a friendly name) —
+    /// matched case-insensitively against the raw grouping and the display name.
+    let RawTokens =
+        [|
+            "icsvc"                 // Hyper-V Host Compute Service (Virtual Machine rules)
+            "SubsystemForLinux"     // WSL store-package group (ms-resource://...SubsystemForLinux...)
+            "Hyper-V"
+            "Virtual Machine"
+            "VirtualMachine"
+            "WSL"
+            "HNS"                   // Host Network Service (vSwitch/NAT plumbing)
+            "wslservice"
+            "vmcompute"
+        |]
+
+    let isWhitelisted (display: string) (rawGroup: string) : bool =
+        (Display
+        |> Array.exists (fun wl ->
+            String.Equals(display, wl, StringComparison.OrdinalIgnoreCase)
+            || String.Equals(rawGroup, wl, StringComparison.OrdinalIgnoreCase)))
+        || (RawTokens
+        |> Array.exists (fun token ->
+            rawGroup.IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0
+            || display.IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0))
+
+/// <summary>
 /// Firewall profile presets using COM API.
 /// Ported from DeviceMonitorCS — now uses FirewallService instead of PowerShell.
 /// F# port: values mirror Core/Services/FirewallProfileService.cs exactly.
@@ -114,19 +155,20 @@ type ProfilePresets(fw: FirewallService) =
                         result.Failed <- result.Failed + 1
                         if isNull result.FirstError then result.FirstError <- ex.Message
 
-                // Pass 2: Re-enable whitelisted groups
-                let whitelist = [| "mDNS"; "Core Networking" |]
+                // Pass 2: Re-enable whitelisted groups (see the
+                // ShieldsUpWhitelist module above for why the whitelist is
+                // wider than mDNS + Core Networking).
+                let mutable vmSpared = false
                 for rule in ProfileCom.rules fwPolicy do
                     try
                         let group = ProfileCom.groupingOrEmpty rule
                         if not (String.IsNullOrEmpty group) then
                             let display = FirewallService.ResolveGroupName group
-                            let whitelisted =
-                                whitelist
-                                |> Array.exists (fun wl ->
-                                    String.Equals(display, wl, StringComparison.OrdinalIgnoreCase)
-                                    || String.Equals(group, wl, StringComparison.OrdinalIgnoreCase))
-                            if whitelisted then
+                            if ShieldsUpWhitelist.isWhitelisted display group then
+                                if not (
+                                    String.Equals(display, "mDNS", StringComparison.OrdinalIgnoreCase)
+                                    || String.Equals(display, "Core Networking", StringComparison.OrdinalIgnoreCase)) then
+                                    vmSpared <- true
                                 let wasEnabled = ProfileCom.isEnabled rule
                                 ProfileCom.setEnabled rule true
                                 result.Matched <- result.Matched + 1
@@ -136,8 +178,9 @@ type ProfilePresets(fw: FirewallService) =
                         result.Failed <- result.Failed + 1
                         if isNull result.FirstError then result.FirstError <- ex.Message
 
+                let sparedText = if vmSpared then " (VM networking spared)" else ""
                 result.Notes <-
-                    $"{disabledCount} grouped rule(s) disabled, {whitelistEnabled} whitelist rule(s) processed for re-enable"
+                    $"{disabledCount} grouped rule(s) disabled, {whitelistEnabled} whitelist rule(s) re-enabled{sparedText}"
             with ex ->
                 result.FailedCompletely <- true
                 result.FirstError <- ex.Message

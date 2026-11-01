@@ -12,6 +12,7 @@ using System.Management;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading;
+using ShieldsUp.Core.Services;
 using SvchostAnalyzer.Core;
 
 namespace AutoCommand.Agent.Core
@@ -44,6 +45,17 @@ namespace AutoCommand.Agent.Core
         /// fails the build if the stub list drifts from this).</summary>
         public static IReadOnlyList<string> ToolNames =>
             Tools.Select(t => t.Name).ToList();
+
+        // ── app-provided seam (same inversion as IAgentInteraction) ──────
+        // The firewall baseline manager lives in the app assembly (the
+        // enforcer and the Firewall tab both own it there), so the bridge
+        // cannot call it directly. The app installs this seam at startup;
+        // headless hosts (self-tests, AgentHost) install nothing and the
+        // preset tool degrades to apply-only with an honest note.
+        public sealed record ShieldsUpBaselineSeam(
+            Action<int> PauseMinutes,
+            Func<Task<(int Count, DateTime CapturedAt)>> CaptureAsync);
+        public static ShieldsUpBaselineSeam ShieldsUpBaseline { get; set; }
 
         private static readonly List<Tool> Tools = new()
         {
@@ -292,6 +304,17 @@ namespace AutoCommand.Agent.Core
                 false,
                 a => InvestigateProcess(a)),
 
+            new Tool(
+                "get_shieldsup_status",
+                "The Shields Up tab's status board, read-only: every door Windows leaves open (SSTP VPN service " +
+                "and miniports, Wi-Fi Direct hosted network, kernel debug, the four Windows VPN services, WAN " +
+                "miniports), the OS-hardening switches (IPv6, LSA Protection, UAC strictness), the hosts-file " +
+                "audit, Defender Tamper Protection, and per-vendor telemetry opt-out state with rule ids. " +
+                "Everything is re-read live — never a cached verdict.",
+                Schema(),
+                false,
+                a => GetShieldsUpStatus()),
+
             // ── mutating: only present when the session allows, each call confirmed ──
 
             new Tool(
@@ -320,6 +343,45 @@ namespace AutoCommand.Agent.Core
                 true,
                 a => CloseGate(a),
                 a => $"Close the block gate early - return blocking ON for {a["target"]} now?"),
+
+            new Tool(
+                "close_shieldsup_door",
+                "Close ONE of the doors Windows leaves open (Shields Up tab): sstp (stop the SSTP VPN " +
+                "service + disable its miniport adapters), hostednetwork (stop + disallow the Wi-Fi Direct " +
+                "ghost hotspot), vpnservices (stop + disable RasMan/IKEEXT/PolicyAgent/RemoteAccess — any " +
+                "VPN connection drops), kdnet (turn kernel debug off) or wifidirect (disable the Wi-Fi " +
+                "Direct virtual adapters). All reversible. There is deliberately NO enable path over the " +
+                "bridge — re-opening a door is a human decision made in the tab. Asks the user for every call.",
+                Schema(("door", "One of: sstp | hostednetwork | vpnservices | kdnet | wifidirect", true),
+                       ("reason", "Why — shown to the user in the confirmation", false)),
+                true,
+                a => CloseShieldsUpDoor(a),
+                a => CloseShieldsUpDoorConfirm(a)),
+
+            new Tool(
+                "opt_out_telemetry",
+                "Flip one vendor's OWN official opt-out switch (Shields Up tab's vendor table: dotnet CLI, " +
+                "PowerShell 7, VS Code, Windows diagnostic data, Edge, Chrome, ultralytics). The previous " +
+                "setting is saved first, the flip is verified by re-reading, and revert=true restores the " +
+                "previous value exactly. Asks the user for every call.",
+                Schema(("rule_id", "Rule id from get_shieldsup_status (e.g. 'vscode-telemetry')", true),
+                       ("revert", "true = restore the previous setting instead of opting out", false)),
+                true,
+                a => OptOutTelemetry(a),
+                a => OptOutTelemetryConfirm(a)),
+
+            new Tool(
+                "apply_shieldsup_preset",
+                "Apply one named firewall preset (Shields Up tab): strict_public (kill sharing/discovery/" +
+                "remote desktop), home_trusted, gaming_media, office or shield_up (disable every grouped " +
+                "rule, re-enable only mDNS, Core Networking and the WSL/Hyper-V VM-infrastructure groups). " +
+                "The firewall baseline is re-captured atomically with the apply, so Auto-Mitigate protects " +
+                "the preset's intent instead of fighting it. Asks the user for every call.",
+                Schema(("preset", "One of: strict_public | home_trusted | gaming_media | office | shield_up", true),
+                       ("reason", "Why — shown to the user in the confirmation", false)),
+                true,
+                a => ApplyShieldsUpPreset(a),
+                a => ApplyShieldsUpPresetConfirm(a)),
 
         };
 
@@ -1637,6 +1699,273 @@ namespace AutoCommand.Agent.Core
                 ["verdict"] = snap.VerdictText,
                 ["note"] = snap.ArchiveNote,
             };
+        }
+
+        // ── shields-up tools (vendored ShieldsUp.Core) ────────────────────
+
+        private static string GetShieldsUpStatus()
+        {
+            var o = new JsonObject { ["type"] = "shieldsup_status" };
+
+            try
+            {
+                var sstp = AttackSurfaceService.GetSstpStatus();
+                o["sstp"] = new JsonObject
+                {
+                    ["active"] = sstp.Active,
+                    ["service_state"] = sstp.StatusText,
+                    ["start_mode"] = sstp.StartMode,
+                };
+            }
+            catch (Exception ex) { o["sstp"] = Err(ex); }
+
+            try
+            {
+                string hosted = AttackSurfaceService.GetHostedNetworkStatus();
+                o["wifi_direct_hosted_network"] = hosted;
+                o["wifi_direct_adapter_present"] = PrivacyService.IsWifiDirectAdapterPresent();
+            }
+            catch (Exception ex) { o["wifi_direct_hosted_network"] = Err(ex); }
+
+            try { o["kernel_debug_on"] = AttackSurfaceService.IsKernelDebugOn(); }
+            catch (Exception ex) { o["kernel_debug_on"] = Err(ex); }
+
+            try
+            {
+                var (running, total) = PrivacyService.GetVpnStatus();
+                o["vpn_services"] = new JsonObject
+                {
+                    ["running"] = running,
+                    ["total"] = total,
+                    ["names"] = new JsonArray(PrivacyService.VpnServices.Select(s => (JsonNode)s).ToArray()),
+                };
+            }
+            catch (Exception ex) { o["vpn_services"] = Err(ex); }
+
+            try { o["wan_miniports_present"] = AttackSurfaceService.ListWanMiniports().Count; }
+            catch (Exception ex) { o["wan_miniports_present"] = Err(ex); }
+
+            try
+            {
+                o["tamper_protection_on"] = PrivacyService.IsTamperProtectionOn();
+                o["ipv6_disabled"] = HardeningService.IsIpv6Disabled();
+                o["lsa_protected"] = HardeningService.IsLsaProtected();
+                o["uac_strict"] = HardeningService.IsUacStrict();
+            }
+            catch (Exception ex) { o["hardening"] = Err(ex); }
+
+            try
+            {
+                var hosts = HardeningService.AuditHostsFile();
+                o["hosts_file"] = new JsonObject
+                {
+                    ["exists"] = hosts.Exists,
+                    ["active_rules"] = hosts.ActiveRules,
+                    ["suspicious_non_loopback"] = hosts.Suspicious,
+                };
+            }
+            catch (Exception ex) { o["hosts_file"] = Err(ex); }
+
+            try
+            {
+                var rows = new JsonArray();
+                foreach (var s in _telemetryStatuses())
+                    rows.Add(new JsonObject
+                    {
+                        ["rule_id"] = s.Rule.Id,
+                        ["vendor"] = s.Rule.AppName,
+                        ["state"] = s.StateText,
+                        ["evidence"] = s.Evidence,
+                    });
+                o["telemetry_rules"] = rows;
+                o["telemetry_note"] = "pass rule_id to opt_out_telemetry (revert=true to restore the saved previous setting).";
+            }
+            catch (Exception ex) { o["telemetry_rules"] = Err(ex); }
+
+            return ToJson(o);
+
+            static JsonObject Err(Exception ex) => new() { ["error"] = ex.Message };
+        }
+
+        private static List<TelemetryRuleStatus> _telemetryStatuses() =>
+            new TelemetryRulesService().EvaluateAllAsync().GetAwaiter().GetResult();
+
+        private static string CloseShieldsUpDoor(JsonObject a)
+        {
+            string door = a["door"]?.GetValue<string>()?.Trim().ToLowerInvariant() ?? "";
+            try
+            {
+                switch (door)
+                {
+                    case "sstp":
+                        var failures = AttackSurfaceService.DisableSstp();
+                        return ToJson(new JsonObject
+                        {
+                            ["door"] = door,
+                            ["closed"] = failures is not { Count: > 0 },
+                            ["result"] = failures is { Count: > 0 }
+                                ? "service stopped+disabled; some miniports failed: " + string.Join(", ", failures)
+                                : "SSTP service stopped+disabled; miniport adapters disabled (reversible in the tab).",
+                        });
+                    case "hostednetwork":
+                        AttackSurfaceService.DisallowHostedNetwork();
+                        return ToJson(new JsonObject
+                        {
+                            ["door"] = door,
+                            ["closed"] = true,
+                            ["result"] = "hosted network stopped and disallowed (reversible: netsh mode=allow).",
+                        });
+                    case "vpnservices":
+                        PrivacyService.DisableVpnServices();
+                        return ToJson(new JsonObject
+                        {
+                            ["door"] = door,
+                            ["closed"] = true,
+                            ["result"] = "RasMan/IKEEXT/PolicyAgent/RemoteAccess stopped+disabled (reversible in the tab).",
+                        });
+                    case "kdnet":
+                        AttackSurfaceService.SetKernelDebug(false);
+                        return ToJson(new JsonObject
+                        {
+                            ["door"] = door,
+                            ["closed"] = true,
+                            ["result"] = "kernel debug turned off (effective at next boot).",
+                        });
+                    case "wifidirect":
+                        int acted = PrivacyService.SetWifiDirectAdaptersEnabled(false);
+                        return ToJson(new JsonObject
+                        {
+                            ["door"] = door,
+                            ["closed"] = acted > 0,
+                            ["result"] = $"{acted} Wi-Fi Direct adapter(s) disabled (reversible in the tab).",
+                        });
+                    default:
+                        return $"Unknown door '{door}'. Valid doors: sstp, hostednetwork, vpnservices, kdnet, wifidirect.";
+                }
+            }
+            catch (Exception ex)
+            {
+                return $"Closing '{door}' failed: {ex.Message}";
+            }
+        }
+
+        private static string CloseShieldsUpDoorConfirm(JsonObject a)
+        {
+            string door = a["door"]?.GetValue<string>()?.Trim().ToLowerInvariant() ?? "";
+            string reason = a["reason"]?.GetValue<string>();
+            return (door switch
+            {
+                "sstp" => "Stop the SSTP VPN service and disable its miniport adapters (reversible)?",
+                "hostednetwork" => "Stop and disallow the Wi-Fi Direct hosted network (reversible)?",
+                "vpnservices" => "Stop and disable RasMan, IKEEXT, PolicyAgent and RemoteAccess — any VPN connection drops (reversible)?",
+                "kdnet" => "Turn kernel debugging OFF (effective next boot)?",
+                "wifidirect" => "Disable the Wi-Fi Direct virtual adapters (reversible)?",
+                _ => $"Close door '{door}'?",
+            }) + (string.IsNullOrEmpty(reason) ? "" : $"\n\nReason: {reason}");
+        }
+
+        private static string OptOutTelemetry(JsonObject a)
+        {
+            string ruleId = a["rule_id"]?.GetValue<string>()?.Trim() ?? "";
+            bool revert = a["revert"] is JsonNode rb && rb.GetValue<bool>();
+
+            try
+            {
+                var status = _telemetryStatuses().FirstOrDefault(s =>
+                    string.Equals(s.Rule.Id, ruleId, StringComparison.OrdinalIgnoreCase));
+                if (status == null)
+                {
+                    var ids = _telemetryStatuses().Select(s => s.Rule.Id).ToList();
+                    return "Unknown rule_id '" + ruleId + "'. Known ids: " + string.Join(", ", ids);
+                }
+
+                var svc = new TelemetryRulesService();
+                var (ok, message) = revert ? svc.RevertAsync(status.Rule).GetAwaiter().GetResult()
+                                           : svc.ApplyOptOutAsync(status.Rule).GetAwaiter().GetResult();
+                return ToJson(new JsonObject
+                {
+                    ["rule_id"] = ruleId,
+                    ["action"] = revert ? "revert" : "opt_out",
+                    ["success"] = ok,
+                    ["message"] = message,
+                });
+            }
+            catch (Exception ex)
+            {
+                return $"Telemetry {(revert ? "revert" : "opt-out")} failed: {ex.Message}";
+            }
+        }
+
+        private static string OptOutTelemetryConfirm(JsonObject a)
+        {
+            string ruleId = a["rule_id"]?.GetValue<string>() ?? "";
+            bool revert = a["revert"] is JsonNode rb && rb.GetValue<bool>();
+            return revert
+                ? $"Restore the previously-saved setting for telemetry rule '{ruleId}'?"
+                : $"Opt out of '{ruleId}' telemetry using the vendor's own official switch? The previous setting is saved first.";
+        }
+
+        private static string ApplyShieldsUpPreset(JsonObject a)
+        {
+            string preset = a["preset"]?.GetValue<string>()?.Trim().ToLowerInvariant() ?? "";
+            var type = preset switch
+            {
+                "strict_public" => AutoCommand.Contain.Core.FirewallProfileService.ProfileType.BlockSharingDiscoveryRemoteDesktop,
+                "home_trusted" => AutoCommand.Contain.Core.FirewallProfileService.ProfileType.AllowSharingDiscovery,
+                "gaming_media" => AutoCommand.Contain.Core.FirewallProfileService.ProfileType.AllowDiscoveryCast,
+                "office" => AutoCommand.Contain.Core.FirewallProfileService.ProfileType.AllowSharingDiscoveryRemoteDesktop,
+                "shield_up" => AutoCommand.Contain.Core.FirewallProfileService.ProfileType.ShieldsUpMdns,
+                _ => (AutoCommand.Contain.Core.FirewallProfileService.ProfileType?)null,
+            };
+            if (type == null)
+                return "Unknown preset '" + preset + "'. Valid presets: strict_public, home_trusted, gaming_media, office, shield_up.";
+
+            try
+            {
+                // Atomic apply — the same order the tab uses: pause the drift
+                // enforcer while the preset churns rules, apply, re-capture.
+                // The baseline manager itself lives in the app assembly; the
+                // app installs the seam at startup. Headless without the seam:
+                // apply anyway, say honestly what was skipped.
+                var seam = ShieldsUpBaseline;
+                seam?.PauseMinutes(2);
+                var result = AutoCommand.Contain.Core.FirewallProfileService.Instance
+                    .ApplyProfile(type.Value).GetAwaiter().GetResult();
+
+                string baselineNote;
+                if (seam != null)
+                {
+                    var (count, at) = seam.CaptureAsync().GetAwaiter().GetResult();
+                    baselineNote = $"baseline re-captured ({count} rules, {at.ToLocalTime():HH:mm})";
+                }
+                else
+                {
+                    baselineNote = "baseline NOT re-captured (no app seam in this session) — press Re-baseline " +
+                                   "in the Firewall tab so Auto-Mitigate adopts the preset's intent";
+                }
+
+                return ToJson(new JsonObject
+                {
+                    ["preset"] = preset,
+                    ["changed"] = result.TotalChanged,
+                    ["failed"] = result.TotalFailed,
+                    ["notes"] = result.Notes,
+                    ["baseline"] = baselineNote,
+                });
+            }
+            catch (Exception ex)
+            {
+                return $"Preset '{preset}' failed: {ex.Message}";
+            }
+        }
+
+        private static string ApplyShieldsUpPresetConfirm(JsonObject a)
+        {
+            string preset = a["preset"]?.GetValue<string>() ?? "";
+            string reason = a["reason"]?.GetValue<string>();
+            return $"Apply the '{preset}' firewall preset? This changes many Windows firewall rule states at once; " +
+                   "the baseline is re-captured as part of the same operation. " +
+                   (string.IsNullOrEmpty(reason) ? "" : $"\n\nReason: {reason}");
         }
 
         private static string ToJson(JsonObject o) => o.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = false });

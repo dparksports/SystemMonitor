@@ -13,7 +13,7 @@
        plain-language note, exactly as they always were with no UI present.
        ProxyInstallSelfTest consumes the shipped assembly. -->
   <PropertyGroup>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <AssemblyName>AutoCommand.Agent.Core</AssemblyName>
     <RootNamespace>AutoCommand.Agent.Core</RootNamespace>
     <Company>AutoCommand</Company>
@@ -45,6 +45,9 @@
   <ItemGroup>
     <!-- Vendored identity engine behind the Contain core's svchost tools -->
     <ProjectReference Include="..\..\svchost-watch\SvchostAnalyzer.Core\SvchostAnalyzer.Core.csproj" />
+    <!-- Vendored Shields Up core behind the shields-up bridge tools
+         (door states, telemetry opt-outs, hardening checks) -->
+    <ProjectReference Include="..\..\ShieldsUp\ShieldsUp.Core\ShieldsUp.Core.csproj" />
     <!-- Event channels (Sysmon tail tools) -->
     <PackageReference Include="System.Diagnostics.EventLog" Version="10.0.13" />
   </ItemGroup>
