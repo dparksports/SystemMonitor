@@ -1,6 +1,5 @@
 AutoCommand III - release history
-All per-release notes consolidated here, newest first.
-Recent releases additionally keep their individual release_notes_v<version>.md file.
+All per-release notes consolidated here, newest first. No individual release_notes files remain in the repo; write a fresh one only for the next release (release.ps1 requires it).
 
 ================================================================================
   2026.10.30.30  -  released 2026-10-31
