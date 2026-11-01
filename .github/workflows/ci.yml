@@ -54,7 +54,8 @@ jobs:
             'ContainSelfTest',
             'ProxyInstallSelfTest',
             'BridgeSelfTest',
-            'PyTraceSelfTest'
+            'PyTraceSelfTest',
+            'InterceptSelfTest'
           )
           foreach ($s in $suites) {
             Write-Host "== $s =="

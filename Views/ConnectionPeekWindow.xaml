@@ -40,15 +40,27 @@
             </Border>
         </StackPanel>
 
-        <!-- Status strip -->
-        <Border Grid.Row="1" Background="{DynamicResource SurfaceAltBrush}" CornerRadius="4" Padding="12,6" Margin="0,0,0,10">
-            <StackPanel>
-                <TextBlock x:Name="CaptureStatusText" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}"
-                           Text="Starting capture…"/>
-                <TextBlock x:Name="CaptureWarnText" FontSize="11" Foreground="{DynamicResource AccentAmberBrush}"
-                           TextWrapping="Wrap" Visibility="Collapsed"/>
-            </StackPanel>
-        </Border>
+        <!-- Status strip + intercept session banner -->
+        <StackPanel Grid.Row="1" Margin="0,0,0,10">
+            <Border Background="{DynamicResource SurfaceAltBrush}" CornerRadius="4" Padding="12,6">
+                <StackPanel>
+                    <TextBlock x:Name="CaptureStatusText" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}"
+                               Text="Starting capture…"/>
+                    <TextBlock x:Name="CaptureWarnText" FontSize="11" Foreground="{DynamicResource AccentAmberBrush}"
+                               TextWrapping="Wrap" Visibility="Collapsed"/>
+                </StackPanel>
+            </Border>
+            <Border x:Name="InterceptBanner" Background="#3A2E10" CornerRadius="4" Padding="12,6" Margin="0,8,0,0"
+                    Visibility="Collapsed">
+                <DockPanel>
+                    <Button x:Name="InterceptStopBtn" DockPanel.Dock="Right" Content="⏹ Stop now"
+                            Style="{StaticResource PrimaryButton}" Padding="10,2" Click="InterceptStopBtn_Click"
+                            ToolTip="Restores the system proxy, removes the QUIC block rule and untrusts the CA immediately"/>
+                    <TextBlock x:Name="InterceptBannerText" Foreground="#FBBF24" FontSize="11"
+                               TextWrapping="Wrap" VerticalAlignment="Center"/>
+                </DockPanel>
+            </Border>
+        </StackPanel>
 
         <!-- Flows + detail -->
         <Grid Grid.Row="2">
@@ -104,6 +116,15 @@
                          note, shown only on "encrypted (no keys)" rows -->
                     <TextBlock x:Name="CoverageNoteText" Foreground="{DynamicResource TextSecondaryBrush}"
                                FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8" Visibility="Collapsed"/>
+                    <!-- Layer 3 for the rows that can never write keys -->
+                    <Button x:Name="InterceptBtn" Content="🛡 Intercept this process…" Style="{StaticResource PrimaryButton}"
+                            Padding="10,2" Click="InterceptBtn_Click" Margin="0,0,0,8" Visibility="Collapsed"
+                            HorizontalAlignment="Left"
+                            ToolTip="Layer 3: a time-boxed local intercept for apps that cannot write TLS keys (Schannel system components included). Temporary CA + system proxy, scoped to this PID, auto-reverted."/>
+                    <Button x:Name="SaveBodiesBtn" Content="💾 Save bodies…" Style="{StaticResource PrimaryButton}"
+                            Padding="10,2" Click="SaveBodiesBtn_Click" Margin="0,0,0,8" Visibility="Collapsed"
+                            HorizontalAlignment="Left"
+                            ToolTip="Write the intercepted request/response to files — in-memory until you do"/>
 
                     <!-- Plaintext — only when keys existed -->
                     <StackPanel x:Name="PlaintextSection" Visibility="Collapsed">

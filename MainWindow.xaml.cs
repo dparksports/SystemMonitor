@@ -396,6 +396,10 @@ namespace AutoCommand
             TransmissionsPipelineService.Shared.Stop();
 
             TlsKeylogService.CleanupAtExit(); // drop the rotated TLS keylog leftover
+
+            // Layer 3 must never outlive the app: stop restores the system
+            // proxy, removes the QUIC block rule and untrusts the CA.
+            AutoCommand.Intercept.Core.InterceptProxyService.Shared.StopSession("app exit");
             base.OnClosed(e);
         }
 

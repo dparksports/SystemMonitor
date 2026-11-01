@@ -42,12 +42,15 @@ namespace AutoCommand.Views
         private readonly DateTime _openedUtc = DateTime.UtcNow;
 
         private FlowPeekService _peekService;
-        private readonly ObservableCollection<PeekEntry> _flows = new();
+        private readonly ObservableCollection<object> _flows = new();   // PeekEntry | InterceptedRow
         private readonly ObservableCollection<ServiceEventLine> _events = new();
         private readonly DispatcherTimer _statusTimer;
+        private readonly DispatcherTimer _bannerTimer;
         private DateTime _lastEventRefreshUtc = DateTime.MinValue;
         private bool _busyRefreshingEvents;
         private bool _closed;
+        private int _interceptPid;           // > 0 while a session this window started runs
+        private bool _sessionStartedHere;
 
         /// <summary>Peer one remote connection ("this connection").</summary>
         public ConnectionPeekWindow(string remoteIp, string processName, int pid, string hostedServices, string hostname)
@@ -100,8 +103,23 @@ namespace AutoCommand.Views
             _statusTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
             _statusTimer.Tick += (_, _) => UpdateStatusStrip();
 
+            _bannerTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            _bannerTimer.Tick += (_, _) => UpdateInterceptBanner();
+            _bannerTimer.Start();
+
             Loaded += (_, _) => { _statusTimer.Start(); StartPeek(); };
-            Closed += (_, _) => { _closed = true; _statusTimer.Stop(); StopPeek(); };
+            Closed += (_, _) =>
+            {
+                _closed = true;
+                _statusTimer.Stop();
+                _bannerTimer.Stop();
+                StopPeek();
+                // A scoped peek owns its intercept session: closing the window
+                // ends it (restores proxy, removes the QUIC rule, untrusts the
+                // CA) — a time-boxed session must never outlive its banner.
+                if (_sessionStartedHere && InterceptProxyService.Shared.IsRunning)
+                    InterceptProxyService.Shared.StopSession("peek closed");
+            };
         }
 
         private string BuildProcessLabel() =>
@@ -199,7 +217,12 @@ namespace AutoCommand.Views
 
         private void FlowList_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
-            RenderDetail(FlowList.SelectedItem as PeekEntry);
+            switch (FlowList.SelectedItem)
+            {
+                case PeekEntry entry: RenderDetail(entry); break;
+                case InterceptedRow row: RenderIntercepted(row); break;
+                default: RenderDetail(null); break;
+            }
         }
 
         private void RenderDetail(PeekEntry entry)
@@ -210,6 +233,8 @@ namespace AutoCommand.Views
                 DetailTls.Text = DetailSni.Text = DetailApp.Text = string.Empty;
                 StatusBanner.Visibility = Visibility.Collapsed;
                 PlaintextSection.Visibility = Visibility.Collapsed;
+                InterceptBtn.Visibility = Visibility.Collapsed;
+                SaveBodiesBtn.Visibility = Visibility.Collapsed;
                 return;
             }
 
@@ -250,6 +275,15 @@ namespace AutoCommand.Views
             bool noKeys = status.StartsWith("encrypted", StringComparison.Ordinal);
             CoverageNoteText.Text = noKeys ? TransmissionKeyService.CoverageNote : null;
             CoverageNoteText.Visibility = noKeys ? Visibility.Visible : Visibility.Collapsed;
+
+            // Layer 3: the only path for rows that can never write keys —
+            // offered on program/service scopes (they know the PID), never
+            // while a session is already active.
+            bool interceptable = noKeys && flow.Pid > 0 &&
+                                 (_scope.IsProgramScope || _scope.IsServiceScope) &&
+                                 !InterceptProxyService.Shared.IsRunning;
+            InterceptBtn.Visibility = interceptable ? Visibility.Visible : Visibility.Collapsed;
+            InterceptBtn.Tag = flow;
 
             bool showPlaintext = entry.Decrypt.Success;
             PlaintextSection.Visibility = showPlaintext ? Visibility.Visible : Visibility.Collapsed;
@@ -344,6 +378,221 @@ namespace AutoCommand.Views
             CaptureWarnText.Visibility = Visibility.Visible;
         }
 
+        // ── layer-3 intercept (program/service scopes) ───────────────────
+
+        /// <summary>One intercepted conversation (from the pipeline's
+        /// intercept seam) as the flows list shows it — the same display
+        /// surface a PeekEntry carries, over a TransmissionRecord.</summary>
+        private sealed class InterceptedRow
+        {
+            public required TransmissionRecord Record { get; init; }
+
+            public string TimeDisplay => Record.TsUtc.ToLocalTime().ToString("HH:mm:ss");
+            public string RemoteEndpoint => Record.ServerEndpoint;
+            public string UpDisplay => PeekEntry.FormatBytes(Record.ClientBytes);
+            public string DownDisplay => PeekEntry.FormatBytes(Record.ServerBytes);
+            public string Status => Record.Status ?? "?";
+            public string SniDisplay => string.IsNullOrEmpty(Record.Sni) ? "(no SNI)" : Record.Sni;
+            public string ProcessDisplay => Record.ProcessDisplay;
+        }
+
+        private void InterceptBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (InterceptBtn.Tag is not TcpFlowRecord flow || flow.Pid <= 0) return;
+
+            if (InterceptProxyService.Shared.IsRunning)
+            {
+                MessageBox.Show("An intercept session is already active. Stop it first (⏹ Stop now in the banner).",
+                    "🛡 Intercept", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            string image = flow.Image ?? _image ?? $"pid:{flow.Pid}";
+            var confirm = MessageBox.Show(
+                $"🛡 Intercept this process?\n\nTarget: {System.IO.Path.GetFileName(image)} (PID {flow.Pid})\n\n" +
+                "For the next 15 minutes (auto-reverts; fully reversible):\n" +
+                "  • A temporary 'AutoCommand Intercept CA' is trusted machine-wide, and removed\n" +
+                "    when the session ends.\n" +
+                "  • The system proxy (WinHTTP for services, WinINET for apps) points at a local\n" +
+                "    loopback proxy on this machine. Other apps' traffic is tunneled through\n" +
+                "    untouched — only the target PID is decrypted.\n" +
+                "  • The target's QUIC (UDP 443) is blocked so it falls back to TCP/TLS.\n" +
+                "  • Decrypted conversations appear in this window as 'decrypted · intercept'.\n\n" +
+                "Certificate-pinned apps will fail their connections during the session — recorded\n" +
+                "here as 'refused intercept (pinning)'. Stop now restores proxy, firewall rule and\n" +
+                "CA immediately if anything misbehaves. Closing this window also stops the session.",
+                "🛡 Intercept this process", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (confirm != MessageBoxResult.Yes) return;
+
+            string error = InterceptProxyService.Shared.StartSession(flow.Pid, image);
+            if (error != null)
+            {
+                MessageBox.Show(error, "🛡 Intercept", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            _interceptPid = flow.Pid;
+            _sessionStartedHere = true;
+            InterceptProxyService.Shared.OnStatus += OnInterceptStatus;
+            InterceptProxyService.Shared.OnSessionEnded += OnInterceptSessionEnded;
+            TransmissionsPipelineService.Shared.OnRecord += OnInterceptRecord;
+            UpdateInterceptBanner();
+        }
+
+        private void InterceptStopBtn_Click(object sender, RoutedEventArgs e) =>
+            InterceptProxyService.Shared.StopSession("stopped by user");
+
+        private void OnInterceptStatus(string message) =>
+            Dispatcher.BeginInvoke(new Action(() => SetStatus("🛡 " + message)));
+
+        private void OnInterceptSessionEnded(string reason)
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                UpdateInterceptBanner();
+                SetStatus($"🛡 Intercept ended ({reason}) — proxy, firewall rule and CA restored.");
+            }));
+            TransmissionsPipelineService.Shared.OnRecord -= OnInterceptRecord;
+            InterceptProxyService.Shared.OnStatus -= OnInterceptStatus;
+            InterceptProxyService.Shared.OnSessionEnded -= OnInterceptSessionEnded;
+            _sessionStartedHere = false;
+        }
+
+        private void OnInterceptRecord(TransmissionRecord record)
+        {
+            if (record == null || _closed) return;
+            // Only the subject's rows belong in this scoped window.
+            if (record.Pid != _interceptPid &&
+                !string.Equals(record.Image, _image, StringComparison.OrdinalIgnoreCase))
+                return;
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _flows.Insert(0, new InterceptedRow { Record = record });
+                while (_flows.Count > MaxFlowsShown)
+                    _flows.RemoveAt(_flows.Count - 1);
+            }));
+        }
+
+        private void UpdateInterceptBanner()
+        {
+            var proxy = InterceptProxyService.Shared;
+            if (!proxy.IsRunning)
+            {
+                InterceptBanner.Visibility = Visibility.Collapsed;
+                return;
+            }
+            TimeSpan left = proxy.EndsAtUtc - DateTime.UtcNow;
+            if (left < TimeSpan.Zero) left = TimeSpan.Zero;
+            InterceptBannerText.Text =
+                $"🛡 INTERCEPT ACTIVE — {proxy.TargetDisplay} · local proxy 127.0.0.1:{proxy.Port} · " +
+                $"ends in {(int)left.TotalMinutes:00}:{left:ss} · other apps tunneled untouched · " +
+                "decrypted rows tagged 'decrypted · intercept'";
+            InterceptBanner.Visibility = Visibility.Visible;
+        }
+
+        private void RenderIntercepted(InterceptedRow row)
+        {
+            var r = row.Record;
+            InterceptBtn.Visibility = Visibility.Collapsed;
+            CoverageNoteText.Visibility = Visibility.Collapsed;
+
+            DetailWire.Text = $"{r.ServerEndpoint}   ·   {PeekEntry.FormatBytes(r.ClientBytes)} up · {PeekEntry.FormatBytes(r.ServerBytes)} down" +
+                              (r.TlsVersion != null ? $"   ·   {r.TlsVersion}{(r.CipherSuite != null ? $" · {r.CipherSuite}" : "")}" : "");
+            DetailTls.Text = "intercepted through the local proxy — plaintext below when the session decrypted it";
+            DetailSni.Text = "Host: " + (r.Sni ?? "(none)");
+            DetailApp.Text = r.Decrypted ? $"messages: {r.MessageCount} · kinds: {r.ContentKinds ?? "—"}" : string.Empty;
+
+            StatusBanner.Visibility = Visibility.Visible;
+            StatusBannerText.Text = r.Status ?? "(no status)";
+            string status = r.Status ?? "";
+            (string bg, string fg) =
+                status.StartsWith("decrypted", StringComparison.Ordinal) ? ("#14351F", "#7ED8A0") :
+                status.StartsWith("refused", StringComparison.Ordinal)   ? ("#3A2E10", "#FBBF24") :
+                                                                           ("#3A1520", "#F2A0B4");
+            StatusBanner.Background = new System.Windows.Media.SolidColorBrush(
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(bg));
+            StatusBannerText.Foreground = new System.Windows.Media.SolidColorBrush(
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(fg));
+
+            if (!r.Decrypted)
+            {
+                PlaintextSection.Visibility = Visibility.Collapsed;
+                SaveBodiesBtn.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            PlaintextSection.Visibility = Visibility.Visible;
+            DetailHttp.Text = null;
+
+            // Bodies: live cache first, then the archive.
+            byte[] request = null, response = null;
+            var pipeline = TransmissionsPipelineService.Shared;
+            if (pipeline.TryGetBodies(r.Id, out request, out response))
+            { /* cache hit */ }
+            else
+            {
+                var (req2, resp2) = pipeline.LoadFromArchive(r);
+                request = req2;
+                response = resp2;
+            }
+
+            var sb = new StringBuilder();
+            if (request is { Length: > 0 })
+            {
+                sb.AppendLine($"── REQUEST · {request.Length} B ──");
+                AppendPrintable(sb, request, 32 * 1024 - sb.Length);
+                sb.AppendLine();
+            }
+            if (response is { Length: > 0 })
+            {
+                sb.AppendLine($"── RESPONSE · {response.Length} B ──");
+                AppendPrintable(sb, response, 32 * 1024 - sb.Length);
+                sb.AppendLine();
+            }
+            PlaintextBox.Text = sb.Length == 0 ? "(no bodies recorded for this conversation)" : sb.ToString();
+
+            var hex = new StringBuilder();
+            if (request is { Length: > 0 }) { hex.AppendLine("── REQUEST ──"); AppendHex(hex, request, 8 * 1024 - hex.Length); }
+            if (response is { Length: > 0 }) { hex.AppendLine("── RESPONSE ──"); AppendHex(hex, response, 8 * 1024 - hex.Length); }
+            HexBox.Text = hex.ToString();
+
+            SaveBodiesBtn.Visibility = Visibility.Visible;
+            SaveBodiesBtn.Tag = (request, response);
+        }
+
+        /// <summary>Writes the intercepted request/response to files — the
+        /// BITS-preview honesty rule: in memory until the user says so.</summary>
+        private void SaveBodiesBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (SaveBodiesBtn.Tag is not (byte[] request, byte[] response)) return;
+            var dialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Title = "Save intercepted bodies",
+                FileName = "intercepted.bin",
+                Filter = "Binary (*.bin)|*.bin|All files (*.*)|*.*"
+            };
+            if (dialog.ShowDialog(this) != true) return;
+            try
+            {
+                string baseName = dialog.FileName;
+                if (request is { Length: > 0 }) System.IO.File.WriteAllBytes(System.IO.Path.ChangeExtension(baseName, ".request.bin"), request);
+                if (response is { Length: > 0 }) System.IO.File.WriteAllBytes(System.IO.Path.ChangeExtension(baseName, ".response.bin"), response);
+                SetStatus($"Saved intercepted bodies next to {System.IO.Path.GetFileName(baseName)}.");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Save failed: {ex.Message}", "Traffic Peek", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        /// <summary>Neutral status line (reuses the capture strip without
+        /// clobbering its next scheduled refresh).</summary>
+        private void SetStatus(string message)
+        {
+            CaptureWarnText.Text = message;
+            CaptureWarnText.Visibility = Visibility.Visible;
+        }
+
         // ── service activity ─────────────────────────────────────────────
 
         private void RefreshEventsBtn_Click(object sender, RoutedEventArgs e) => _ = RefreshEventsAsync();
@@ -358,8 +607,9 @@ namespace AutoCommand.Views
                 // Window: the earliest captured flow − 2 min → now, or the
                 // last 15 minutes while nothing has arrived yet.
                 DateTime start = _openedUtc;
-                if (_flows.Count > 0)
-                    start = _flows.Min(f => f.Flow.StartedUtc == default(DateTime) ? _openedUtc : f.Flow.StartedUtc);
+                var flowEntries = _flows.OfType<PeekEntry>().ToList();
+                if (flowEntries.Count > 0)
+                    start = flowEntries.Min(f => f.Flow.StartedUtc == default(DateTime) ? _openedUtc : f.Flow.StartedUtc);
                 start = start.ToUniversalTime().AddMinutes(-2);
                 var lines = await Task.Run(() => ServiceLogProbe.QueryEvents(start, DateTime.UtcNow));
                 if (_closed) return;
@@ -510,11 +760,20 @@ namespace AutoCommand.Views
             sb.AppendLine($"process: {BuildProcessLabel()}   services: {_hostedServices ?? "—"}   host: {_hostname ?? "(not resolved)"}");
             sb.AppendLine($"window: {_openedUtc:yyyy-MM-dd HH:mm:ss} → {DateTime.Now:HH:mm:ss} (local)");
             sb.AppendLine();
-            sb.AppendLine($"--- FLOWS ({_flows.Count}) ---");
-            foreach (var f in _flows)
+            var entries = _flows.OfType<PeekEntry>().ToList();
+            var intercepted = _flows.OfType<InterceptedRow>().ToList();
+            sb.AppendLine($"--- FLOWS ({entries.Count}) ---");
+            foreach (var f in entries)
             {
                 sb.AppendLine($"{f.TimeDisplay}  {f.RemoteEndpoint,-22} {f.UpDisplay,9} ↑ {f.DownDisplay,9} ↓  {f.Status,-24} SNI={f.SniDisplay}  {f.ProcessDisplay}");
                 if (!string.IsNullOrEmpty(f.Decrypt?.Status)) sb.AppendLine($"          └ {f.Decrypt.Status}");
+            }
+            if (intercepted.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine($"--- INTERCEPTED ({intercepted.Count}) ---");
+                foreach (var f in intercepted)
+                    sb.AppendLine($"{f.TimeDisplay}  {f.RemoteEndpoint,-22} {f.UpDisplay,9} ↑ {f.DownDisplay,9} ↓  {f.Status,-40} SNI={f.SniDisplay}");
             }
             sb.AppendLine();
             sb.AppendLine($"--- SERVICE ACTIVITY ({_events.Count}) ---");

@@ -115,6 +115,8 @@
     <Compile Remove="PyTraceSelfTest\**" />
     <Compile Remove="TaskAttributionSelfTest\**" />
     <Compile Remove="OneSettingsCadenceSelfTest\**" />
+    <!-- Intercept self-test: journal + CA mechanics offline (own Main()) -->
+    <Compile Remove="InterceptSelfTest\**" />
     <!-- BITS tracer self-test: drives ParseMessage/Apply/stat/firewall
          logic offline with synthetic events (see BitsTraceSelfTest\) -->
     <Compile Remove="BitsTraceSelfTest\**" />

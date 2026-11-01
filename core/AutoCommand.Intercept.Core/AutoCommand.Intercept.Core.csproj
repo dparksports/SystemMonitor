@@ -30,4 +30,10 @@
     <Using Include="AutoCommand.Engines.Watch" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- White-box access for the intercept harness: journal + CA-dir test
+         seams are internal on purpose (they can rename system state). -->
+    <InternalsVisibleTo Include="InterceptSelfTest" />
+  </ItemGroup>
+
 </Project>

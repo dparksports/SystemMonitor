@@ -78,6 +78,11 @@ namespace AutoCommand
             AutoCommand.Engines.Watch.WatchConfig.Configure(
                 AutoCommand.Engines.Core.Identity.autocommand());
 
+            // Layer-3 crash safety: if a previous run died mid-intercept, the
+            // journal on disk still describes the hooks it installed — undo
+            // them (proxy, firewall rule, CA) before anything else runs.
+            AutoCommand.Intercept.Core.InterceptSystemHooks.RecoverAfterCrash();
+
             // ── headless agent mode (no UI, no dialogs, no theme) ────────
             // --agent-headless [sec]
             //      start an AI session without the UI (scripts/tests).
