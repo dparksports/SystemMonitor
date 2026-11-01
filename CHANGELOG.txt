@@ -1,0 +1,1988 @@
+AutoCommand II - release history
+All per-release notes consolidated here, newest first.
+
+================================================================================
+  2026.10.29.2  -  released 2026-10-28
+================================================================================
+
+# AutoCommand v2026.10.29.2 — paused blocks, manageable from the row
+
+A small release with one job: a block you paused no longer strands you
+in the Process Monitor.
+
+## What changed
+
+Right-clicking a row whose IP or process block is **paused** (⏸) used to
+show a disabled menu item pointing elsewhere. Now the row menu does the
+whole job in place:
+
+- **✅ Unblock … — remove the paused block**: deletes the rules for good,
+  same confirm dialog as an active block. Removal matches rule *names*,
+  not their enabled state, so a paused block is exactly as removable as
+  a live one — it just also stops pretending "traffic resumes" when it
+  was already flowing (the confirm and the toast now say which case
+  you're in).
+- **▶ Re-enable block … — traffic stops again** (new item, appears only
+  when a block is paused): flips the paused rules back on through the
+  same enable path the Blocks tab uses, with the same bookkeeping
+  (status + history event). The block action itself could not do this
+  job — re-blocking an existing rule only refreshes its provenance and
+  would silently not block anything — which is why the item exists
+  instead of the old disabled hint.
+
+Process blocks use the same identity recovery as blocking (row → live
+module → Sysmon archive), and re-enabling from any recorded path resumes
+the whole rule fleet for that exe name — sibling path rules included,
+matching how pause and unblock already behave.
+
+Everything else is untouched: active-block unblocking, the Blocked
+popup, Manage all, and the 🚑 Restore Internet button work exactly as
+before.
+
+## Verification
+
+App builds clean in Debug and Release (0 errors); the change is confined
+to the Process Monitor view (XAML menu items + three handlers).
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. Blue "protected your PC" screen: **More info -> Run anyway**. If the zip
+   will not open or the exe will not start, run `unblock-autocommand.ps1`.
+
+Deleting the folder uninstalls it completely. Apache 2.0.
+
+
+================================================================================
+  2026.10.29.1  -  released 2026-10-27
+================================================================================
+
+# AutoCommand v2026.10.29.1 — DNS queries and UDP, visible at last
+
+Two windows open that were dark since the beginning: **what this machine
+resolves** and **everything that is not TCP**.
+
+## 🌐 DNS Queries (new tab, WATCH group)
+
+The app's Sysmon config has captured DNS query events since the first
+install — this release is the first thing that actually reads them.
+
+- **By domain**: who asks for each hostname, how often, what addresses came
+  back (range-classified, blocked-list checked), and **beacon regularity** —
+  a domain asked on a metronome gets flagged with its gap variation
+  (beacons look like that; scheduled updaters do too).
+- **By process**: everything a program resolves — a browser tab and a
+  background talker are instantly distinguishable.
+- **DoH honesty, built in**: queries to known encrypted resolvers
+  (Cloudflare, Google, Quad9, NextDNS…) are flagged 🔒 — that's the moment
+  a process switches to DNS no local observer can see. No false confidence.
+- Resolved addresses name the Process Monitor rows they belong to.
+
+## UDP joins the Process Monitor
+
+Rows track **every transport seen** against their remote address — a new
+**Proto** column shows TCP, UDP, or TCP+UDP — plus a transport lens
+(All / TCP / UDP) beside the TX-only lens. A UDP talker can no longer hide
+behind a TCP-first label, and pure-UDP endpoints now get rows of their own.
+The packet counters already counted UDP datagrams (the raw-IP sniffer is
+transport-agnostic by construction); now the labels tell the truth.
+
+## For AI assistants
+
+New read-only **`list_dns_queries`** tool: the same two facets, window and
+contains filters, per-address classification and blocked status, gap_cv
+regularity — with the DoH blindness note carried in the response.
+
+## Verification
+
+New **DnsFeedSelfTest** suite (20 checks: aggregation, facets, regularity
+math, encrypted-resolver flags, result-address parsing, persistence
+lifecycle, window/contains filters) added to the CI strict gate; all nine
+offline suites green; app, AgentProxy and AgentHost build clean in Debug
+and Release.
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. Blue "protected your PC" screen: **More info -> Run anyway**. If the zip
+   will not open or the exe will not start, run `unblock-autocommand.ps1`.
+
+Deleting the folder uninstalls it completely. Apache 2.0.
+
+
+================================================================================
+  2026.10.29  -  released 2026-10-27
+================================================================================
+
+# AutoCommand v2026.10.29 — engineering-hygiene release
+
+Nothing in this release changes what you see or click; it is the
+post-cutover technical-debt register worked through to zero, verified by
+the same gates as every release.
+
+## What changed under the hood
+
+- **Namespaces now match the architecture.** Each engine library owns its
+  namespace (`AutoCommand.NetWatch.Core`, `.Intercept`, `.Contain`,
+  `.Forensics`, `.Sitedoctor`, `.Agent`) instead of every engine sharing
+  the old app-wide `AutoCommand.Services`. Also surfaced and fixed: two
+  libraries had been compiling against a *transitive* NetWatch reference
+  — they now carry the explicit reference the design always intended.
+- **The DNS service reads in halves.** The geo/org engine (prefix cache,
+  throttled ip-api client with backoff, RDAP fallback) moved to its own
+  file; the hostname pipeline and the idle reconciler stay in the main
+  one. Zero behavior change.
+- **The last settable globals are gone.** A dead DNS/pytrace directory
+  override with no users was removed, and the trace-projects store now
+  follows the injectable-instance pattern the blocks ledger established —
+  its "set the directory before first use" ordering trap no longer exists.
+- **The offline tool list cannot drift.** The stub list an AI client sees
+  when no session is running now carries all 22 tools, and a new
+  self-test fails the build if it ever drifts from the tool registry.
+- **Line endings normalized** (repository-wide LF policy declared), the
+  delivered plan and the closed porting ledger moved to `docs/history/`,
+  and a **CI workflow** now builds and runs the offline suites on every
+  push — same house pattern as the release workflow.
+
+## Verification
+
+All eight offline suites green against the shipped assemblies; app,
+AgentProxy and AgentHost build clean in Debug and Release.
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. Blue "protected your PC" screen: **More info -> Run anyway**. If the zip
+   will not open or the exe will not start, run `unblock-autocommand.ps1`.
+
+Deleting the folder uninstalls it completely. Apache 2.0.
+
+
+================================================================================
+  2026.10.28.2  -  released 2026-10-27
+================================================================================
+
+# AutoCommand v2026.10.28.2 — the unresolved-IP backlog drains itself when you're idle
+
+## What's new
+
+Follows v2026.10.28.1 (every Host cell explains itself; Resolve now /
+Retry unresolved; RDAP fallback; machine-wide caches). This release closes
+the loop: the addresses that *stay* unresolved — because the machine was
+too busy to spend the lookup budget on them — now get resolved
+automatically, later, when it costs nothing:
+
+- **Idle reconciliation.** Every placeholder answer is already persisted
+  in the hostname cache, so "all unresolved IPs" is simply read back,
+  oldest first. When the Sysmon feed has been quiet for **5 minutes**
+  (traffic idle — checked every minute), batches of **8 addresses** are
+  re-asked through the normal paced pipeline: normal spacing, normal
+  backoff, never the urgent path. Two minutes cooldown between batches;
+  after **5 attempts** an address rests until its cache entry ages out
+  naturally (24 h) — permanently unanswerable addresses don't churn
+  forever.
+- The moment traffic resumes, the reconciler stands down: batches are
+  only sent while the machine stays quiet.
+- Nothing new to configure or see — a Host cell tooltip that said
+  "throttled — next attempt in ~2 min" now eventually says "resolved",
+  on its own, while you weren't using the network.
+
+## Verification
+
+NetWatchSelfTest extended with five idle-reconciliation checks (candidate
+collection, busy-refusal, idle batch, queue state, batch size) — all
+passing; all eight offline suites green against the shipped assemblies;
+app, AgentProxy and AgentHost build clean in Debug and Release.
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. Blue "protected your PC" screen: **More info -> Run anyway**. If the zip
+   will not open or the exe will not start, run `unblock-autocommand.ps1`.
+
+Deleting the folder uninstalls it completely. Apache 2.0.
+
+
+================================================================================
+  2026.10.28.1  -  released 2026-10-27
+================================================================================
+
+# AutoCommand v2026.10.28.1 — unresolved IPs, explained and fixable
+
+## Why some IPs never resolved, and what changed
+
+The Host column's name/org lookups are rate-budgeted by design — one
+ip-api.com answer per /24 block, throttled at the free tier, with backoff
+after throttling — and that budget meant some rows sat blank with no
+explanation. Three changes fix that, without loosening the throttling:
+
+- **Every Host cell now explains itself.** Hover it: *resolving — queued
+  (N waiting)*, *throttled — next attempt in ~2 min*, *no owner data —
+  negative-cached, retries after 14:00*, *local address — no lookup
+  exists*, or *resolved (when)*. The blank is gone.
+- **You can act.** Right-click a row → **Resolve now** re-asks that one
+  address urgently (it skips the queue spacing; the provider's cooldowns
+  still apply). The new **⟳ Retry unresolved DNS** button forgets every
+  cached "no answer" result and re-queues the view's unresolved rows at
+  normal polite pacing.
+- **More IPs resolve at all.** When ip-api has no answer — or is
+  throttled — the lookup now falls back to the **RDAP registries** (the
+  same authoritative-registry engine the Blocked tab uses: IANA-routed,
+  own cache, own pacing). Org labels that come from RDAP are marked
+  "· RDAP" in the row.
+
+## The caches moved (so they stop resetting themselves)
+
+The hostname, org-prefix and forward-DNS caches now live machine-wide in
+`C:\ProgramData\AutoCommand` beside the RDAP cache, instead of beside the
+exe — so unzipping a new build or moving the folder no longer starts every
+lookup from cold. An existing beside-the-exe cache is copied over once on
+first run.
+
+## For AI assistants
+
+New read-only **`lookup_ip`** tool: hostname, classification, org/geo
+*with its cache state* ("negative-cached, retries after 14:00"), and
+blocked-list status in one call — `force: true` is the user-initiated
+urgent path.
+
+## Verification
+
+NetWatchSelfTest extended with seven resolve-state checks (all passing);
+all eight offline suites green against the shipped assemblies; app,
+AgentProxy and AgentHost build clean in Debug and Release.
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. Blue "protected your PC" screen: **More info -> Run anyway**. If the zip
+   will not open or the exe will not start, run `unblock-autocommand.ps1`.
+
+Deleting the folder uninstalls it completely. Apache 2.0.
+
+
+================================================================================
+  2026.10.28  -  released 2026-10-27
+================================================================================
+
+# AutoCommand v2026.10.28 — the cutover: AutoCommand II is now AutoCommand
+
+## The move, in plain words
+
+On Oct 25 the app's development moved into a rewrite tree called **AutoCommand
+II** (`dparksports/autocommand-ii`) while the original repo kept shipping.
+As of today the original repo is frozen at v2026.10.25.4 and **this tree is
+the one AutoCommand**: releases, issues and discussions happen here. Nothing
+was lost in the move — every user-facing fix the original shipped (including
+the RDAP registry-respect work in v2026.10.25.4) is in this build, verified
+line-for-line.
+
+## What carries over when you upgrade
+
+Everything, with no action from you. Your blocks, the undo ledger (the
+🚑 Restore Internet button), your preferences, traces and the DNS/RDAP caches
+all live outside the program folder (`%LOCALAPPDATA%\AutoCommand` and
+`C:\ProgramData\AutoCommand`) — unzipping a new folder anywhere and running
+it picks them up. **New in this release:** the first run from a changed
+folder says exactly that in one dialog, once, so you never have to wonder
+whether an update reset anything.
+
+## What's new since the original's last release (v2026.10.25.4)
+
+- **Block containment proof.** Every row on the Blocks tab now shows whether
+  a block is actually holding — leak / stale-flow / contained / quiet, with
+  the evidence in its tooltip — and AI assistants can ask the same question
+  (`verify_block_containment`) and get the same facts.
+- **The Investigate tab.** One click (or one `investigate_process` call from
+  an assistant) answers "why is this transmitting?" — who started it, where
+  it connects, how regularly it beacons — as a plain-English verdict with
+  the raw numbers one click away.
+- **Be My Guest registrations self-heal.** Moved to a new install folder and
+  an assistant's registration points at the old one? The Be My Guest tab
+  detects it and offers a one-click refresh — nothing is rewritten without
+  your click, same backup-and-verify rules as every registration before.
+- **AgentHost, the headless face.** `AgentHost\AutoCommand.AgentHost.exe` in
+  the zip runs an AI-access session from a terminal without booting the app.
+  It needs the .NET 10 runtime (the main app doesn't — it ships
+  self-contained), and it ships with a README that says so right next to the
+  exe. It can never change anything: no confirmation dialog exists there, so
+  mutating tools are permanently denied.
+
+## For the curious: where the code went
+
+The rewrite's structural work moved every engine out of the WPF exe into six
+class libraries (NetWatch, Intercept, Contain, Forensics, Sitedoctor, Agent)
+with zero WPF references — same namespaces, same behavior, one engine many
+faces. Every offline self-test suite now runs the shipped assemblies rather
+than source copies, which is why the verification line below is stronger
+than it used to be.
+
+## Verification
+
+All eight offline self-test suites pass against the shipped assemblies
+(NetWatch, BITS, PyTrace reassemble, SiteDoctor, TaskAttribution,
+ProxyInstall — now including six migration-scan checks — OneSettingsCadence
+at 52 checks, Contain at 48). App, AgentProxy and AgentHost build clean in
+Debug and Release.
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. Blue "protected your PC" screen: **More info -> Run anyway**. If the zip
+   will not open or the exe will not start, run `unblock-autocommand.ps1`.
+
+Deleting the folder uninstalls it completely. Apache 2.0.
+
+
+================================================================================
+  2026.10.27.9  -  released 2026-10-27
+================================================================================
+
+# AutoCommand II v2026.10.27.9 — containment hardening: the review follow-ups
+
+Small engineering-iteration release: three fixes from the code review of
+the containment feature (v2026.10.27.7), nothing user-visible removed.
+
+## What changed
+
+- **`BlockContainmentReader.Take` fails fast instead of hanging.** The
+  gatherer blocks (inventory fetch, full process scan, archive read), and
+  a direct UI-thread call would deadlock silently. It now throws a clear
+  message if called on a UI thread — UI callers use Task.Run (the Blocks
+  tab already does).
+- **The quiet rule is engine-owned.** "Which blocks are quiet" moved into
+  the verifier (`QuietTargets`) so the AI bridge tool and any future
+  consumer apply exactly one rule; the tool's inline copy is gone.
+  Disabled (paused) rules are never listed as quiet — nothing to verify.
+- **The known limits are documented where they live**: the attempt-side
+  pid-reuse conflation (can only overcount attempts; can never fabricate
+  a leak) is now stated in the engine header rather than living only in a
+  review.
+
+## Verification
+
+Contain suite now at 48 offline checks, all passing (three new: quiet
+excludes hit IPs, quiet excludes app-blocked sibling paths, paused rules
+never listed). All seven offline suites pass against the shipped
+assemblies; app, AgentProxy and AgentHost build clean in Debug and
+Release.
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. Blue "protected your PC" screen: **More info -> Run anyway**. If the zip
+   will not open or the exe will not start, run `unblock-autocommand.ps1`.
+
+Deleting the folder uninstalls it completely. Apache 2.0.
+
+
+================================================================================
+  2026.10.27.8  -  released 2026-10-27
+================================================================================
+
+# AutoCommand II v2026.10.27.8 — investigate_process: one answer to "why is this transmitting?"
+
+Every investigation of a chatty process used to be ten tool calls in an
+order only an expert knows: snapshot, Sysmon tail, transmissions check,
+PID inquiry, 24-hour trace, classify each destination, rule out blocks.
+This release collapses that playbook into one read-only call — on the
+Investigate tab, or from any AI assistant over the bridge.
+
+## What is new in this build
+
+- **`ProcessInvestigationService`** (Forensics core) — joins facts the app
+  already records rather than collecting anything new:
+  - **PID provenance** (`ProcessProvenanceService`, incl. the PID-reuse
+    guard: a recycled PID is flagged, never accused). Enabled when a PID
+    is given; best-effort on a live instance when only a name is given.
+  - **Traffic profile** (`TraceMetricsService`): frequency, destinations
+    with classification, beacon regularity, recorded TLS volume, live
+    sockets.
+  - **Block hits** from the feed's in-memory cache — deliberately never
+    the live Sysmon join, which is the slow path that could exceed an
+    interactive call budget.
+  - Verdicts describe the numbers without claiming a baseline, in
+    priority order: **Actively blocked** → **Quiet** → **Internal-only**
+    → **Outbound attempts, none completed** → **Mixed** — each with
+    evidence lines. A one-way external profile (SYNs and ClientHellos
+    with zero recorded TLS) reads as "attempts", not exfiltration.
+- **🔬 Investigate tab** (SYSTEM group, opt-in via Settings → Advanced
+  investigation): subject box (name or PID), 6/12/24 h lookback, colored
+  verdict banner, monospace report, Copy and Save (markdown under
+  `%LOCALAPPDATA%\AutoCommand\reports\`).
+- **`investigate_process`** (AI bridge tool): the same service over MCP —
+  structured JSON (`provenance`, `traffic`, `block_hits`, `verdict`,
+  `evidence`) plus the identical `report_text`. Hours default 6, cap 24;
+  the full-day archive scan is the slow path.
+- `hours` now types as integer in tool input schemas (this also fixes
+  `run_trace`'s schema, which previously declared it a string).
+
+## Verification
+
+Self-tested headless against live archives on the dev machine: the 24 h
+`Reolink.exe` run reproduces the known camera-client profile — LAN
+discovery broadcasts (UDP 2018/2000 at an 11 s cadence, CV 0.03),
+unanswered cloud-relay attempts on port 9999, zero recorded TLS — in
+~0.45 s, and a PID run on explorer.exe exercises the provenance half.
+App, AgentProxy and AgentHost build clean in Release.
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. Blue "protected your PC" screen: **More info -> Run anyway**. If the zip
+   will not open or the exe will not start, run `unblock-autocommand.ps1`.
+
+Deleting the folder uninstalls it completely. Apache 2.0.
+
+
+================================================================================
+  2026.10.27.7  -  released 2026-10-27
+================================================================================
+
+# AutoCommand II v2026.10.27.7 — verify_block_containment: proof that blocks are silent
+
+Blocking a process or IP has always shown you the attempts (the live
+who-is-being-blocked feed). What it could not show was whether anything
+was actually getting THROUGH. This release closes that loop.
+
+## What is new in this build
+
+- **`verify_block_containment`** (AI bridge tool): one call that proves a
+  blocked process is silent, not just still trying. A block hit is a
+  connect ATTEMPT — the kernel drops it and nothing logs the outcome — so
+  no single source proves silence. This tool joins three: Sysmon-attributed
+  attempts, the live kernel socket table, and the TLS-transmissions archive
+  since the block was created. Per process instance it returns a verdict:
+  - **contained** — attempts only; the block is dropping everything.
+  - **stale-flow** — a socket whose owning process predates the block:
+    firewall rules never sever flows that were already established, so it
+    may still be alive. Sever or restart.
+  - **leak** — a socket established after the block, or archived bytes to
+    a blocked destination since the block. Escalate.
+  Blocks nobody is hitting are listed as quiet. The honest limits are in
+  the output: the archive only holds TLS flows over 10 KB, so
+  sub-threshold/UDP/DNS traffic needs `trace_analyze`.
+- The verdict logic is a pure engine (`BlockContainmentVerifier` in the
+  Contain core) with the same identity rules the monitor enforces — a
+  reused pid is flagged, never accused. 15 new offline self-test checks
+  cover every verdict and guard (43 total in the Contain suite, all pass).
+
+## Verification
+
+All offline self-test suites build and pass against the exact libraries
+shipped in this zip. App, AgentProxy and AgentHost build clean in
+Release.
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. Blue "protected your PC" screen: **More info -> Run anyway**. If the zip
+   will not open or the exe will not start, run `unblock-autocommand.ps1`.
+
+Deleting the folder uninstalls it completely. Apache 2.0.
+
+
+================================================================================
+  2026.10.27.6  -  released 2026-10-27
+================================================================================
+
+# AutoCommand II v2026.10.27.6 — phase 6: the agent core, the contracts, and the headless host
+
+The rewrite's structural work is complete. Same app, same behavior — but
+the last engine family (the Be My Guest AI-access stack) now lives in its
+own library, and the app's confirmation seam is a formal contract.
+
+## What is new in this build
+
+- **AgentHost**: a headless face for AI-access sessions. Scripts and
+  unattended runs can now host an MCP session without the WPF application
+  starting at all (zip: AgentHost\AutoCommand.AgentHost.exe; run
+  `AutoCommand.AgentHost [seconds]` — it answers questions only, and every
+  mutating tool is denied by design; it also refuses to run alongside the
+  interactive app, by the same single-instance rule).
+- The per-action confirmation guarantee ("nothing is touched without your
+  yes") is now an explicit contract — Sdk/IAgentInteraction — implemented
+  by the app's dialog. Behavior identical; the guarantee is now structural.
+
+## Verification
+
+All seven offline self-test suites build and pass against the exact
+libraries shipped in this zip. The last source-copying harness is retired —
+every suite tests the shipped assemblies. App builds clean in Debug and
+Release.
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. Blue "protected your PC" screen: **More info -> Run anyway**. If the zip
+   will not open or the exe will not start, run `unblock-autocommand.ps1`.
+
+Deleting the folder uninstalls it completely. Apache 2.0.
+
+
+================================================================================
+  2026.10.27.5  -  released 2026-10-27
+================================================================================
+
+# AutoCommand II v2026.10.27.5 — phase 5: the site-doctor core
+
+Same app, same behavior. The "Why is this site slow?" pipeline — passive
+fingerprinting from recorded traffic, the dual-shape TLS probes, the
+plain-English verdict rules, the dependency-block diagnosis, and the
+service outage map — is now its own tested library
+(AutoCommand.Sitedoctor.Core), the fifth and final engine cluster extracted
+from the UI executable ahead of the agent work.
+
+## Verification
+
+All six offline self-test suites build and pass against the exact libraries
+shipped in this zip. The app builds clean in Debug and Release.
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. Blue "protected your PC" screen: **More info -> Run anyway**. If the zip
+   will not open or the exe will not start, run `unblock-autocommand.ps1`.
+
+Deleting the folder uninstalls it completely. Apache 2.0.
+
+
+================================================================================
+  2026.10.27.4  -  released 2026-10-27
+================================================================================
+
+# AutoCommand II v2026.10.27.4 — phase 4: the Forensics core
+
+Same app, same behavior — one more engine family moved out of the UI
+executable into its own tested library.
+
+## What moved
+
+Everything that answers "who launched this, what is this program, what has
+it been doing": process provenance (the PID Inquiry engine), task
+attribution for scheduled-task spawns, the image spawn watcher, the trace
+metrics behind Phone Home and Traces, the BITS transfer watcher with its
+reason catalog, and the Python instrumentation pair — 17 files, now in
+`AutoCommand.Forensics.Core`, the top layer of the core stack
+(Forensics → Contain → Intercept → NetWatch).
+
+## Verification
+
+- All six offline self-test suites build and pass against the exact
+  libraries shipped in this zip. This phase retired the last three
+  source-copying harnesses: every suite now tests the shipped assemblies
+  themselves.
+- The Python spawn row model lost its last two UI-framework properties
+  (they became plain strings the UI converts) — one more guarantee the
+  engines can never drag Windows UI code into a future headless host.
+- App builds clean in Debug and Release.
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. Blue "protected your PC" screen: **More info -> Run anyway** (open
+   source; talks to no one). If the zip will not open or the exe will not
+   start, run the `unblock-autocommand.ps1` asset once.
+
+Deleting the folder uninstalls it completely. Apache 2.0. The original
+repository (dparksports/autocommand-windows) keeps shipping until this
+one replaces it. Remaining rewrite work: the site-doctor core, then the
+agent core + headless host (phase 6, the payoff).
+
+
+================================================================================
+  2026.10.27.3  -  released 2026-10-27
+================================================================================
+
+# AutoCommand II v2026.10.27.3 — the phase 3 build, first with a shippable zip
+
+This is the same AutoCommand you know — same windows, same behavior, same
+"see what your PC is really doing" — rebuilt on a restructured foundation:
+the engines (the parts that watch, capture, classify, and stop) now live in
+separate core libraries instead of being compiled into the UI executable.
+For you, nothing changes in how you use the app. For the project, it means
+every engine is now tested as the exact library that ships, the blocking
+and undo path carries its own offline proof suite, and the codebase is
+ready to grow new faces (a headless AI-access host is next).
+
+## What is inside
+
+- **Watch**: process monitor, phone home, spawns, traces, BITS transfers,
+  traffic patterns, recorded transmissions — all powered by the extracted
+  NetWatch and Intercept cores.
+- **Contain**: firewall blocks with one-click undo and the Restore Internet
+  panic button, telemetry opt-outs with proof, the sinkhole receipts
+  listener, Defender tools — the Contain core, extracted **test-first**:
+  a new 28-check offline suite proved the blocks store, the opt-out rule
+  engine, and the firewall rule builders before a single file moved, and
+  again against the shipped library after.
+- **System**: AI access (Be My Guest), privacy, settings — unchanged.
+
+## Verification behind this build
+
+All five offline self-test suites (NetWatch, BITS trace, Python trace,
+site doctor, contain) build and pass against the exact libraries in this
+zip. The app builds clean in Debug and Release.
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. If Windows shows the blue "protected your PC" screen: **More info ->
+   Run anyway** (the app is not from a big company; it is open source and
+   talks to no one). If the zip will not open or the exe will not start at
+   all, run the `unblock-autocommand.ps1` asset below once.
+
+Deleting the folder still uninstalls it completely. Apache 2.0. The
+original repository (dparksports/autocommand-windows) keeps shipping its
+own releases until this one replaces it.
+
+
+================================================================================
+  2026.10.25.3
+================================================================================
+
+# AutoCommand v2026.10.25.3
+
+## The AI bridge that heals itself — and starts itself
+
+Two failure modes both looked like "MCP not working," and both are gone:
+
+**App restarts no longer break the AI session.** The agent proxy and the in-app bridge each enforce MCP's initialize-before-request rule — but the client's handshake is consumed once, possibly hours before an app update or restart gives the bridge a fresh lifecycle. Every tool call then failed with "Server not initialized" forever, invisible to the client (its pipe to the proxy never broke). The proxy now tracks which bridge instance it has handshaked with (`pid:port:token` from `session.json`) and replays the client's handshake the moment that changes — plus one reactive retry if a bridge resets without a session-file change. Each replay announces `tools/list_changed`, so a restarted app's new tools appear immediately. A `session.json` whose process is gone (crash without cleanup) now reads as offline instead of timing out on every call.
+
+**"Investigate my PC" works even when nothing is running.** Two opt-in checkboxes in Settings → AI access, each with its own one-time consent:
+
+- **Start the session automatically whenever AutoCommand runs** — the consent you gave at the checkbox stands on every launch; read-only unless the mutating preference is separately on.
+- **If AutoCommand isn't running, let my AI assistant launch it in the background** — when a tool call arrives with no live session and no app running, the proxy starts AutoCommand headless: no window, **read-only**, exits by itself after 30 minutes. Windows shows one UAC approval (the app manages the firewall, so it runs elevated). A 5-minute cooldown prevents prompt storms; an already-running app is never spawned over — its session being off stays a Settings action.
+
+Safety unchanged: loopback-only, per-session random token, token file deleted the instant the app exits, mutating actions still gated by their own preference and a per-action confirmation dialog — which a headless session can never show, so background sessions are read-only by construction.
+
+Also in this release: the bridge feed now records `session_stopped` (making tonight's class of diagnosis a one-liner), headless mode exits silently when the interactive app is already running instead of starting a second bridge, and the offline tool guidance points at the new checkboxes so the first run teaches the fix.
+
+
+================================================================================
+  2026.10.25.2
+================================================================================
+
+# AutoCommand v2026.10.25.2
+
+## Phone Home: at a glance and in depth
+
+The Phone Home tab is now two panes: every Windows talker as one compact
+row on the left, the full story of the selected one on the right.
+
+- **One row per service**, sorted by measured connects per hour: a
+  colored verdict dot (green = inside the authored normal band, amber =
+  above it, gray = no baseline), the name, and the live numbers —
+  `2.6/hr · 63 in 24h · 0 live`. The whole curated set reads in one
+  screenful with no scrolling; arrow keys walk the list.
+- Two quiet signals ride on the row itself: **🔇** when you've quieted a
+  service (endpoints pinned, attempts denied), and **⚠** when the beacon
+  analyzer sees regular-interval, beacon-like timing.
+- **The detail pane renders instantly** — selection binds to facts that
+  were already computed, and what you're reading stays on screen through
+  the 60-second refresh and re-sorting.
+- **New in the detail pane**: a 24-hour connect histogram (hover a bar
+  for "5h ago · 3 connect(s)"), the full destination list instead of the
+  top five, and a per-destination **block button** — block exactly the IP
+  you're suspicious of, with the same confirmation, impact warning and
+  one-click undo as every other AutoCommand block.
+- Everything from the card view is still there: the plain-English story,
+  the is-that-normal verdict, TLS volume, identity corroboration, and
+  receipts when a quieted service has knocked and been denied.
+
+Same rule as always: every number comes from the local Sysmon archive
+and the live connection table on this PC — nothing new leaves the
+machine.
+
+
+================================================================================
+  2026.10.25.1
+================================================================================
+
+# AutoCommand v2026.10.25.1
+
+## One DNS resolver, one geo cache — ip-api.com trips collapse
+
+AutoCommand was hitting ip-api.com far more than its answers justified. Not because caching was missing — a per-IP cache existed — but because of how it was used:
+
+- **Four resolvers, four caches.** The Svchost monitor, Traffic Patterns and BITS each constructed their own `DnsResolutionService`: the same IP was resolved once per tab, and each instance kept its own 1400 ms throttle. Four throttles together ran at 4× the free-tier limit (45 req/min), so ip-api answered with rate-limit failures.
+- **The shared cache file was being clobbered.** All instances persisted to the same `dns_cache.json`, each writing only its own in-memory dict — last writer wins. Every restart reloaded a gutted file, found everything "unresolved", and re-queried.
+- **Failures were cached as facts.** A rate-limited or timed-out geo lookup stored the raw IP as the "hostname" for 24 hours: a wasted trip that also displayed wrong data, then repeated forever.
+- **Per-IP keys missed the block.** org/country is constant across an operator's whole address range, but DNS-rotating fleets (Azure, Google, Akamai) present hundreds of distinct addresses — each one its own API call.
+
+**The fix, in layers:**
+
+- **`DnsResolutionService` is now a singleton** (`Instance`) shared by every tab and watcher: one cache, one throttle, one file writer, one background worker. `Start()` is idempotent, and BITS no longer disposes the shared resolver when its tab stops.
+- **Geo answers are cached by /24 prefix** (`150.171.27.0/24`), not per address — one answer serves an entire rotating fleet block for **14 days**, persisted in `geo_prefix_cache.json` across restarts. The PTR-hostname cache stays per-IP, since reverse DNS really is per-address.
+- **Local answers never reach the API.** Locally classified ranges (Microsoft/Azure, Akamai, Gcore — the most frequent talkers on a Windows machine) are answered offline from the same range table the Blocks tab uses; RFC1918, loopback, link-local, CGNAT and multicast addresses never spend a call.
+- **Transient failures back off instead of lying.** A rate limit or timeout caches nothing and doubles the inter-call delay (1.4 s → up to 5 min, reset on success); a definitive "no data" answer is negative-cached for 24 h. No more day-long wrong "unresolved" rows born from one busy minute.
+- **Cache files survive crashes**: all three (`dns_cache.json`, `dns_forward_cache.json`, `geo_prefix_cache.json`) now write atomically (temp + replace), with a 60-second save timer backing the existing checkpoints.
+
+Steady-state effect: locally-classified talkers cost zero trips, each new operator block costs one trip per two weeks, and the 4× throttle overrun is gone. One visible change: addresses in locally-classified ranges now show as `Microsoft/Azure` / `Akamai (MS CDN)` instead of ip-api's `Microsoft Corporation · US` — same knowledge, no trip.
+
+Not included (available if the throttle ever still binds): batching queued lookups into ip-api's 100-IP POST endpoint.
+
+
+================================================================================
+  2026.10.25
+================================================================================
+
+# AutoCommand v2026.10.25
+
+## Blocked by name, blocked everywhere it runs from
+
+Windows Firewall enforces an application rule by **exact image path** — and binaries move. The motivating failure: msedgewebview2.exe was blocked at `EdgeWebView\Application\155.0.4283.60\`, the WebView2 runtime updated to `.62` and deleted the old folder, and the block went inert while the process kept transmitting. Worse, re-blocking hit a name-only duplicate check that answered "already blocked" and did nothing. This release makes a process-name block mean what it says.
+
+- **One rule per install path.** The first path keeps the primary rule name (`AC-BLOCK-APP app.exe (Out)`); every additional location — the new version folder after an update, a second install root, a per-user copy — gets a deterministic sibling rule (`… · <8-hex path hash>`), so the name is blocked wherever it runs from.
+- **"Already blocked" is now path-aware.** Blocking the same path refreshes provenance; blocking a moved binary adds the sibling rule. The dead-end is gone.
+- **New `AppBlockCoverageService`** keeps coverage current with no user action: it watches Sysmon process-create events and extends coverage **the moment a blocked exe name first runs from an uncovered path** — at the spawn, before its first connection. A startup sweep covers processes that were already running; without Sysmon, the sweep and retire pass still run.
+- **Retire pass.** Rules whose program file no longer exists are removed once a live sibling covers the target — never the last rule of a target, so an app mid-repair is never silently unblocked. Runs at startup and every 6 hours.
+- **Safety by construction:** auto-extension only ever blocks *more* — a malware binary name-squatting a blocked exe in another folder gets blocked too — so no confirmation gate is needed.
+- **Audit trail:** every extension and retirement is journaled to `app-block-extensions.jsonl` with trigger, parent image and rule name, and survives restarts.
+- **Unblock and pause/resume now operate on the whole name** — all sibling path rules — not just the row that happened to be clicked.
+- **Visibility:** the Blocks tab shows a 🕳 glyph on rules whose path is gone (tooltip explains and says what happens next); the `list_blocks` bridge tool reports a `stale_rules` count per target; the block-hit feed attributes connects by name too, so a hit from a not-yet-covered sibling path reads as an app-block hit, not an unexplained connection.
+
+## Phone Home
+
+New tab: one card per curated Windows talker (DiagTrack, CryptSvc, Delivery Optimization…) — what the service is, what it actually sends, and its current block state. The "which of Windows' own services is phoning home, and did I already block it" question answered on one screen.
+
+## Traces
+
+New tab: project-based tracing. A project is a file under `%LOCALAPPDATA%\AutoCommand\traces\projects` — hand-edits and dropped-in files are picked up by a watcher, and sharing a project means copying its file. Per-project application blocking with full provenance and metrics.
+
+
+================================================================================
+  2026.10.22
+================================================================================
+
+# AutoCommand v2026.10.22
+
+## Site Doctor: "the site is fine — its dependency is blocked here"
+
+The tab formerly known as "Why is this site slow?" could not see one failure class at all: a site whose **own servers answer perfectly** while its sign-in or parts of its pages fail, because an address the *page depends on* (captcha, assets, APIs) is on this machine's own block list. It used to answer "Healthy — try a private window with extensions off", actively pointing away from the cause.
+
+- **Why the old pipeline was blind:** a firewall-dropped connect dies before the TLS ClientHello, so it carries no hostname and never enters the transmissions archive — the probe measures the typed host only, and the block cross-check only looked at that host's failed edges. The only record of a blocked connect is the Sysmon EID 3 join against the block inventory.
+- **New evidence pass** (`DependencyBlockService`): anchors on the archive's recorded page loads ("brave.exe fetched www.spectrum.net at 08:23"), pulls blocked connects from the same browser within ±2 minutes of each load, and attributes every blocked address by what it has **served on this machine** (recorded SNI history — "this address also serves mail.google.com").
+- **New verdict, `DependencyBlocked`** — ranked above the remote-cause rules, red-panel, headline naming the browser, the blocked IP, what it serves and when: *"www.spectrum.net's own servers answer fine — but at 08:23, brave.exe made 7 blocked connection attempts toward 142.251.34.67 — an address this page depends on…"* The **one-click unblock** button now covers the dependency addresses too ("🚫 Unblock N address(es) this page depends on"), fully reversible from the Blocks tab.
+- **Intermittency explained:** the page's dependency hosts are resolved live and crossed with the block list — "www.google.com currently resolves to 8 addresses; 2 of them are blocked here — that rotation is why it comes and goes."
+- **Honesty guards:** a blocked connect is called causal only inside a recorded visit window; hits outside it surface as context and never hijack a Healthy verdict. Attribution never guesses past recorded history.
+- **Signpost for users who don't know the tab is for them:** on load, a hint appears when a browser has hit blocked addresses in the last day — "Brave hit blocked addresses 4 time(s) in the last day — if a page or sign-in failed, that's usually why. Check the site."
+- **The AI bridge gets the same answer:** `diagnose_site` runs the identical pass (its tool description no longer says "slow" only) and returns a `dependency_blocks` section — hits with process, attempts, timestamps, served-hosts and block provenance, plus the rotation facts.
+
+## Rename: "Site Doctor"
+
+A question-shaped header ("Why is this site slow?") self-selects for slowness — a user staring at an authentication error concludes the tab isn't about them and never opens it. The tab is now **🩺 Site Doctor**, with the scope stated where you type: *"Slow, failing, or can't sign in — one 60-second check that measures, compares and explains."*
+
+## Self-test
+
+New section 5b replays the login-failure shape end to end over synthetic fixtures (healthy probe edges + in-window blocked connects, the exact capture that motivated the feature): the join, attribution, block provenance, exclusions (other processes and other browsers), rotation math, the new verdict, and the honesty negatives (nearby-only hits keep `Healthy`; the join stands alone with no probe). 43 checks, all passing.
+
+
+================================================================================
+  2026.10.21.1
+================================================================================
+
+# v2026.10.21.1 — Your sites, your browsers, one-click unblock
+
+Two answers to the two questions real users ask after their first
+"Why is this site slow?" run.
+
+## The picker is now user territory
+
+- **"Sites from" filter**: pick from *All apps*, your ★ pinned sites, or
+  the sites one specific browser actually visits — Chrome, Brave,
+  Firefox, Edge, Opera, Vivaldi and friends are detected from your own
+  recorded traffic. Every user's list is their own browsing; there is no
+  built-in site roster anywhere in the flow (and never was — but now
+  it's obvious).
+- **★ Pin**: pin any typed site to the top of the picker. Pins live on
+  this PC (`%LocalAppData%\AutoCommand\site-doctor-pins.json`), survive
+  restarts, and are yours alone.
+- Control sites (the comparison baseline) always come from the
+  all-traffic pool, so filtering or pinning can never skew a verdict.
+
+## Unblock right from the verdict
+
+When the check finds addresses that fail **and** are on AutoCommand's
+block list (via the v2026.10.21 live blocked-inventory cache):
+
+- the evidence line says so outright — `142.250.141.84: TCP FAILED …
+  ← ON YOUR BLOCK LIST`
+- a **"🚫 Unblock N blocked address(es) for this site"** button appears
+  under the verdict: confirmation lists each address with the date it
+  was blocked, then removes **only AutoCommand's own AC-BLOCK rules**
+  for them — nothing else in Windows Firewall is touched, and every
+  address can be re-blocked from the Blocks tab. Then re-run the check
+  to confirm the site is back.
+
+No more "open wf.msc and hope you find it" runarounds.
+
+
+================================================================================
+  2026.10.21
+================================================================================
+
+# v2026.10.21 — Why is this site slow?
+
+A new WATCH tab that answers the question every monitoring app dodges:
+**"this one site feels slow — is it me?"** Born from a real diagnosis on
+this codebase's own development machine (a site whose refreshes stalled
+for seconds while every other site was fine), it automates the method
+that cracked that case — and fixes the honest-UX trap that nearly
+produced a false verdict along the way.
+
+## New: 🩺 Why is this site slow?
+
+- **Type a site (or pick one from your recorded traffic) → Run 60-second
+  check.** The check reads the Transmissions archive (edge dispersion,
+  retry bursts, connection churn), sends a small strictly-capped set of
+  connections — about 21 operations, every one listed in the log — and
+  compares against a control site you actually use.
+- **One plain-English verdict, one reversible next step, the math one
+  click away.** Verdicts: Blocked · Local TLS stack (every handshake
+  fails, controls included — a post-hardening condition observed in the
+  wild) · Server drops some handshakes (the works-in-one-app signature)
+  · Server roulette (short-TTL DNS steering) · Far-away servers · No
+  network problem found — with an honest "fast now, but history shows
+  bursts" split.
+- **Dual-shape TLS probe**: each server address gets two handshakes —
+  the Windows-default hello and a plain TLS 1.2 hello. A server that
+  answers one and silently drops the other is exactly the "slow
+  refresh" signature, and now it's measurable.
+- **AI guests get the same tool**: read-only `diagnose_site` on the Be
+  My Guest bridge runs the whole pipeline in ~30 seconds.
+
+## Fixed: the Down column can no longer lie
+
+The Transmissions archive recorded `server_bytes: 0` on every row for
+every site — the capture socket was seeing outbound only (RCVALL_ON
+depends on the NIC honoring promiscuous mode). It now requests
+`SIO_RCVALL_IPLEVEL` first (both directions at the IP layer, no
+promiscuous dependency), falls back on older stacks, tallies inbound
+vs outbound per session, and when a session is one-way the tab says so
+in a banner: a 0 in Down means "not observed", not "nothing came
+back". This is the readout that nearly produced a false "replies are
+blocked" verdict during the original diagnosis.
+
+## For developers
+
+`SiteDoctorSelfTest\` — all pass (one loud SKIP by design on machines
+whose schannel cannot host TLS). Full subsystem write-up in
+`docs/TECHNICAL_NOTES.md` → *Why is this site slow?*
+
+## New: 🔴 Who is being blocked, live (Blocks tab + AI tools)
+
+Blocks fire **silently**: Windows Firewall vetoes the connect at the
+kernel (instant access-denied) and emits nothing the app can subscribe
+to. Until now the Blocks tab's hit counts came from `pfirewall.log` —
+which Windows ships **off by default** and which carries IPs but no
+processes — so a block breaking someone's browsing (the
+`accounts.google.com` case: "This site can't be reached" while every
+other Google page worked) was invisible exactly when users needed it.
+
+- **Live feed with process attribution**: every Sysmon EID 3 connect
+  attempt is joined against the blocked-target inventory (30s refresh)
+  — process, PID, blocked destination, attempts, first/last seen — in
+  a new "Recently blocked connects" grid that self-refreshes every 15s.
+  Works out of the box, no firewall-log configuration needed; history
+  persists across restarts (24h ring, JSONL beside the archive).
+- **classify_ip now answers the real question**: range classification
+  *and* whether the IP is on the explicit blocked list — rule count,
+  since when — the part the range classifier alone could never see.
+- **New AI-bridge tools**: `list_recent_block_hits` (the live feed),
+  `list_blocks` (inventory + hit counts), and `check_host` — the
+  one-call "why can't I reach this site?" triage that resolves the
+  hostname, checks every address against the blocked list, and explains
+  the DNS-rotation intermittency that makes per-IP blocks feel random.
+- **pfirewall.log demoted to honest second source**: richer parsing
+  (first/last seen + process paths), auto-enabled once at startup
+  (never re-enabled if you turn it off), and the stale-leftover-file
+  false-positive that could hide the enable button is fixed.
+
+
+================================================================================
+  2026.10.20.6
+================================================================================
+
+# AutoCommand v2026.10.20.6
+
+Layer 3 for the Transmissions tab: an intercept for apps that can NEVER write
+TLS session keys - Schannel-based Windows system components (svchost services,
+taskhostw, conhost-hosted injected code), pinned or exotic clients. Until now
+those rows ended at "encrypted (no keys)" with metadata only; this release
+gives them a one-click, time-boxed, fully reversible decryption path.
+
+## Why driverless, unlike the open-source interceptors
+
+mitmproxy's local:<pid> capture and similar tools redirect traffic with
+WinDivert - a kernel driver that on Windows 11 26H2 fights memory integrity
+(HVCI), Smart App Control enforcement, and Microsoft's 2026 removal of
+cross-signed-driver trust. AutoCommand takes the route that reaches exactly
+the target set this feature exists for, because Windows services route
+through WinHTTP: a local loopback proxy installed as the temporary system
+proxy. No driver, no SAC exceptions, works everywhere.
+
+## The intercept session (15 minutes, auto-reverting)
+
+- Every accepted connection is attributed to its owning PID through the
+  kernel TCP table. The TARGET pid's connections are decrypted - leaf
+  certificate minted per hostname from a per-install "AutoCommand Intercept
+  CA", upstream validated for real, both legs TLS, never a downgrade. Every
+  other app's connections tunnel through byte-for-byte, untouched.
+- The CA is trusted machine-wide only while the session runs, and removed at
+  the end. The WinHTTP + WinINET proxy settings and the per-program UDP/443
+  block rule (QUIC falls back to TCP/TLS) are journaled BEFORE installation;
+  a crash leaves the journal, and the next app start undoes everything it
+  describes. App exit also stops the session.
+- Certificate-pinned clients fail loudly - recorded as "refused intercept
+  (pinning)", which is itself a detection signal. Intercepted traffic lands
+  in the same Transmissions grid, tagged "decrypted - intercept", with the
+  full archive treatment: message decode, SHA-256, >10KB lens, body viewer.
+- Strictly observe-only: bytes are teed and recorded, never modified in
+  transit.
+
+## UX
+
+- Encrypted rows gain "Intercept this process..." with a consent dialog that
+  states exactly what will happen and how it reverts. An amber banner counts
+  down the session with a Stop-now button.
+- The system-component restart-block message now points at the intercept
+  instead of claiming metadata is the ceiling.
+
+## Known limits (honest ones)
+
+- Apps that ignore both WinHTTP and WinINET proxy settings (raw sockets)
+  bypass the intercept - the WinDivert transparent route remains a possible
+  future escape hatch for those, with the driver-signing caveats above.
+- HTTP/2 bodies are detected and shown as raw bytes (no HPACK demux yet),
+  same as the keylog path.
+
+
+================================================================================
+  2026.10.20.4
+================================================================================
+
+# AutoCommand v2026.10.20.4
+
+Follow-up to v2026.10.20.2's Transmissions tab. That tab could show what apps
+sent only when TLS session keys existed - and the "encrypted (no keys)" dead
+end asked the user to fix it by hand. This release automates the whole
+remediation loop: detection now comes to you, and the fix is one click.
+
+## Every big encrypted upload now announces itself
+
+- The moment any app pushes more than 10 KB over TLS without having written
+  session keys, a Windows toast fires: "<app> sent 4.2 MB - encrypted, no
+  keys", with the destination, SNI host and RDAP provider. Clicking it jumps
+  straight to the Transmissions tab. Deliberately unthrottled - every
+  occurrence, no pacing - because the ignore list (below) is the pressure
+  valve, not a timer.
+- AutoCommand itself never toasts about its own traffic.
+
+## One-click "Restart under watch"
+
+- On any encrypted row (and from the new Apps-without-keys popup), Restart
+  under watch recovers the exact command line and working directory for that
+  PID from the Sysmon archive - PID-reuse-aware, so a recycled PID cannot
+  attach the wrong command line - then confirms, terminates ALL running
+  instances of the image (browsers and Electron apps otherwise forward the
+  relaunch to a surviving instance and inherit nothing), and relaunches it
+  with key capture applied. Its very next TLS flow arrives decrypted.
+- The offer is refused honestly where it cannot work, with the reason shown:
+  AutoCommand itself, Windows system components (Schannel never writes keys -
+  metadata is the ceiling there), and Store/UWP apps (Windows starts those
+  through app activation).
+
+## The ignore list, and the surfaces that respect it
+
+- Ignoring an app silences its toasts and suggestions only - its rows stay in
+  the grid, because the feed stays truthful. The list persists as
+  ignored-apps.json beside the archive, editable from the new popup.
+- "Apps without keys" popup (toolbar button, live count): per-image
+  encrypted-vs-decrypted flow counts, each row with Restart-under-watch and
+  Ignore actions, the ignore-list manager, and the system key capture
+  shortcut.
+- The status bar grows a "Turn on key capture" button that appears exactly
+  while watching with system-wide capture off - the cost of it being off is
+  now visible where you are looking, not after the fact.
+
+## Engineering notes
+
+- TrayNotifier gained a per-toast activation callback (existing callers
+  unchanged); transmissions toasts select the tab on activation instead of
+  just raising the window.
+- The pipeline tracks per-image stats and raises one event per big encrypted
+  upload with no pacing by design; the ignore-list filter lives on the
+  consumer, so the pipeline reports and the UI decides.
+
+
+================================================================================
+  2026.10.20.2
+================================================================================
+
+# AutoCommand v2026.10.20.2
+
+New WATCH tab: Transmissions. Every TLS conversation this machine has with the
+cloud becomes a readable row - what was sent, to whom, by which process - using
+the SSL session keys that key-honoring apps can be asked to write. This is the
+tab that answers "what exactly left my machine?" without guessing from byte
+counts.
+
+## The Transmissions tab (always visible, no opt-in)
+
+- **Each finalized TLS flow becomes a row**: time, pid and process (Sysmon EID 3
+  attribution), the SNI hostname, the destination, the RDAP provider behind the
+  IP (Alibaba, Microsoft, Akamai, ...), wire and decrypted byte counts, and a
+  status. Flows that decrypted say "decrypted"; the rest say exactly why not -
+  "encrypted (no keys)" most commonly. Uploads above 10 KB wear an amber badge,
+  and the grid defaults to that lens because bulk uploads are the exfiltration
+  shape that matters.
+- **Message-by-message content viewing**: decrypted directions are decoded into
+  HTTP messages - chunked transfer, gzip, brotli and deflate bodies included -
+  viewable as pretty (JSON pretty-printed, form fields URL-decoded), text, hex
+  or headers, with a per-flow SHA-256 and a save-body button. HTTP/2 streams
+  are detected and shown as raw bytes with an honest label rather than
+  mis-rendered.
+- **Nothing truncated, everything local**: rows archive to
+  %LOCALAPPDATA%\AutoCommand\transmissions as a daily greppable JSONL index
+  plus full-body blobs, 30-day retention with a 256 MB bodies budget. The
+  SHA-256 per row keeps "what was sent" provable after the fact. Nothing leaves
+  the machine: the AI bridge exposes metadata only (new read-only
+  get_transmissions MCP tool), never bodies.
+
+## Getting keys, two ways
+
+- **System-wide key capture** (opt-in checkbox, confirm dialog): sets
+  SSLKEYLOGFILE in the user environment pointing at AutoCommand's existing
+  user-only-ACL, rotated keylog, and broadcasts the change so newly launched
+  apps inherit it. Chromium/Electron browsers and apps, curl, git, wget,
+  OpenSSL- and Python-based tools honor it from their next launch on.
+  Schannel-based Windows components ignore it - their flows keep the truthful
+  "encrypted (no keys)" status with full metadata. Turning it off wipes the
+  key file.
+- **Launch under watch**: pick one program; AutoCommand starts it with
+  SSLKEYLOGFILE set in its environment only - the precise instrument for a
+  single suspect app.
+
+## Engineering notes
+
+- The pipeline reuses the existing raw-socket TCP reassembler and TLS
+  decryptor, and adds an all-process Sysmon connect watcher for pid
+  attribution, a bounded background queue (drop-counted if capture ever
+  outpaces decryption), and a 96 MB in-memory body cache with archive
+  fallback for instant viewing.
+- Recorder rule: watching starts on first open of the tab and deliberately
+  survives tab switches; it stops on Stop Watch or app exit, where the
+  pipeline drains what the capture's final flush finalized.
+
+
+================================================================================
+  2026.10.19.2
+================================================================================
+
+# AutoCommand v2026.10.19.2
+
+One new lens for the Process Monitor, answering a question the triage
+workflow kept asking by eye: *which programs are sending packets but never
+hearing anything back?*
+
+## Why that question deserves its own switch
+
+A connection that only ever transmits is a distinctive shape — a firewall
+block doing its job, a beacon calling a dead end — and until now the only
+way to find one was to scan the Rx Pkts column row by row. The count sits
+next to every row, but nothing grouped the zeros together.
+
+## What's new
+
+- **TX-only (no reply)** — a checkbox in the Process Monitor toolbar, off
+  by default. Checked, the list narrows to rows that have transmitted
+  packets and never received a single one. Unchecked, the full list is
+  exactly where it was: it's a lens, not a filter that forgets.
+- **The count lives on the checkbox.** While the lens is off, its label
+  shows how many one-way transmitters are out there ("TX-only (no reply): 3"),
+  refreshed on the same beat as the High TX chip — so you can see whether
+  the question is worth asking before you ask it.
+- **No flashing.** A brand-new row has sent its first packet before any
+  reply can arrive, so for a moment every connection on the machine looks
+  one-way. Rows only qualify after 30 seconds of life with zero received
+  bytes, and live filtering drops a row out of the view the instant its
+  first reply lands.
+- **Nothing downstream changes.** The lens is view-only: ignored-process
+  handling, the hourly CSV and the AI-assistant audit context all keep
+  reading the full, unfiltered list.
+
+README and TECHNICAL_NOTES document the lens in the same terms.
+
+
+================================================================================
+  2026.10.19.1
+================================================================================
+
+# AutoCommand v2026.10.19.1
+
+Same-day follow-up to the Blocks tab: on a machine carrying blocks forward
+from a prior install, the tab showed "svchost — service unknown" for every
+IP block. Three gaps, three fixes — identity now arrives without anyone
+asking for it.
+
+## Why it showed svchost
+
+The blocks were made by the previous release, which recorded only
+"svchost.exe" labels. The new build's import looked for the legacy file
+next to the exe — but the app runs elevated (CWD becomes System32), the
+install lives in a fresh versioned folder each release, and the previous
+install's blocked.txt (or a copy placed into the new folder after the app
+had already started) sat just outside every path it checked. The blocks
+were then rebuilt from the firewall rules themselves, which carry no
+service identity. Recoverable — but only via the manual "Repair
+attribution" button.
+
+## The fixes
+
+- **Prior installs are discovered.** The import now scans the app's own
+  folder, the previous versioned install folders under Downloads/Desktop,
+  and the app-data directory for legacy blocked.txt files — newest install
+  first, reading foreign files without touching them. Reconcile-built
+  records are upgraded in place when a richer legacy row covers the same
+  target (precise timestamps, process labels), instead of being skipped as
+  duplicates.
+- **The rules speak for themselves.** Block rules embed their provenance —
+  "[blocked …] svchost.exe [netprofm] PID 1216 → …" — so records rebuilt
+  from the firewall now inherit the service identity the monitor resolved
+  at block time, no archive required.
+- **Attribution repair runs itself.** When the Blocks tab opens and rows
+  are still unattributed, the Sysmon/SCM recovery pass runs once per
+  session in the background and the list re-renders with names. The manual
+  button stays for re-runs.
+- **A Service column on every row.** Each blocked IP now carries its own
+  "which network service did I block?" answer — display name in the row,
+  plain-language description on hover — independent of the group header.
+
+On the machine that motivated this: 66 blocks, all shown as svchost this
+morning, now read as Network List Service ×18, DiagTrack telemetry ×13,
+Cryptographic Services ×11, Windows Push Notifications ×3, BITS, the
+Defender trio by name — with 7 honestly unresolved where the archive
+holds no evidence.
+
+
+================================================================================
+  2026.10.19
+================================================================================
+
+# AutoCommand v2026.10.19
+
+The Blocks tab. A real block list told the story: 50 of 64 blocks labeled
+"svchost.exe", 66% of them on Microsoft infrastructure, made in overnight
+bursts — a list that could not answer its own questions. "What did I even
+block?" "Which of these is breaking the thing that just stopped working?"
+This release answers both, and keeps answering them for every block made
+from now on.
+
+## The Blocks tab — blocks grouped by the service that made the connection
+
+A new ⛔ Blocks tab in the CONTAIN group lists every AutoCommand firewall
+block, folded under the **Windows service that actually made the
+connection** — "Delivery Optimization (DoSvc)", "Cryptographic Services",
+"Defender Antivirus Engine" — never a wall of identical "svchost.exe"
+rows. Each group header carries a plain-language description of what the
+service does and an impact rating: red groups (Defender, lsass,
+SmartScreen, Windows Update) break security, sign-in or updates when
+blocked; orange degrade features. Rows show what was blocked, when, the
+classification at block time, and **last transmitted packets** — live from
+the monitor, else the newest archived connection attempt (Sysmon logs
+attempts even when the firewall drops them, so you can see a block is
+still being probed — or is dead weight on a rotated CDN edge).
+
+**Toggles at both levels.** Pause/resume any single block, or a whole
+service group with one impact-aware confirmation. Pausing disables the
+rules and lets traffic flow immediately, but deletes nothing — every
+record stays in the list to re-enable, and every action lands in an
+append-only history log.
+
+## blocks.txt v3 — identity captured at block time
+
+The block record format grows up. v3 rows carry the service identity,
+display name, classification snapshot, origin, attribution source and
+pause state — captured the moment the block is made, while the PID (and
+its identity) still exists. The file moves to
+`%LOCALAPPDATA%\AutoCommand\blocks.txt`: the old CWD-relative file was
+orphaned by every versioned install folder. The loader is
+version-tolerant — v2 rows and the older myfirewall 3-field rows (both
+column orders) migrate in place, the original file is preserved as
+`blocked.txt.imported-<timestamp>`, and anything unrecognized is kept
+verbatim rather than silently dropped.
+
+**Attribution repair recovers the past.** "🔎 Repair attribution"
+back-fills identity for legacy rows in one pass: the 30-day Sysmon
+archive supplies network event → PID → process create → `-s` service, and
+when the PID predates the archive window but still runs (svchost hosts
+live for days), the SCM's live service map — guarded against PID reuse by
+process start time. On the motivating machine this turned 47 anonymous
+"svchost" rows into Network List Service ×18, DiagTrack ×13, CryptSvc
+×11, in seconds; the 6 the archive genuinely cannot answer stay honestly
+unresolved instead of guessed.
+
+## The Restore guide — "it broke; which rule do I lift?"
+
+When a network feature fails, the top of the Blocks tab answers the only
+question that matters: pick the broken feature — internet connectivity,
+Windows Update & Store, Defender, sign-in, Start menu & search,
+notifications, Edge, certificates, telemetry, clock sync — and the guide
+lists exactly the active blocks in that feature's blast radius, ranked by
+freshest connection attempt (the block still swallowing traffic sorts
+first). One confirmation pauses all of them and traffic resumes;
+un-pausing any of them later is a click. Symptom matching reaches both
+directions: service-group blocks by name, and infrastructure blocks by
+classification — an unresolved Akamai edge still stops update delivery,
+so "Windows Update broken" finds it anyway.
+
+
+================================================================================
+  2026.10.18.2
+================================================================================
+
+# AutoCommand v2026.10.18.2
+
+Two features for people who stare at the Process Monitor and ask "what IS
+that?": the real name behind a row now surfaces (and corrects itself), and
+the app can start simple — the deep-dive tabs wait behind an opt-in toggle.
+
+## The real name behind the row — the x-rayed process name
+
+You know the moment: a row shows a name that means nothing — or worse, a
+name a recycled PID lent it — and only the PID inquiry reveals the truth
+("it was `git-remote-https.exe` all along"). Until now that finding died
+with the trace window. Four changes close the loop:
+
+- **Rows are named by the event, not the live PID.** A row's name now comes
+  from the Sysmon event's own image field — the one source that is
+  definitionally correct for that connection. The live lookup only runs
+  when Sysmon gave no image. A recycled PID can no longer put the wrong
+  tenant's name on a row at birth.
+- **The trace corrects the row.** Whatever the PID inquiry establishes
+  about identity flows back onto the row that opened it — guarded by the
+  start-time anchor, so a report about a different tenant of the number
+  never overwrites anything. Corrections are visible, never silent: the
+  tooltip says "real name revealed from the Sysmon record (row previously
+  showed '…')".
+- **Reveal without the trace.** A new context-menu item, "🏷 Reveal real
+  process name (Sysmon record)", runs the same anchored archive recovery
+  on demand. Rows whose name never resolved get one automatic attempt on
+  the refresh tick — strictly one-shot per row, so the disk cost stays
+  bounded.
+- **The name gets translated.** The row tooltip now shows "spawned by
+  git.exe" (from the create-record's parent image) plus a plain-English
+  gloss for the top offenders — git-remote-https.exe is "Git's network
+  helper — spawned by git.exe for every fetch/push over HTTPS" — and the
+  PID inquiry gained the same "ℹ" gloss line under its identity card.
+  The generic parent line covers every helper without a glossary entry.
+
+## Advanced investigation — the deep-dive tabs are opt-in
+
+New Settings card, **off by default**: "Show advanced investigation tabs".
+Off, the sidebar is a plain watch-and-block tool — Process Monitor,
+Firewall, Be My Guest, Settings. On, eight deep-dive tabs appear in place:
+Spawns, BITS Transfers and Traffic Patterns under WATCH; Black Hole and
+Windows Defender under CONTAIN; Data & Privacy, OneSettings and Sysmon
+Audit under SYSTEM. Applies immediately (no restart), is remembered across
+launches, and the group-header tooltips say where the hidden tabs went.
+Hidden tabs also never start their background collectors — off really is
+lighter, not just quieter.
+
+## Known deferred
+
+Name/hash watch-rules (block the exe *wherever* it lands next) and a
+`block_process` agent tool; the engines are untouched and the offline
+self-tests still cover them.
+
+
+================================================================================
+  2026.10.18.1
+================================================================================
+
+# AutoCommand v2026.10.18.1
+
+A one-feature patch release for the Process Monitor's block flow: what
+happens when you go to block a process and it has already run away. Short
+version — it's blockable now, honestly, safely, and from the right identity.
+
+## Blocking a suspect that already ran away
+
+Processes you want to block have a habit of being gone by the time you decide
+to. That used to be two bad outcomes: if the row had a Sysmon path the block
+succeeded *silently* — you'd think you stopped something that had already
+finished talking — and if it didn't, you got a dead-end "could not determine
+process path" error. Both are gone. The block was never really about the live
+process anyway: the firewall rule matches the exe's **path** and arms its next
+run, so an exited suspect is fully blockable as long as the path can be
+recovered. Now it always is:
+
+- **The row's Sysmon capture** is the first source — it recorded the image
+  path when the row was created, precisely so dead rows stay actionable.
+- **The 30-day Sysmon archive** is the fallback when even that is missing:
+  the suspect's create-event *is* its identity (path, command line, parent,
+  hashes), and when several recycled PIDs share the number, the record that
+  matches the row's start time and image wins.
+
+And the flow is honest about what happened. The confirmation says so plainly
+— "Process already exited — block its executable for next time?" — with the
+limitation spelled out: the rule covers that path; a copy of the exe
+elsewhere is not blocked. The success toast repeats it when the prompt was
+suppressed, and the rule's Description carries an `exited` (or
+`path-from-archive`) marker for wf.msc audits later. When nothing can be
+recovered, the error is replaced by guidance: block the remote IP it talked
+to, or open the PID inquiry for everything recorded about it.
+
+One hazard fixed on the way: the old flow queried the live PID *first*, so a
+recycled number handed the block to whatever unrelated process now owns it —
+silently. Exited rows no longer consult the live PID at all, and live rows
+cross-check the name first (the same guard the kill flow has); a mismatch
+blocks the row's own process, not the PID's new tenant. The unblock path uses
+the row's identity too, so unblocking can't target a recycled PID's path
+either.
+
+## Known deferred
+
+Name/hash watch-rules (block the exe *wherever* it lands next, not just the
+recovered path) and a `block_process` agent tool; the engines are untouched
+and the offline self-tests still cover them.
+
+
+================================================================================
+  2026.10.18
+================================================================================
+
+# AutoCommand v2026.10.18
+
+A workflow release for people who trace and block all day: the confirmation
+popup now has a "don't ask again" checkbox that actually respects what you
+meant, and the Process Monitor finally shows which rows are blocked — in the
+grid, not just in a popup.
+
+## "I know what I'm doing" — said once, remembered per risk class
+
+Blocking an IP or a process used to show the same confirmation every single
+time. Trace ten suspicious connections, block ten things, click through ten
+identical warnings. The confirmation is now a proper dialog with a checkbox —
+and the checkbox is **per warning class, not a global off switch**:
+
+- **Don't ask again before blocking remote IPs** — the routine confirm.
+- **Don't ask again before blocking processes** — same, for executables.
+- **Don't warn me about Microsoft-infrastructure IPs** — the "think twice"
+  warning for Microsoft ranges.
+- **Don't warn me about blocking Windows service hosts / components** — the
+  svchost/taskhostw "this is how you lose your internet" warning.
+
+Silencing the routine IP confirm never silences the svchost warning. A prompt
+is skipped only when the generic confirm *and* its applicable warning class
+are both suppressed — so even with everything else quieted, blocking a
+Microsoft IP still gets its warning until you've silenced that class too.
+Choices persist across launches (`confirm_prefs.txt`) and are reversible: the
+Blocked popup has a **↩ Reset "don't ask again" choices** button with an
+"N of 4 suppressed" indicator, so the state is visible, not a hidden cookie.
+
+Blocks made under a suppressed prompt say so — the firewall rule's
+Description carries a `confirm-suppressed` marker, auditable in wf.msc later.
+
+## No more "Blocked!" popups — the row tells you
+
+Every per-block success MessageBox is gone. Blocks now report through a
+small toast in the corner of the grid with a **↩ Undo** button, and it
+auto-hides after a few seconds. The real confirmation is the row visibly
+flipping to blocked in the list.
+
+## Blocked vs allowed, at a glance
+
+A new **Block** column leads the grid:
+
+- **⛔** — this row's traffic is denied (an IP and/or process block rule is
+  active).
+- **⏸** — block rules exist but are disabled (the fleet pause) — traffic
+  actually flows, so it's not shown as blocked.
+- empty — allowed, which is the outbound default; unmarked means nothing to
+  worry about.
+
+The affected cell itself turns red with strikethrough — the Remote IP cell
+when the IP is blocked, the Process cell when the executable is — so you can
+see *which half* is blocked, not just that the row is. Hovering a marked cell
+or the ⛔ shows the rule's provenance (which process contacted it, when it
+was blocked, how much traffic had flowed).
+
+The state comes from the **live firewall inventory**, not from the monitor's
+own records — blocks created by your AI assistant through the Be My Guest
+bridge, or by hand in wf.msc, mark rows the same as ones created here. The
+grid re-syncs after every block or unblock, when the Blocked-rules window
+closes, and once a minute.
+
+The right-click menu tells the truth too: on a blocked row, "⛔ Block remote
+IP…" becomes "**✅ Unblock remote IP … — traffic resumes**" (same for
+processes). And when a block is only paused, the menu says so and declines to
+"re-block" — re-adding a paused rule would silently do nothing.
+
+## Known deferred
+
+Per-IP suppression memory (deliberately not built — a repeat IP contacted by
+a *different* process deserves the prompt), a green marker for explicit
+allow-rules on the svchost allowlist, and a confirmation on *Kill process*.
+The engines are untouched; the offline self-tests still cover them.
+
+
+================================================================================
+  2026.10.17.3
+================================================================================
+
+# AutoCommand v2026.10.17.3
+
+A navigation release: the three Sysmon trace tabs become one, the sidebar gets
+grouped, and — the part that actually mattered — watching no longer stops just
+because you clicked somewhere else.
+
+## One Spawns tab, three feeds
+
+**Svchost Trace, Taskhostw Spawns and Python Spawns were three tabs running
+the same machinery** (Sysmon spawn tracing + attribution) sliced by process
+name — which forced you to guess the right tab before you knew what you were
+looking for. They are now one **Spawns** tab with a segmented selector:
+
+- **Scheduled Tasks** (the old taskhostw feed) — every taskhostw launch with
+  the scheduled task behind it, verdict chips and the attribution pane.
+- **Python** — launches, call stacks for instrumented environments, TLS flows.
+- **svchost Timeline** — spawn genealogy, connections, destination
+  classification, beacon detection and the pattern report.
+
+The feeds stay in the visual tree and switch by visibility, so **browsing
+between them never unloads or interrupts one that's recording**. Each segment
+carries a live dot — green while that feed is recording, grey when stopped —
+so the tab's state is readable without visiting each feed.
+
+## The silent-coverage bug
+
+The taskhostw and Python feeds used to **stop watching when their tab was
+left** (`Unloaded → StopWatching`) — start a watch, check the firewall tab,
+come back, and everything in between was gone with no indication. Both feeds
+now follow the lifetime policy the svchost timeline already documented ("a
+recorder must not stop because another tab was viewed"): a feed records from
+its first activation until you press *Stop Watch* or close the app. The 6-hour
+Sysmon backfill still seeds each feed on first open, so the window before you
+arrived is covered too.
+
+## Grouped sidebar
+
+Fourteen tall tabs are now twelve single-line entries in three groups:
+**Watch** (Process Monitor, Spawns, BITS Transfers, Traffic Patterns),
+**Contain** (Firewall, Black Hole, Windows Defender) and **System** (Be My
+Guest, Data & Privacy, OneSettings, Sysmon Audit, Settings). The group
+headers are non-selectable; all twelve entries fit a default-height window
+without scrolling. BITS stays its own tab deliberately — its rows are
+transfer jobs, not process launches, and merging them would make one grid
+that's mostly empty columns per feed.
+
+## Smaller
+
+- **Verdict chips are colored now** — Inbox green, Third-party amber,
+  Orphaned red — instead of all sharing amber text; the three states read
+  apart at a glance.
+- README gains a "Where everything lives" section with a new house-style
+  infographic (`app_map_infographic.png`) showing the grouped sidebar and the
+  Spawns merge. All five OSS infographics regenerated under the same light
+  theme and version stamp.
+
+## Known deferred
+
+A true single grid unifying the taskhostw + Python rows (they share the
+`SpawnItem` model), substring-search filters with opt-in regex, a
+confirmation on *Kill process*, and cross-tab row linking (PID → connections
+→ timeline). The engines are untouched; the offline self-tests still cover
+them.
+
+
+================================================================================
+  2026.10.17.2
+================================================================================
+
+# AutoCommand v2026.10.17.2
+
+The two gaps named in v2026.10.17.1's "honest accounting," closed — plus the
+Sysmon archive that makes the forensic promise durable.
+
+## IPv6: the snapshot sees both families now
+
+`TcpConnectionTable` enumerates `GetExtendedTcpTable` twice — AF_INET and
+AF_INET6 (`MIB_TCP6ROW_OWNER_PID`) — so every sampled view (the MCP
+`get_monitor_rows` snapshot, the Process Monitor startup seed, the Svchost
+Trace baseline + 1s poll) sees established TCP in **both address families**.
+IPv6 endpoints render as `[addr]:port`, netstat-style. A held `[::1]`
+connection — invisible to the v2026.10.17.1 table, and, as it turned out, to
+`netstat -ano -p tcp` itself on some builds — is now a first-class row, proven
+live by the self-test.
+
+- **One destination predicate, both families.** New shared
+  `TcpConnectionTable.IsLocalOrNonRoutable`: loopback, link-local (fe80::/10),
+  ULA (fc00::/7 — IPv6's RFC1918), multicast, broadcast. `IsIgnoredIp`
+  delegates to it, which also fixes the **event path**: IPv6 EID 3
+  destinations used to slip past a literal `"::1"` check and could seed
+  link-local/ULA addresses as if they were internet rows.
+- **Trace tab loopback filter made exact** — `Contains("::1")` also matched
+  `fe80::1`; now `ip == "::1"` (the tab traces LAN traffic by design).
+- `Classify` and the known-cloud CIDR list are IPv4 by construction; IPv6
+  destinations classify as "IPv6/other" honestly rather than being silently
+  matched. Extending the cloud catalog to v6 ranges is future work, noted
+  below.
+
+## Sysmon archive: weeks of history, readable on disk
+
+The live channel is a rolling window (192 MB ≈ half a busy day). New
+`SysmonArchiveService` makes "every spawn retroactively traceable" true for
+weeks:
+
+- **Backfill at every app start** — the entire retained channel is read and
+  appended, skipping what's already archived via a (recordId, utc) watermark
+  (record id alone lies when the log is cleared; time leads, id breaks exact
+  ties). Cheap precheck: the channel's newest record vs the watermark.
+- **Live append while the app runs** — an `EventLogWatcher` on the whole
+  channel archives every event as it arrives. All EventData fields are
+  preserved verbatim, so an archived EID 1 is a complete substitute for the
+  live one: command line, parent image, hashes.
+- **Storage is house-style JSONL** — one readable, greppable file per day
+  under `%LOCALAPPDATA%\AutoCommand\sysmon-archive\`, pruned after 30 days
+  (disclosed on the Sysmon Audit card, which now shows an Archive line:
+  events, day files, retention).
+- **Readers merged**: the PID Inquiry falls back to the archive when the live
+  channel no longer holds a PID's spawns — the verdict that used to read
+  "ancestry is unrecoverable" now produces evidence labeled *"Sysmon archive
+  create-event (EID 1) — wrapped out of the live log."* The MCP `tail_sysmon`
+  tool gains `archive=true` to query the archive instead of the live log.
+- Unelevated sessions degrade silently: no channel access → no archive
+  activity, nothing crashes, nothing is guessed. Events from before the
+  archive's first backfill that already wrapped out of the channel are, by
+  definition, gone.
+
+## NetWatchSelfTest
+
+New offline + live self-test (linked app sources, byte-identical to what
+ships, house pattern): 42 checks — destination classification across both
+families, **a live held `[::1]` connection asserted visible** in the
+dual-family enumeration, endpoint formatting, archive watermark dedupe
+(duplicates, older-than-watermark, same-ts-higher-rid boundary), day-file
+rotation, newest-first search with eid/contains/since/max filters, streamed
+PID create-event lookup, corrupt-line tolerance, and prune. All pass — and
+the test caught two real Search bugs (an unapplied PID predicate and
+within-file ordering) before they shipped.
+
+## README + infographics, round two: the try-it framing
+
+The README now speaks to the person who is simply *tired of antivirus
+software* and wants to try something: opener validates the fatigue
+("popups, subscriptions, 'no threats found' — and still no answer"), the
+lead section is **"Try it in five minutes"** (download → run as admin →
+look/ask, with "deleting the folder uninstalls it"), and a
+**"What am I looking at?"** section teaches the main screen before the
+first launch. Two new infographics ship with it, house style at larger
+type (body 17–19pt), layout QA'd by a visual pass (which caught and fixed
+a circle-grazes-heading collision on all three cards):
+
+- `Assets/first_five_minutes_infographic.png` — the three getting-started
+  steps, each with what you'll actually see, plus the no-installer /
+  no-account / delete-it-anytime reassurance strip.
+- `Assets/row_anatomy_infographic.png` — "one row, five things to know"
+  (who, where, how much, how long, the Block/Undo buttons) — how to read
+  the main screen before you ever open it.
+
+The two v2026.10.17.1 infographics carry the new version chip.
+
+## Known gaps (honest accounting)
+
+- IPv6 destinations are visible but not owner-classified — "IPv6/other"
+  until the cloud/CDN catalog learns v6 ranges (and RDAP lookups extend).
+- The archive covers only what the app has seen: from its first elevated
+  start onward. Pre-archive history that wrapped out of the live channel
+  before the first backfill is unrecoverable.
+- Backfill scans the whole retained channel on first run; subsequent runs
+  are incremental (precheck + watermark), but a very large first backfill
+  takes seconds on the background thread.
+
+
+================================================================================
+  2026.10.17.1
+================================================================================
+
+# AutoCommand v2026.10.17.1
+
+A same-day patch, born from this machine's own morning: a PID that briefly
+belonged to a short-lived `ZaiChatRecovery.exe` was reported under that name
+while the PID's current holder was the monitor's own `netstat` child — an
+attribution bug, a retention bug, and a README written for the wrong reader,
+all found in one investigation.
+
+## Process-name attribution: the netstat era ends
+
+Root cause of the mislabel: the monitor snapshot joined a WMI PID→name table
+against netstat output sampled at a different instant — a PID reused in
+between inherits the previous owner's name.
+
+- **One syscall instead of a child process.** New `TcpConnectionTable`
+  (IP Helper `GetExtendedTcpTable`) returns every established IPv4 TCP row
+  with its owning PID at a single kernel instant — no spawned netstat.exe,
+  no text to parse, microseconds of skew. Every former call site uses it:
+  the MCP `get_monitor_rows` snapshot, the Process Monitor's startup seed,
+  and the Svchost Trace tab's baseline + 1s poll (which had been spawning
+  netstat.exe once per second — the monitor no longer appears in its own
+  process landscape). Runtime-validated against netstat output on the
+  development machine: identical row sets, zero differences either direction.
+- **(pid, start time) is the identity; a bare PID is not.** The name
+  snapshot now carries `CreationDate` from WMI and stamps
+  `process_started_utc` on every row — the same rule the PID Inquiry
+  enforces against PID recycling.
+- **Never guess a name.** A row whose owner exited between the kernel table
+  and the name pass is labeled `attribution: exited` ("(exited during
+  snapshot)") or `recovered-from-sysmon` — the image Sysmon recorded in the
+  PID's most recent EID 1 create event, which PID reuse cannot corrupt. A
+  PID whose name differs from the previous snapshot gets
+  `pid_reused_since_last_snapshot: true` instead of a silent overwrite.
+- **tail_sysmon printed `PID -1` on every line** — the property index read
+  ProcessGuid (index 2) where ProcessId lives at index 3. Fixed.
+
+## Sysmon retention: 64 MB → 192 MB
+
+Measured on the development box: ~15,000 events/hour during ordinary
+dev/agent activity, and the whole 64 MB default channel held ~64k events —
+roughly four hours of history. Overnight incidents wrap out before morning
+triage (the motivating investigation found zero Sysmon evidence for exactly
+this reason). Install, repair and the startup health pass now raise the
+Operational channel to 192 MB (`EventLogConfiguration`, grown in place —
+existing events are kept). Best-effort: without elevation the default
+retention stands and nothing else changes.
+
+## README rewritten for the person it was for
+
+The README now speaks to the non-technical reader — the person whose
+antivirus says "No threats found" while their PC still feels wrong — in the
+same plain-language style as the Z.ai Chat Recovery README: what to do in
+three steps, a common-questions table where every answer is a sentence, and
+honest framing of what AutoCommand is (the visibility your antivirus never
+gives you, not a second guard dog). Two new infographics ship with it, built
+at larger type than the existing set (body 17-19pt) and QA'd for overlap,
+overflow and jargon:
+
+- `Assets/oss_alternative_infographic.png` — what your antivirus can and
+  can't tell you, side by side with what AutoCommand adds.
+- `Assets/plain_english_infographic.png` — see it, ask about it, stop it.
+
+Generator: `Assets/generate_infographics_oss.py` (house matplotlib style).
+
+## Known gaps (honest accounting)
+
+- The kernel-table snapshot is IPv4-only (AF_INET), inherited from the
+  netstat parsing it replaces; the Sysmon event path covers IPv6.
+- Machines that never run the app elevated keep the 64 MB channel default.
+
+
+================================================================================
+  2026.10.17
+================================================================================
+
+# AutoCommand v2026.10.17
+
+One new tab, born from this machine's own investigation: on 2026-10-15 the
+monitor flagged `svchost -k netsvcs -p -s BITS` uploading packets to
+34.104.35.123. The triage was clean (Chrome Component Updater pulling from
+Google's gvt1.com CDN via BITS — three jobs, all downloads, status 0x0), but
+it took a manual session to prove it. Now it's a tab.
+
+## New tab: 📥 BITS Transfers
+
+Every Background Intelligent Transfer job, with the five questions answered
+from two read-only sources stitched by job GUID — the Bits-Client operational
+event log (history: EID 3 names the creating process + PID, 59/60 carry the
+URL and status, 4 completes with file counts) and the BITS COM queue (live:
+**direction**, state, progress, per-file local paths — all-users, read-only,
+via the elevation the app already runs with).
+
+- **Where they connect / what they connect to** — URL host → forward-resolved
+  IPs (new cached forward-DNS layer in `DnsResolutionService`, 60 min TTL) →
+  instant owner from the built-in Microsoft/Akamai/Gcore/Google CDN ranges,
+  RDAP registry lookup for anything unknown.
+- **How often** — the Patterns view rolls transfers up per (creating process
+  → host): counts, uploads, per-day averages, and an interval-regularity
+  coefficient (the Traffic Patterns beacon-CV math — low CV means
+  machine-scheduled).
+- **Why** — a reason catalog (`BitsReasonCatalog`) maps job name + creator +
+  host to a human explanation and verdict, seeded from real triage: Chrome
+  components on gvt1.com, Windows cloud fonts on fs.microsoft.com, Defender
+  signatures, Office CDN, Windows Update metadata. No match → "Unattributed —
+  review" with investigation pointers. Never a guess.
+- **What they transfer** — direction, bytes, per-file remote + local names,
+  and on completion an automatic size + SHA-256 per delivered file
+  (metadata-only, Sysmon-style).
+- **Their content** — size + hash are automatic; the bytes themselves appear
+  only via the explicit per-file **Preview content** button (read-only
+  text/hex window, in memory, never persisted or exported). PRIVACY.md spells
+  the split out.
+- **Does it bypass the firewall? — asked straight, answered honestly.** A
+  banner on the tab and a per-job pane section, in three layers: the active
+  profile's default outbound action (on this machine: Allow — meaning no rule
+  is evaluated at all for BITS, or anything else outbound), explicit allow
+  rules scoped to the BITS service/svchost (the exemptions under a
+  default-deny), and the always-true structural fact that transfers execute
+  inside trusted svchost — so a firewall rule blocking the *creating* process
+  never matches this traffic (ATT&CK T1197). Read-only COM over
+  `INetFwPolicy2`, 5-minute cache.
+- **UPLOAD-type jobs are the security event.** Update delivery is
+  download-only; a BITS upload is the documented exfiltration vector. Those
+  rows get a Review verdict that no catalog match can downgrade, and the tab
+  forwards them to the app-level threat status bar (new
+  `MainWindow.RaiseExternalThreat` hook — the same path the Security
+  Enforcer uses).
+
+## Engineering notes
+
+- BITS COM interop is hand-declared, read-only `ComImport` vtable interfaces
+  (manager CLSID `{4991d34b-80a1-4291-83b6-3328366b9097}`, `CLSCTX_LOCAL_SERVER`)
+  — GUIDs and slot order verified against the SDK `bits.idl` and validated
+  live on-box before a line of the service was written. No PowerShell, no
+  bitsadmin shelling, nothing in the zero-PowerShell core changed.
+- The stitcher has a real problem to solve: EID 59/60 messages carry no Job
+  ID, and the motivating log had *three simultaneous jobs sharing one name*.
+  Name-only events adopt the oldest same-name row that still has no URL —
+  which reconstructs all three Chrome jobs correctly on the real log.
+- The tab auto-starts on first view and keeps tracing across tab switches
+  (the v2026.10.16.1 lesson); only the UI refresh timer parks on Unloaded.
+- Strictly read-only toward Windows: the tab never creates, cancels or
+  modifies a BITS job — BITS delivers Windows Update.
+- State: `%LOCALAPPDATA%\AutoCommand\bits\jobs.jsonl` (one line per completed
+  job, metadata only) and `bits-stats.json` (pattern rollups, ≤1/min dirty
+  flush). Both documented in TECHNICAL_NOTES.
+- `BitsTraceSelfTest`: 53 offline checks against the *real* 2026-10-15 event
+  shapes (parser, stitcher, stats/CV math, firewall verdict branches, reason
+  verdicts, export purity — no content in exports), plus a read-only replay
+  of the machine's actual Bits-Client channel asserting the Chrome/gvt1 and
+  Font Download jobs reconstruct end-to-end. All pass.
+
+## Known gaps (honest accounting)
+
+- Direction/local paths exist only for jobs observed live; history-only rows
+  show "—" for direction and say so in the pane.
+- The Bits-Client log wraps at ~1 MB — history is days-to-weeks. The tracer
+  backfills the entire retained channel at start.
+- Files moved or deleted after delivery show "gone" (hash stands if it was
+  captured at completion). Mid-transfer BIT*.TMP files are never read; the
+  qmgr database is not parsed.
+- The COM poll needs the BITS service to be startable; when it isn't, the tab
+  says so in the status line and event-log tracing continues regardless.
+
+
+================================================================================
+  2026.10.16.2
+================================================================================
+
+# AutoCommand v2026.10.16.2
+
+Second same-day follow-up to v2026.10.16. The Process Monitor gets the structural fix for "no traces of svchost", plus a leaner status bar.
+
+## The Process Monitor now seeds existing connections at start
+
+- **The trap.** The monitor is event-driven: a row appears only when Sysmon logs a *new* network connection (Event ID 3) after you press Start. svchost's dominant channels are long-lived — the WNS push channel dates from boot and rarely reconnects, Delivery Optimization only connects during update fetches — so minutes could pass with zero new svchost events while browsers constantly open fresh ones. The list filled with everything *except* svchost, reading as broken detection. (Verified live: at any moment this machine had exactly one open svchost connection, the boot-time WNS channel to Azure.)
+- **The fix.** Pressing Start now snapshots the machine's established TCP connections (`netstat -ano`) and seeds one row per connection before live events take over. Same filters as the event path — ignore list, ignored IPs, cloud filter, one row per remote IP — and seeded rows travel the exact same pipeline as event rows: task attribution, svchost service-identity enrichment, DNS resolution, stale-dimming. The status line reports how many were seeded ("Monitor active · N existing connection(s) seeded").
+- Seeded rows carry the PID's executable path and start time, so their identity survives process exit exactly like Sysmon-sourced rows. Seeding runs on a background thread (a PID/path lookup per connection); IPv6 remotes are left to the live event path.
+- The tab subtitle now reads "…+ startup connection baseline".
+
+## Leaner status bar
+
+- The **Ignored: N** and **Blocked: N** counts moved from the far end of the controls row to sit right after the monitor state they belong to.
+- The **Inquire PID** combo and **Add Process** box are gone from the bar. PID tracing remains fully available on the row context menu ("🔎 Trace: how was this PID spawned?") and by row double-click; Add Process was vestigial (the monitor already watches all processes).
+- The bar now reads: monitor status → Ignored → Blocked → High-TX threshold → DNS cache → cloud filter → ignore-process controls.
+
+
+================================================================================
+  2026.10.16.1
+================================================================================
+
+# AutoCommand v2026.10.16.1
+
+Same-day follow-up to v2026.10.16. One focused fix: the Svchost Trace tab could sit permanently empty while svchost instances were plainly appearing elsewhere in the app.
+
+## Bug fix: the Svchost Trace tab stayed empty
+
+- **The trap.** The trace grid filled only after an explicit "▶ Start Trace" click — while the Process Monitor tab auto-starts itself the moment it opens. So svchost instances showing up there never produced a single trace row, and the blank grid read as broken detection. Worse: switching to any other tab silently **stopped a running trace** (the view treated tab navigation as shutdown), and coming back never resumed it — a user who did press Start lost the recording the first time they glanced at another tab.
+- **The fix.** The trace now **auto-starts the first time the tab is shown** — the baseline svchost population and any open connections appear immediately, same contract as the Process Monitor tab. And tracing is decoupled from tab visibility: the poll keeps recording across tab switches for the whole app session (the same lifetime policy the capture engine already had — a recorder must not stop because another tab was viewed). Stop/Start remains fully manual after that.
+- **Errors no longer modal.** A WMI or netstat failure during polling used to bubble up to the app-level handler and pop an error dialog **every second**. Poll and baseline failures now surface in the status line ("Trace error (tick N): … — retrying") and the trace keeps retrying.
+- **The empty state explains itself.** While stopped with no rows, the timeline area shows "Trace is stopped — press ▶ Start Trace…" instead of bare whitespace, so a passive tab can't be mistaken for a dead one.
+- **Minor:** repeated visits to the tab no longer stack duplicate status-refresh timer handlers (one init guard, mirroring the Process Monitor view).
+
+
+================================================================================
+  2026.10.16
+================================================================================
+
+# AutoCommand v2026.10.16
+
+AI access (the Be My Guest tab) reliability release: the MCP server now starts in every client environment, upgrades cleanly with the app, and speaks the MCP protocol correctly. Honest accounting below — four real bugs fixed, two of them embarrassing.
+
+## Bug fix: the proxy could not start inside desktop MCP clients
+
+- **The trap.** Desktop MCP clients (Electron apps especially) routinely bundle their own .NET and export `DOTNET_ROOT` for everything they spawn — including copies older than .NET 10. A framework-dependent apphost honors that variable, never falls back to the machine-wide runtime, and exits **before any managed code runs**. The client just showed "server failed to start" with nothing actionable. (Reproduced with an empty `DOTNET_ROOT` and with a real .NET-8-only runtime: exit `-2147450749`, "You must install .NET to run this application".)
+- **The fix.** The proxy now ships as a **self-contained single-file exe** (~15 MB, runtime bundled, IL-trimmed — `release.ps1` publishes it into the zip's `tools\AgentProxy\`). No framework lookup happens at all, so a hostile `DOTNET_ROOT` cannot break the spawn. Verified against an empty root and a genuine .NET-8-only vendored runtime.
+
+## Bug fix: the deployed proxy never refreshed, and copy failures were swallowed
+
+- The installer's "is the file set there?" check meant **any later release was silently skipped** — clients kept spawning a build from whenever they first registered, forever.
+- When the copy did run and a file was locked by a running proxy, the code **silently registered a dev-tree path** as the client's spawn target — a folder that moves or gets cleaned.
+- Now: installs go to `%LOCALAPPDATA%\AutoCommand\tools\v<version>\` — a fresh folder per app version (a running proxy never locks the copy, a version bump always refreshes), locked sources fall back to the newest previously-good install with a visible message instead of a dev path, stale folders are cleaned once unlocked, and the proxy's version follows the app's (`release.ps1` bumps both csprojs). Covered by a self-test (`dotnet run --project ProxyInstallSelfTest`) driving refresh, lock and fallback scenarios.
+
+## Bug fix: MCP protocol conformance
+
+- **Protocol version was blind-echoed** — ask for `1999-01-01` and we claimed it. Now negotiated against a supported set (2024-11-05, 2025-03-26, 2025-06-18), same rule in both halves.
+- **Requests before `initialize` were answered** (a bare `tools/list` as the first message returned the tool list). Now refused with `-32002`, per the MCP lifecycle — in both halves.
+- **`tools/list_changed` could beat the `initialize` response out the door** when a session flipped mid-connection. Now emitted after the in-flight response, and only for initialized clients.
+- **Wrong error code**: a dead session answered `-32002` ("not initialized") — a lie, the client *had* initialized. Now `-32603` with the same human guidance, and forwarding failures **echo the request id** (they used to answer `id: null`, which strict clients drop).
+- **Server identity** (`serverInfo`) is now identical offline and online, so client UIs stop relabeling the server when a session flips.
+- **Registration preflights the install**: the Register button spawns the installed exe and requires an MCP handshake — once normally, once under a poisoned `DOTNET_ROOT` — before writing any client config. No more "registration succeeded, nothing works".
+
+## Bug fix: successful tool calls answered `isError: null`
+
+- Every successful `tools/call` returned `"isError": null` (a nullable flag serialized straight into the JSON-RPC envelope). The MCP schema requires a boolean when the field is present — strict clients (ZCode among them) rejected the whole response, so tools executed fine on this machine while the assistant saw a schema error. Now always a real `true`/`false`, with a regression check in the bridge smoke test.
+
+## Also
+
+- Proxy lifetimes (spawn parent, client name, stop reason) now land in `%LOCALAPPDATA%\AutoCommand\agent\activity.jsonl` next to sessions and tool calls, and a parent-PID watchdog plus stdin EOF make sure the proxy never outlives its client.
+- `docs\TECHNICAL_NOTES.md` gained an "MCP server (AgentProxy)" section: two-half architecture, the `DOTNET_ROOT` trap, supported protocol versions, and the by-hand test recipes. `test-agent-proxy.ps1` was rewritten to publish the proxy exactly as shipped and cover negotiation, lifecycle, flip ordering, session restart, error codes and both poisoned-`DOTNET_ROOT` cases (30 checks).
+
+
+================================================================================
+  2026.10.15.1
+================================================================================
+
+# AutoCommand v2026.10.15.1
+
+Same-day follow-up to v2026.10.15. One new capability and one real bug fix around AI access (the Be My Guest tab); everything else unchanged.
+
+## One-click MCP registration for the popular AI clients
+
+- **"Register in ZCode" grew into a catalog.** The Be My Guest tab now shows one Register button per known MCP client — ZCode, Cursor, Windsurf, VS Code, Claude Desktop and Gemini Antigravity — enabled when that client is detected on the machine, tooltip showing the exact config file it will touch.
+- **Each client's quirks are built in.** ZCode's nested `mcp/servers` shape, VS Code's flat `servers` plus `"type": "stdio"`, Antigravity's `~/.gemini/config/mcp_config.json` (with a note about the CLI variant path), all handled per client. Any other client still has *Copy MCP config*.
+- **Registration is safe by construction**, like the telemetry opt-outs: the existing file is parsed and backed up (`*.autocommand-backup`), only the `autocommand` entry is upserted — everything else in the file survives — and the write is verified by re-reading. A malformed or foreign-shaped config is refused, never clobbered.
+
+## Bug fix: the registered proxy could not start at all
+
+- The tools-dir installer copied **only `AutoCommand.AgentProxy.exe`** — but a .NET apphost cannot run without its `.dll`, `.runtimeconfig.json` and `.deps.json` beside it. Every MCP client spawning the registered proxy died with *"The application to execute does not exist: ...AutoCommand.AgentProxy.dll"* before a single JSON-RPC message; registration looked fine and nothing worked.
+- The installer now copies the complete file set, and self-contained installs (where the runtime already lives beside the exe) register the proxy in place instead of stranding an apphost.
+- Merge logic is covered by a four-case test run against real config shapes (nested ZCode layout with a foreign server preserved, malformed file refused untouched, VS Code schema, fresh create with missing directories) — the test run itself caught and fixed two first-version bugs.
+
+
+================================================================================
+  2026.10.15
+================================================================================
+
+# AutoCommand v2026.10.15
+
+The count goes live, AI access becomes a first-class tab, and the README is rebuilt around seven refreshed infographics.
+
+## The anonymous count is live
+
+- **Opt-in, off by default, offered at most three times.** A one-time dialog states the entire payload before you decide: app build date and Windows build, at most once per UTC day, revocable anytime by deleting `HKCU\Software\AutoCommand\UsagePing`. **No identifier of any kind — not even a random install id.** The IP is never read, stored, or forwarded; the country arrives pre-derived at Cloudflare's edge, and the server keeps only daily aggregate counters (one table, no per-install rows anywhere). Spec, worker code, and schema are public in this repo's [`telemetry/`](telemetry/) folder — verify, don't trust. The full policy is in [PRIVACY.md](PRIVACY.md).
+- **The Settings About card gained two buttons**: the live [community graph](https://autocommand-usage-ping.dpark-sports.workers.dev/) (daily actives, country mix) and *Share* (copies the download link).
+- **The count tracks compact build dates.** The ping folds the version's date to `YYMMDD` — this release reports `261015` — so the adoption series is day-level and same-day revisions fold together by design. The app's own versioning stays `2026.10.NN`.
+
+## 🤖 Be My Guest — AI access in its own tab
+
+- **The AI access card grew into a full tab.** One place for the whole lifecycle: the consent dialog that states exactly what an assistant can read, session start/stop with live status (`127.0.0.1:port · client · call count`), the mutating-tools switch, and the **live activity log** of every tool call, now taller and always at hand.
+- **Connect-an-assistant card** documents the trust boundary in-tab: clients spawn the small asInvoker `AutoCommand.AgentProxy` (never this elevated app), the per-session token never touches disk, and `AutoCommand.exe --agent-headless [seconds]` runs a no-UI, read-only session for scripts and CI — mutating tools are always off there, since nothing can confirm an action without the app's UI.
+
+## The weekly ritual is automated
+
+- **`telemetry/server/snapshot-usage.ps1`** snapshots the count (`/v1/stats`), sums real GitHub download counts across both apps' releases, runs the **plausibility anchor** (yesterday's DAU must never exceed cumulative downloads — violations are flagged `SPOOFED-SUSPECTED`, annotated, never deleted), and writes the dated JSON + flat CSV time series into `fundraising/metrics/history/`. `-Install` registers a Monday 09:00 Scheduled Task that catches up if the machine was off; `-Uninstall` removes it. Documented in [`telemetry/docs/WEEKLY_RITUAL.md`](telemetry/docs/WEEKLY_RITUAL.md) along with the expanded deferred-hardening items (rate-limiting `/v1/ping` on a custom domain, token rotation, the emergency off-switch).
+
+## The README, rebuilt
+
+- Rewritten from scratch around **seven refreshed Fluent infographics** — same palette as the app's light theme — including a new *Be My Guest* panel and a banner that now says **"AI only with consent."** The tab table covers all thirteen tabs, the three deep-dives (Python Spawns, Black Hole, Be My Guest) keep every honest limitation, and the usage-count paragraph describes the shipped no-identifier design.
+
+## Also in this build (since v2026.10.14.1)
+
+- **OneSettings**: cadence control tab + CLI for the inbox `RefreshCache` task, live external-start alerts with Sysmon fetch evidence, and a headless `onesettings-enforce` entry point for the watchdog.
+- **AgentProxy**: session-start mid-connection lights up without a client restart.
+- **Process Monitor**: svchost attribution hardened further; the svchost-watch engine is vendored in-repo (the sibling repository is deprecated).
+
+## Under the hood
+
+- `release.ps1` examples back on the calendar scheme; the compact `YYMMDD` lives where it belongs — in the count, not the app version.
+
+
+================================================================================
+  2026.10.14.1
+================================================================================
+
+# AutoCommand v2026.10.14.1
+
+Same-day follow-up to v2026.10.14. Identical feature set plus the two changes below; the first same-day release under the calendar versioning scheme, hence the fourth `.1` segment.
+
+## Every svchost instance is distinguishable by name
+
+- **Process Monitor rows no longer say just `svchost.exe`.** All ~74 instances share one binary, so a row now resolves the instance's hosted service (SCM ground truth, `Win32_Service`) plus its command-line `-k`/`-s` tokens: `3784 (svchost.exe [WpnService])` — the `-s` service is the identity, `-k netsvcs` only the group pool. The full decode (`svchost.exe -k netsvcs -p -s WpnService`, corroboration verdict, service display names and states) is one hover away.
+- **Hidden command lines are disclosed, not guessed.** A standard user's WMI cannot read SYSTEM svchost command lines (66 of 74 instances here) — the tooltip and PID Inquiry say so and suggest the elevated rerun instead of inventing a `-s` claim.
+- **Masquerade signals surface in three places at once.** A `-s` claim that contradicts the SCM-resident services for the same PID, or a readable command line with no `-k` at all (the SCM always passes it), flags in the Process Monitor row, the Svchost Trace timeline and its analysis pane, and the CLI analyzer's new detector #6. Per-user services match their `template_LUID` instantiation (`-s CDPUserSvc` ↔ `CDPUserSvc_56ec2`), so genuine instances never false-flag. Verified against the synthetic-threat trace (6/6 detectors), planted edge cases (exactly the 2 planted flags), and live captures of all 74 instances (0 false flags).
+- **Identity sticks to the tenant, not the PID.** Rows re-attributed after PID reuse re-resolve their service; svchost firewall blocks and the PID-inquiry dropdown carry the service name so provenance survives in `wf.msc` and reports.
+
+## Task attribution keyed by Sysmon ProcessGuid
+
+- Attribution for `taskhostw.exe` rows now prefers Sysmon's **ProcessGuid** (unique per boot, immune to PID recycling) over the PID wherever a create-event carries it, falling back to a start-time-guarded PID lookup (±5 s) when it doesn't. A **Sysmon EID 5 (process-terminate) watcher evicts the PID-keyed entry the moment the taskhostw exits**, live and in backfill — a later process inheriting a taskhostw's PID no longer inherits its scheduled task.
+
+## Tooling
+
+- `release.ps1` accepts an optional fourth version segment (`2026.10.14.1`) so same-day follow-up releases stay calendar-anchored instead of future-dating the date — the failure mode this week's re-anchor commit removed.
+
+
+================================================================================
+  2026.10.14
+================================================================================
+
+# AutoCommand v2026.10.14
+
+Self-contained Windows build — **no .NET installation required**. Unzip and run `AutoCommand.exe` as Administrator.
+
+This release re-anchors versioning to the calendar date. Earlier builds had drifted into future-dated version numbers; those versions have been removed and everything shipped since v2026.10.9 is consolidated here under today's date.
+
+## Highlights
+
+### The analyst toolkit refocused
+
+- **The consumer setup tabs moved to Shields Up** (same author, same undo-first design, [releases page](https://github.com/dparksports/shields-up/releases/latest)). AutoCommand is now purely the analyst toolkit — debloat, firewall presets, privacy opt-outs and OS hardening live in Shields Up, and **Process Monitor opens first**.
+- **Connections tab removed** — redundant with the Process Monitor (same Sysmon/sniffer feeds, less context). In its place: **double-click any Process Monitor row** to open the PID spawn-chain trace.
+
+### New tabs
+
+- **🦠 Windows Defender** — live MsMpEng CPU/memory with a 5-minute sparkline, engine status (real-time + tamper protection, versions, last scans with durations), a **live activity feed** from Defender's own event log (scans paired by Scan ID, detections, definition updates, cloud activity), one-click quick/full scans and definition updates. Performance knobs: scan **CPU cap** and **idle-only scans** that apply instantly on Tamper-Protected builds by writing the Defender Scan policy values directly — no more 30–60 s `Set-MpPreference` stalls. The **exclusions view is read-only by design** (adding exclusions is a classic malware technique) with a one-click deep link to Windows Security.
+- **📊 Traffic Patterns** — every process → destination pair with cumulative bytes, flow counts, ports and reverse-DNS, a **24-hour per-5-minute activity ring** as a sparkline, a conservative **beacon-like hint** (regular cadence + similar sizes), time-window selector, regex filter, CSV export and one-click IP block. Honors the Process Monitor's ignore list; history persists across restarts. Built on one app-level shared TCP capture.
+- **🕳 Black Hole** (launched as Block Proof) — *proof that your telemetry blocks work.* A **Protection status** card answers what actually stands between each app and its beacons (flag state, pin state, still-running processes started before the flag), and the whole ladder runs from the tab: **Opt out** (typed write, verified, restart-aware) → **Block & log** (hosts pin into sinkhole mode; the loopback 443 listener reads each attempt's TLS ClientHello for the hostname, captures the PID, then closes with no reply ever) → **Remove block** / **Revert**. Cross-app pins: markers match Shields Up both ways. Denials land in a live feed with per-domain/per-process counters, persisted as plain JSONL, exportable to CSV. Telemetry **opt-outs that hold**: typed JSON writes re-read to verify, a quoted `"false"` reported as **not honored** in amber, never a fake green.
+- **🧵 Taskhostw Spawns** — every `taskhostw.exe` attributed to the **scheduled task** that launched it (Task Scheduler event correlation + Sysmon EID 1 backfill, instance GUIDs surviving PID churn), with a user-extensible known-tasks catalog (`Assets\known-tasks.json`), handler-DLL details, and no more false **Orphaned** verdicts on inbox tasks whose CLSID resolves through packaged COM. An offline **TaskAttributionSelfTest** harness replays hours of history to verify the engine.
+- **🔬 Svchost Trace** — timeline over the 70+ service hosts: spawns with parents, connection lifetimes, byte flows, and a pattern detector (bad parents, respawn loops, beacon-regular connections, upload-dominant flows). The capture engine is built into the app — no separate analyzer binary to install or unblock.
+- **🔐 Data & Privacy** — your data-sharing settings in plain English (MAPS, sample submission, diagnostic data level, SmartScreen, Smart App Control), a managed-by-organization banner, a curated who-receives catalog with sources, and a **US rights request letter builder** (CCPA/CPRA state statutes and FOIA/Privacy Act kept legally distinct) with a local-only request tracker and settings-snapshot export. Read-only by design; AutoCommand never sends anything.
+
+### Process Monitor hardened
+
+- **One-shot connections no longer show empty forever.** "Last Update" is seeded from the Sysmon event's own time (so telemetry beacons get a real timestamp and dim like everything else), activity refreshes on received packets too, rows whose process died are labeled **— exited**, a later process inheriting a tracked destination takes over the row, and packet counters now cover **IPv4 and IPv6**.
+- **High transmitters pin themselves**: rows above a user-set transmit threshold (1 KB default) sort to the top tinted red.
+- **Firewall Quick Profiles** state what they allow — including the new **Default Lockdown** — and the standalone `unblock-autocommand.ps1` release asset plus the in-app Unblock card clear Mark-of-the-Web SmartScreen blocks.
+
+### Also fixed
+
+- Python Spawns: **auto-discovery of python installs** (PEP 514, PATH, Store, conda, uv, pyenv-win, scoop/choco, venv scans), a startup crash, and a **6-hour Sysmon backfill** so the tab no longer starts from zero when opened late.
+- Traffic Patterns: groups no longer collapse seconds after opening; the Process Monitor ignore list is honored in aggregation.
+- In-app usage telemetry, fully removed — the app collects nothing, leftovers included.
+
+> **Note:** run elevated as usual — the raw-socket capture, Sysmon event reading and the sinkhole listener need administrator rights.
+
+
