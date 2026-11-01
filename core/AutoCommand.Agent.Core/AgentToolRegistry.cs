@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using AutoCommand.Agent.Core;
 using AutoCommand.Contain.Core;
 using AutoCommand.Forensics.Core;
-using AutoCommand.Intercept.Core;
 using AutoCommand.NetWatch.Core;
 using AutoCommand.Sitedoctor.Core;
 using System.Diagnostics;
@@ -125,23 +124,6 @@ namespace AutoCommand.Agent.Core
                 a => LookupIp(a)),
 
             new Tool(
-                "list_dns_queries",
-                "The DNS Queries tab's feed: which process resolved which hostname, how often, " +
-                "when, what addresses came back (with range classification and blocked-list " +
-                "status per address), and beacon regularity per domain (gap_cv — lower means " +
-                "the machine asks on a metronome; beacons look like that, scheduled updaters too). " +
-                "domain=true (default) groups by hostname; domain=false groups by process. " +
-                "contains filters on domain or process. Honest limits: DNS-over-HTTPS lookups " +
-                "produce no events — a query FOR a known encrypted resolver is flagged, because " +
-                "the feed goes blind for that process after it. Read-only.",
-                Schema(("minutes", "Look-back window (default 60, cap 1440)", false),
-                       ("domain", "true = group by hostname (default); false = group by process", false),
-                       ("contains", "Only rows whose domain or process contains this text", false),
-                       ("max", "Maximum rows (default 50, cap 200)", false)),
-                false,
-                a => ListDnsQueries(a)),
-
-            new Tool(
                 "get_transmissions",
                 "Recent recorded TLS transmissions (the Transmissions tab's archive): per conversation — process, " +
                 "pid, destination, SNI hostname, RDAP provider, wire and decrypted byte counts, status " +
@@ -163,6 +145,29 @@ namespace AutoCommand.Agent.Core
                 Schema(("minutes", "Hit-count lookback window in minutes (default 60)", false)),
                 false,
                 a => ListBlocks(a)),
+
+            new Tool(
+                "list_gates",
+                "Open block gates — temporary unblocks agents requested and the user approved. Per row: " +
+                "target, remaining minutes, who asked and why. Check this BEFORE requesting a gate " +
+                "(a gate may already be open for your target) and close yours with close_gate when done.",
+                Schema(),
+                false,
+                _ =>
+                {
+                    var rows = new JsonArray();
+                    foreach (var g in BlockGateService.Instance.Open)
+                        rows.Add(new JsonObject
+                        {
+                            ["target"] = g.Display,
+                            ["kind"] = g.Kind,
+                            ["remaining_minutes"] = Math.Round(g.RemainingMinutes, 1),
+                            ["closes_at"] = g.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
+                            ["client"] = g.Client,
+                            ["reason"] = g.Reason,
+                        });
+                    return ToJson(new JsonObject { ["type"] = "open_gates", ["gates"] = rows.Count, ["rows"] = rows });
+                }),
 
             new Tool(
                 "list_recent_block_hits",
@@ -192,6 +197,18 @@ namespace AutoCommand.Agent.Core
                        ("contains", "Only instances whose process or destination contains this text (case-insensitive)", false)),
                 false,
                 a => VerifyBlockContainment(a)),
+
+            new Tool(
+                "audit_block_duplicates",
+                "Read-only duplicate audit of AutoCommand's block rules: per target, how many rules are " +
+                "exact duplicates of another (same rule name — and for process rules, the same image " +
+                "path). Duplicates are inert residue of concurrent blocking (blocking is unchanged) but " +
+                "clutter wf.msc, skew inventory counts and re-appear on every reconcile; the Rules tab's " +
+                "'Clean duplicates' retires them. One executable name covered at several paths is " +
+                "intentional coverage and is NOT reported here.",
+                Schema(),
+                false,
+                _ => AuditBlockDuplicates()),
 
             new Tool(
                 "check_host",
@@ -278,48 +295,32 @@ namespace AutoCommand.Agent.Core
             // ── mutating: only present when the session allows, each call confirmed ──
 
             new Tool(
-                "block_ip",
-                "Create outbound TCP+UDP firewall block rules for a remote IP (the same 2-rule scheme " +
-                "and provenance notes as the app's Process Monitor). Asks the user in AutoCommand for every call.",
-                Schema(("ip", "Remote IP to block", true),
-                       ("reason", "Why — stored in the rule's provenance description", false)),
+                "open_gate",
+                "Temporarily stop blocking ONE specific blocked IP or process image (all instances of that " +
+                "exe — firewall rules cannot distinguish PIDs). The user confirms the exact target in " +
+                "AutoCommand. The gate AUTO-CLOSES: blocking returns ON after the duration you choose, so " +
+                "pick the SHORTEST window your task needs (allowed: 1, 10, 30, 60 minutes). dry_run=true " +
+                "resolves the target and previews without asking the user — do that first when unsure. " +
+                "Ambiguous names return the candidates instead of acting; be specific. close_gate ends a " +
+                "gate early; list_gates shows what is open.",
+                Schema(("target", "One blocked target: an IP address, a process image name, or a full exe path", true),
+                       ("minutes", "Gate window: 1, 10, 30 or 60 — pick the shortest your task needs", true),
+                       ("reason", "Why — shown to the user in the confirmation", false),
+                       ("dry_run", "true = resolve and preview only, no confirmation, no change", false)),
                 true,
-                a => BlockIp(a).GetAwaiter().GetResult(),
-                a => $"Create outbound firewall BLOCK rules for {a["ip"]}?\n\n{IpClassifier.WarningText(a["ip"]?.GetValue<string>())}" +
-                     ReasonSuffix(a)),
+                a => OpenGate(a),
+                a => OpenGateConfirmText(a)),
 
             new Tool(
-                "unblock_ip",
-                "Remove firewall block rules previously created for a remote IP. Asks the user for every call.",
-                Schema(("ip", "Remote IP to unblock", true)),
+                "close_gate",
+                "Close an open block gate early: blocking returns ON for that target immediately. " +
+                "Call this the moment your work is done — every minute a gate stays open is a minute " +
+                "its target is unblocked. Asks the user for every call.",
+                Schema(("target", "The gated IP / process name / exe path (as reported by list_gates)", true)),
                 true,
-                a =>
-                {
-                    int n = FirewallService.Instance.RemoveBlockRulesForIpAsync(a["ip"]?.GetValue<string>())
-                                   .GetAwaiter().GetResult();
-                    return $"Removed {n} rule(s).";
-                },
-                a => $"Remove firewall block rules for {a["ip"]}?"),
+                a => CloseGate(a),
+                a => $"Close the block gate early - return blocking ON for {a["target"]} now?"),
 
-            new Tool(
-                "kill_process",
-                "Forcefully terminate a process by PID. The confirmation dialog shows the LIVE process " +
-                "name at the moment of the ask (PID-reuse guard). Asks the user for every call.",
-                Schema(("pid", "Process ID to terminate", true),
-                       ("reason", "Why", false)),
-                true,
-                a => KillProcess(a),
-                a => DescribeLiveProcess(a["pid"]?.GetValue<int>() ?? 0) + ReasonSuffix(a)),
-
-            new Tool(
-                "disable_task",
-                "Disable a scheduled task (reversible: schtasks /Change /TN <path> /ENABLE). " +
-                "Asks the user for every call.",
-                Schema(("task_path", "Scheduled task path", true),
-                       ("reason", "Why", false)),
-                true,
-                a => DisableTask(a),
-                a => $"Disable scheduled task '{a["task_path"]}'?" + ReasonSuffix(a)),
         };
 
         public static string[] Names(bool includeMutating) =>
@@ -441,7 +442,26 @@ namespace AutoCommand.Agent.Core
                 rows.Add(row);
             }
             lock (_lastSeenLock) { _lastSeen = seenNow; }
-            return new JsonObject { ["type"] = "monitor_snapshot", ["rows"] = rows, ["row_count"] = rows.Count };
+
+            // open block gates ride the snapshot: offline agents reading the
+            // feed alone see which targets are temporarily unblocked
+            var gates = new JsonArray();
+            foreach (var g in BlockGateService.Instance.Open)
+                gates.Add(new JsonObject
+                {
+                    ["target"] = g.Display,
+                    ["remaining_minutes"] = Math.Round(g.RemainingMinutes, 1),
+                    ["closes_at"] = g.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
+                    ["client"] = g.Client,
+                });
+
+            return new JsonObject
+            {
+                ["type"] = "monitor_snapshot",
+                ["rows"] = rows,
+                ["row_count"] = rows.Count,
+                ["open_gates"] = gates,
+            };
         }
 
         /// <summary>
@@ -677,77 +697,6 @@ namespace AutoCommand.Agent.Core
             return ToJson(o);
         }
 
-        private static string ListDnsQueries(JsonObject a)
-        {
-            int minutes = Math.Clamp(a["minutes"]?.GetValue<int>() ?? 60, 1, 1440);
-            int max = Math.Clamp(a["max"]?.GetValue<int>() ?? 50, 1, 200);
-            string contains = a["contains"]?.GetValue<string>();
-            bool byProcess = a["domain"] is JsonNode domainFlag && !domainFlag.GetValue<bool>();
-
-            DnsQueryFeedService.Instance.Start();
-            var feed = DnsQueryFeedService.Instance;
-            var o = new JsonObject
-            {
-                ["window_minutes"] = minutes,
-                ["feed_queries_24h"] = feed.QueryCount,
-                ["note"] = "DNS-over-HTTPS lookups produce no events: a query FOR a known " +
-                           "encrypted resolver (encrypted_resolver=true) means the feed goes " +
-                           "blind for that process after it. gap_cv: inter-query gap variation " +
-                           "— lower = more regular; beacons look like that, scheduled updaters too.",
-            };
-
-            var rows = new JsonArray();
-            if (byProcess)
-            {
-                o["facet"] = "per process";
-                foreach (var p in feed.ProcessAggregates(minutes, max, contains))
-                    rows.Add(new JsonObject
-                    {
-                        ["process"] = p.Process,
-                        ["pid"] = p.Pid,
-                        ["domains"] = p.DistinctDomains,
-                        ["queries"] = p.TotalQueries,
-                        ["first"] = p.FirstUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
-                        ["last"] = p.LastUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
-                        ["top_domains"] = new JsonArray(p.TopDomains.Select(x => (JsonNode)x).ToArray()),
-                    });
-            }
-            else
-            {
-                o["facet"] = "per domain";
-                foreach (var dom in feed.DomainAggregates(minutes, max, contains))
-                {
-                    var row = new JsonObject
-                    {
-                        ["domain"] = dom.QueryName,
-                        ["queries"] = dom.TotalQueries,
-                        ["asked_by"] = new JsonArray(dom.RequestedBy
-                            .Select(r => (JsonNode)$"{r.Process}({r.Pid}) x{r.Count}").ToArray()),
-                        ["first"] = dom.FirstUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
-                        ["last"] = dom.LastUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
-                        ["encrypted_resolver"] = dom.EncryptedResolverHit,
-                    };
-                    if (dom.GapCv != null) row["gap_cv"] = Math.Round(dom.GapCv.Value, 2);
-
-                    var ips = new JsonArray();
-                    foreach (var ip in dom.ResolvedIps.Take(8))
-                    {
-                        var blocked = BlockHitFeedService.Instance.BlockedIp(ip);
-                        ips.Add(new JsonObject
-                        {
-                            ["ip"] = ip,
-                            ["classification"] = IpClassifier.Classify(ip),
-                            ["blocked"] = blocked != null,
-                        });
-                    }
-                    row["resolved"] = ips;
-                    rows.Add(row);
-                }
-            }
-            o["rows"] = rows;
-            return ToJson(o);
-        }
-
         private static string ClassifyIp(JsonObject a)
         {
             string ip = a["ip"]?.GetValue<string>() ?? "";
@@ -779,6 +728,38 @@ namespace AutoCommand.Agent.Core
             try { BlockHitFeedService.Instance.Start(); } catch { }
         }
 
+        private static string AuditBlockDuplicates()
+        {
+            var inv = FirewallService.Instance.GetBlockedInventoryAsync().GetAwaiter().GetResult();
+            var rows = new JsonArray();
+            int flagged = 0, totalDups = 0;
+            foreach (var t in inv)
+            {
+                if (t.DuplicateRules <= 0) continue;
+                flagged++;
+                totalDups += t.DuplicateRules;
+                rows.Add(new JsonObject
+                {
+                    ["kind"] = t.Kind,
+                    ["target"] = t.Target,
+                    ["path"] = t.Kind == "app" ? t.AppPath : null,
+                    ["ip"] = t.Kind == "ip" ? t.Ip : null,
+                    ["rules"] = t.Rules,
+                    ["duplicates"] = t.DuplicateRules,
+                });
+            }
+            return ToJson(new JsonObject
+            {
+                ["type"] = "block_duplicates",
+                ["targets_with_duplicates"] = flagged,
+                ["duplicate_rules"] = totalDups,
+                ["verdict"] = totalDups == 0
+                    ? "clean — every target carries exactly its intended rule shapes"
+                    : $"residue found — {totalDups} duplicate rule(s) on {flagged} target(s); retire via the Rules tab's 'Clean duplicates'",
+                ["rows"] = rows,
+            });
+        }
+
         private static string ListBlocks(JsonObject a)
         {
             int minutes = Math.Clamp(a["minutes"]?.GetValue<int>() ?? 60, 1, 24 * 60);
@@ -789,6 +770,9 @@ namespace AutoCommand.Agent.Core
             var arr = new JsonArray();
             foreach (var t in inv)
             {
+                var gate = BlockGateService.Instance.Find(
+                    t.Kind == "ip" ? "ip" : "proc",
+                    t.Kind == "ip" ? t.Ip : t.AppPath);
                 int h = t.Kind == "ip" && feedHits.TryGetValue(t.Ip, out int c) ? c : 0;
                 string note = string.IsNullOrEmpty(t.Description) ? "" :
                     (t.Description.Length > 160 ? t.Description[..160] + "…" : t.Description);
@@ -804,6 +788,7 @@ namespace AutoCommand.Agent.Core
                     ["stale_rules"] = t.StaleRules,
                     ["created"] = t.Created?.ToString("yyyy-MM-dd HH:mm") ?? "legacy",
                     [$"hits_{minutes}m"] = h,
+                    ["gate_minutes_remaining"] = gate != null ? Math.Round(gate.RemainingMinutes, 1) : null,
                     ["note"] = note,
                 });
             }
@@ -842,16 +827,21 @@ namespace AutoCommand.Agent.Core
             var arr = new JsonArray();
             foreach (var x in aggs.Take(max))
             {
+                // shared fields carry block-hits.jsonl's exact names
+                // (Image, Pid, DestIp, DestPort, MatchKind); aggregate-only
+                // extras (Process label, Attempts, FirstUtc, LastUtc) are
+                // additive
                 arr.Add(new JsonObject
                 {
-                    ["ts_last_utc"] = x.LastUtc.ToString("yyyy-MM-dd HH:mm:ss"),
-                    ["process"] = x.Process,
-                    ["pid"] = x.Pid,
-                    ["image"] = x.Image,
-                    ["destination"] = $"{x.DestIp}:{x.DestPort}",
-                    ["blocked_kind"] = x.MatchKind,   // ip = destination IP block, app = process block
-                    ["attempts"] = x.Count,
-                    ["first_utc"] = x.FirstUtc.ToString("yyyy-MM-dd HH:mm:ss"),
+                    ["LastUtc"] = x.LastUtc.ToString("yyyy-MM-dd HH:mm:ss"),
+                    ["Image"] = x.Image,
+                    ["Pid"] = x.Pid,
+                    ["DestIp"] = x.DestIp,
+                    ["DestPort"] = x.DestPort,
+                    ["MatchKind"] = x.MatchKind,   // ip = destination IP block, app = process block
+                    ["Process"] = x.Process,
+                    ["Attempts"] = x.Count,
+                    ["FirstUtc"] = x.FirstUtc.ToString("yyyy-MM-dd HH:mm:ss"),
                 });
             }
             return ToJson(new JsonObject
@@ -1019,7 +1009,7 @@ namespace AutoCommand.Agent.Core
                           "AutoCommand's blocked list. Connects to those fail INSTANTLY with access-denied " +
                           "(kernel-level firewall block), which browsers show as 'This site can't be reached'. " +
                           "Because blocks are per-IP and this host rotates addresses, the site may work from " +
-                          "other networks or fail intermittently. Unblock via unblock_ip or the Blocks tab.";
+                          "other networks or fail intermittently. Open a temporary gate via open_gate, or manage the block in the Blocks tab.";
             else if (rows.Any(r => ((JsonNode)r!["blocked_attempts_" + minutes + "m"]).GetValue<int>() > 0))
                 verdict = "No currently-resolved address is blocked, but blocked-connect attempts were seen " +
                           "recently — DNS rotation likely served a blocked address earlier. List the feed with " +
@@ -1093,7 +1083,7 @@ namespace AutoCommand.Agent.Core
             if (string.IsNullOrEmpty(host)) return "Missing 'host' — the hostname to diagnose.";
             int minutes = Math.Clamp(a["minutes"]?.GetValue<int>() ?? 1440, 1, 60 * 24 * 30);
 
-            var rows = TransmissionsArchiveService.Read(4000, null, null, DateTime.UtcNow.AddMinutes(-minutes));
+            var rows = RowAdapter.ToRows(TransmissionsArchiveService.Read(4000, null, null, DateTime.UtcNow.AddMinutes(-minutes)));
             var siteRows = rows.Where(r => string.Equals(r.Sni, host, StringComparison.OrdinalIgnoreCase)).ToList();
             var all = SiteFingerprintService.AllFingerprints(rows);
             var fingerprint = SiteFingerprintService.Fingerprint(
@@ -1105,7 +1095,7 @@ namespace AutoCommand.Agent.Core
                 .ToList();
             if (controls.Count == 0) controls = new List<string> { "example.com" };
 
-            SiteProbeService.SiteProbeReport report;
+            SiteProbeReport report;
             try
             {
                 report = SiteProbeService.Shared.RunAsync(
@@ -1122,7 +1112,7 @@ namespace AutoCommand.Agent.Core
             // page's other hosts silently blocked during this browser's
             // recorded visits? Blocked connects carry no hostname, so only
             // this join can see them. Degrades to null, never throws.
-            DependencyBlockService.Report dep = null;
+            Report dep = null;
             try
             {
                 BlockHitFeedService.Instance.Start();
@@ -1242,44 +1232,159 @@ namespace AutoCommand.Agent.Core
 
         // ── mutating handlers (already user-confirmed when reached) ───────
 
-        private static async Task<string> BlockIp(JsonObject a)
+        // ── block gates: time-boxed unblocks the user confirmed ──────────
+
+        private sealed record GateResolution(bool Ok, string Kind, string Key, string Display,
+            int Rules, List<string> Candidates, string Error);
+
+        /// <summary>Resolve ONE gate target from the live block inventory.
+        /// IPs match exactly; process targets match a full path exactly or
+        /// an image name — ambiguity returns candidates instead of acting
+        /// ("specific" is the contract, enforced).</summary>
+        private static GateResolution ResolveGateTarget(string target)
         {
-            string ip = a["ip"]?.GetValue<string>();
-            if (!System.Net.IPAddress.TryParse(ip, out _)) return $"'{ip}' is not a valid IP address.";
+            target = (target ?? "").Trim();
+            if (target.Length == 0)
+                return new GateResolution(false, null, null, null, 0, null, "target is empty");
+
+            var inv = FirewallService.Instance.GetBlockedInventoryAsync().GetAwaiter().GetResult();
+            if (System.Net.IPAddress.TryParse(target, out var ip))
+            {
+                var m = inv.Where(t => t.Kind == "ip" &&
+                                       string.Equals(t.Ip, ip.ToString(), StringComparison.OrdinalIgnoreCase)).ToList();
+                if (m.Count == 0)
+                    return new GateResolution(false, null, null, null, 0, null,
+                        target + " is not on the blocked list - nothing to gate. See list_blocks.");
+                return new GateResolution(true, "ip", m[0].Ip, m[0].Ip, m[0].Rules, null, null);
+            }
+
+            var apps = inv.Where(t => t.Kind == "app" && !string.IsNullOrEmpty(t.AppPath)).ToList();
+            var exact = apps.Where(t => string.Equals(t.AppPath, target, StringComparison.OrdinalIgnoreCase)).ToList();
+            var byName = apps.Where(t => string.Equals(System.IO.Path.GetFileName(t.AppPath), target,
+                                                       StringComparison.OrdinalIgnoreCase)).ToList();
+            var chosen = exact.Count > 0 ? exact : byName;
+            if (chosen.Count == 0)
+                return new GateResolution(false, null, null, null, 0, null,
+                    "No blocked process matches '" + target + "'. Call list_blocks to see targets; " +
+                    "use the full path when several share a name.");
+            if (chosen.Count > 1)
+                return new GateResolution(false, null, null, null, 0,
+                    chosen.Take(8).Select(t => t.AppPath).ToList(),
+                    "'" + target + "' matches " + chosen.Count + " blocked processes - be specific (full path).");
+            return new GateResolution(true, "proc", chosen[0].AppPath, chosen[0].Target, chosen[0].Rules, null, null);
+        }
+
+        private static bool TryMinutes(JsonObject a, out int minutes, out string error)
+        {
+            minutes = 0;
+            error = null;
+            if (!int.TryParse(a["minutes"]?.ToString(), out minutes) ||
+                !BlockGateService.AllowedMinutes.Contains(minutes))
+            {
+                error = "minutes must be one of [" + string.Join(", ", BlockGateService.AllowedMinutes) +
+                        "] - pick the SHORTEST window your task needs; the gate closes itself.";
+                return false;
+            }
+            return true;
+        }
+
+        private static string OpenGate(JsonObject a)
+        {
+            var target = a["target"]?.GetValue<string>();
+            if (!TryMinutes(a, out int minutes, out string mErr))
+                return ToJson(new JsonObject { ["error"] = mErr });
             string reason = a["reason"]?.GetValue<string>();
-            string note = $"[agent request, user-confirmed {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC]" +
-                          (string.IsNullOrEmpty(reason) ? "" : $" {reason}") + " · AutoCommand AI access";
-            var (created, updated) = await FirewallService.Instance.AddIpBlockAsync(ip, note);
-            return created > 0
-                ? $"Blocked {ip} — {created} outbound TCP/UDP rule(s) created, provenance written to the rule description."
-                : $"Block for {ip} already existed — refreshed its provenance ({updated} rule(s)).";
+            bool dryRun = string.Equals(a["dry_run"]?.ToString(), "true", StringComparison.OrdinalIgnoreCase);
+
+            var r = ResolveGateTarget(target);
+            if (!r.Ok)
+                return ToJson(new JsonObject { ["error"] = r.Error, ["candidates"] = ToJsonArray(r.Candidates) });
+
+            var existing = BlockGateService.Instance.Find(r.Kind, r.Key);
+            if (dryRun)
+                return ToJson(new JsonObject
+                {
+                    ["target"] = r.Display,
+                    ["kind"] = r.Kind,
+                    ["rules_currently_enabled"] = r.Rules,
+                    ["minutes"] = minutes,
+                    ["would_close_at"] = DateTime.UtcNow.AddMinutes(minutes).ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
+                    ["gate_open_now"] = existing != null,
+                    ["remaining_minutes"] = existing != null ? Math.Round(existing.RemainingMinutes, 1) : null,
+                    ["note"] = "No change made. A real call asks the user to confirm this exact target.",
+                });
+
+            // post-confirmation: persist the gate FIRST, then stop blocking
+            var gate = BlockGateService.Instance.OpenGate(r.Kind, r.Key, r.Display, minutes, "mcp", reason);
+            var targets = new[] { (r.Kind, r.Key) };
+            var (matched, changed) = FirewallService.Instance.SetTargetsEnabledAsync(targets, false).GetAwaiter().GetResult();
+            BlocksStore.SetStatuses(targets, "off", "mcp");
+            try { AgentBridgeService.Instance.LogActivity(
+                "gate", "opened", $"{r.Display} for {minutes} min" +
+                (string.IsNullOrEmpty(reason) ? "" : $" — {reason}")); } catch { }
+            return ToJson(new JsonObject
+            {
+                ["gate_open"] = true,
+                ["target"] = r.Display,
+                ["minutes"] = minutes,
+                ["closes_at"] = gate.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
+                ["rules_disabled"] = changed + "/" + matched,
+                ["note"] = "Traffic resumes now; blocking returns ON automatically at closes_at " +
+                           "(or app exit). Call close_gate the moment your work is done.",
+            });
         }
 
-        private static string KillProcess(JsonObject a)
+        private static string OpenGateConfirmText(JsonObject a)
         {
-            int pid = a["pid"]?.GetValue<int>() ?? 0;
-            if (pid <= 4) return "Refusing to kill PID 0–4 (system).";
-            try
-            {
-                var proc = Process.GetProcessById(pid);
-                string name = proc.ProcessName;
-                proc.Kill();
-                return $"Terminated PID {pid} ('{name}').";
-            }
-            catch (ArgumentException) { return $"PID {pid} already exited."; }
-            catch (Exception ex) { return $"Kill failed: {ex.Message}"; }
+            if (!TryMinutes(a, out int minutes, out string mErr))
+                return "GATE REQUEST - invalid as asked.\n" + mErr;
+            var r = ResolveGateTarget(a["target"]?.GetValue<string>());
+            if (!r.Ok)
+                return "GATE REQUEST - cannot be fulfilled as asked:\n" + r.Error;
+            var existing = BlockGateService.Instance.Find(r.Kind, r.Key);
+            string reason = a["reason"]?.GetValue<string>();
+            return "Open a " + minutes + "-minute block gate?\n\n" +
+                   "Target: " + r.Display + "  (" + r.Kind + ", " + r.Rules + " rule(s) - blocking OFF for this target only)\n" +
+                   (existing != null
+                       ? "A gate is already open (" + Math.Round(existing.RemainingMinutes) + " min left) - this EXTENDS it.\n"
+                       : "") +
+                   "Auto-close: blocking returns ON at " +
+                   DateTime.UtcNow.AddMinutes(minutes).ToLocalTime().ToString("HH:mm") + " (or when the app exits).\n" +
+                   (string.IsNullOrEmpty(reason) ? "" : "Reason given: " + reason + "\n") +
+                   "\nTraffic resumes immediately. Nothing is deleted; the gate closes itself.";
         }
 
-        private static string DisableTask(JsonObject a)
+        private static string CloseGate(JsonObject a)
         {
-            string path = a["task_path"]?.GetValue<string>();
-            try
+            var r = ResolveGateTarget(a["target"]?.GetValue<string>());
+            if (!r.Ok)
+                return ToJson(new JsonObject { ["error"] = r.Error, ["candidates"] = ToJsonArray(r.Candidates) });
+            var existing = BlockGateService.Instance.Find(r.Kind, r.Key);
+            if (existing == null)
+                return ToJson(new JsonObject
+                {
+                    ["gate_open"] = false,
+                    ["note"] = "No gate is open for that target - blocking was already restored (or never gated).",
+                });
+            BlockGateService.Instance.CloseAsync(r.Kind, r.Key, "mcp").GetAwaiter().GetResult();
+            try { AgentBridgeService.Instance.LogActivity(
+                "gate", "closed (by agent)", $"{r.Display} — blocking restored"); } catch { }
+            return ToJson(new JsonObject
             {
-                TaskSchedulerService.Instance.SetTaskEnabledAsync(path, false).GetAwaiter().GetResult();
-                return $"Disabled scheduled task '{path}'. Re-enable with: schtasks /Change /TN \"{path}\" /ENABLE";
-            }
-            catch (Exception ex) { return $"Disable failed: {ex.Message}"; }
+                ["gate_open"] = false,
+                ["target"] = r.Display,
+                ["note"] = "Gate closed early - blocking is back ON for this target.",
+            });
         }
+
+        private static JsonArray ToJsonArray(List<string> items)
+        {
+            if (items == null) return null;
+            var arr = new JsonArray();
+            foreach (var i in items) arr.Add(i);
+            return arr;
+        }
+
 
         // ── schema / description helpers ──────────────────────────────────
 
@@ -1304,23 +1409,6 @@ namespace AutoCommand.Agent.Core
                 ["properties"] = properties,
                 ["required"] = required,
             };
-        }
-
-        private static string ReasonSuffix(JsonObject a)
-        {
-            string reason = a["reason"]?.GetValue<string>();
-            return string.IsNullOrEmpty(reason) ? "" : $"\n\nStated reason: {reason}";
-        }
-
-        private static string DescribeLiveProcess(int pid)
-        {
-            try
-            {
-                var proc = Process.GetProcessById(pid);
-                return $"Terminate PID {pid} — LIVE process '{proc.ProcessName}'" +
-                       $" (started {proc.StartTime:yyyy-MM-dd HH:mm:ss})?";
-            }
-            catch { return $"Terminate PID {pid}? (process not found — it may have exited; the call will be a no-op)"; }
         }
 
         // ── Phone Home / Traces (read-only, backed by TraceMetricsService) ─
@@ -1551,6 +1639,6 @@ namespace AutoCommand.Agent.Core
             };
         }
 
-        private static string ToJson(JsonObject o) => o.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        private static string ToJson(JsonObject o) => o.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = false });
     }
 }

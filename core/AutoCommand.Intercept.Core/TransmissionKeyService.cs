@@ -1,6 +1,4 @@
 using System;
-using AutoCommand.Intercept.Core;
-using AutoCommand.NetWatch.Core;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
@@ -8,22 +6,24 @@ using Microsoft.Win32;
 namespace AutoCommand.Intercept.Core
 {
     /// <summary>
-    /// Key acquisition for the Transmissions tab: getting apps that honor
-    /// the de-facto SSLKEYLOGFILE convention to write their TLS session
-    /// secrets where TlsKeylogService already tails them (pytrace\
+    /// Key acquisition for the Traffic Peek: getting apps that honor the
+    /// de-facto SSLKEYLOGFILE convention to write their TLS session secrets
+    /// where the F# TlsKeylogService already tails them (pytrace\
     /// sslkeys.log, current-user-only ACL, rotated at 5 MB).
     ///
     /// Two mechanisms, both strictly local:
+    ///   - Launch under watch: starts one chosen program with the variable
+    ///     set in its environment only — the precise instrument when the
+    ///     user wants one program observed without changing anything
+    ///     global. The peek window opened for that instance then decrypts
+    ///     its flows as they finalize.
     ///   - System-wide capture: writes SSLKEYLOGFILE into the user's
     ///     environment (HKCU\Environment) and broadcasts the change so
     ///     freshly launched apps inherit it. Chromium/Electron, curl, wget,
     ///     git, OpenSSL- and Python-based tools pick it up. Schannel-based
     ///     system components ignore the variable — those flows stay
-    ///     "encrypted (no keys)" in the tab, which is the honest coverage
+    ///     "encrypted (no keys)" in the peek, which is the honest coverage
     ///     answer, not a gap to paper over.
-    ///   - Launch under watch: starts one chosen program with the variable
-    ///     set in its environment only — the precise instrument when the
-    ///     user wants one app observed without changing anything global.
     /// </summary>
     public static class TransmissionKeyService
     {
@@ -125,7 +125,7 @@ namespace AutoCommand.Intercept.Core
         }
 
         /// <summary>Programs known to honor SSLKEYLOGFILE, for the launch
-        /// dialog's hint text and the tab's coverage note.</summary>
+        /// dialog's hint text and the peek's coverage note.</summary>
         public static string CoverageNote =>
             "Apps that honor SSLKEYLOGFILE (Chromium/Electron browsers and apps, curl, git, " +
             "wget, OpenSSL- and Python-based tools) write TLS session keys when the variable " +

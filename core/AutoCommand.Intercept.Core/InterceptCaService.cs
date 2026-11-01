@@ -1,6 +1,4 @@
 using System;
-using AutoCommand.Intercept.Core;
-using AutoCommand.NetWatch.Core;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
@@ -26,7 +24,17 @@ namespace AutoCommand.Intercept.Core
     {
         private const string CaSubject = "CN=AutoCommand Intercept CA,O=AutoCommand";
 
-        internal static string Dir => Path.Combine(
+        private static string _dirOverride;
+
+        /// <summary>Test seam: the self-test points the CA dir (and with it
+        /// the journal path) at a temp directory, never at real user state.</summary>
+        internal static string DirOverride
+        {
+            get => _dirOverride;
+            set => _dirOverride = value;
+        }
+
+        internal static string Dir => _dirOverride ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "AutoCommand", "intercept");
 
@@ -43,12 +51,15 @@ namespace AutoCommand.Intercept.Core
             lock (Gate)
             {
                 if (_ca != null) return _ca;
-                try
+                if (_ca == null)
                 {
-                    if (File.Exists(CaPath))
-                        _ca = new X509Certificate2(CaPath);
+                    try
+                    {
+                        if (File.Exists(CaPath))
+                            _ca = X509CertificateLoader.LoadPkcs12FromFile(CaPath, null);
+                    }
+                    catch { /* unreadable pfx — regenerate below */ }
                 }
-                catch { /* unreadable pfx — regenerate below */ }
 
                 if (_ca == null || !_ca.HasPrivateKey || DateTime.UtcNow > _ca.NotAfter.AddDays(-30))
                 {

@@ -1,7 +1,6 @@
 using AutoCommand.NetWatch.Core;
 using System;
 using AutoCommand.Contain.Core;
-using AutoCommand.Intercept.Core;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -68,6 +67,14 @@ namespace AutoCommand.Contain.Core
             "AutoCommand");
 
         public BlocksLedger() : this(DefaultDirectory) { }
+
+        /// <summary>When true (the app enables this at startup), event
+        /// appends and store saves route through the managed write buffer
+        /// — one journal line buffered, one debounced rewrite per change —
+        /// flushed by the app's disk-flush instrument and on exit. Tests
+        /// keep the default immediate mode so round-trips stay
+        /// synchronous.</summary>
+        public bool DeferredSaves;
 
         private readonly object _gate = new();
 
@@ -418,6 +425,32 @@ namespace AutoCommand.Contain.Core
             }
         }
 
+        /// <summary>
+        /// Family removal: drops every process-block record whose key is a
+        /// path ending in this exe name. AppBlockCoverageService keeps a
+        /// name-blocked exe covered at every path it runs from, so the store
+        /// accumulates one record per path — removing only the exact-key
+        /// record leaves the siblings listed as blocked after a family
+        /// unblock. One audit line covers the whole family.
+        /// </summary>
+        public int RemoveForExeName(string exeName, string origin = "monitor")
+        {
+            if (string.IsNullOrEmpty(exeName)) return 0;
+            lock (_gate)
+            {
+                Load();
+                int gone = _records.RemoveAll(b => !b.IsIp && string.Equals(
+                    Path.GetFileName(b.Key ?? ""), exeName, StringComparison.OrdinalIgnoreCase));
+                if (gone > 0)
+                {
+                    Save();
+                    AppendEvent("removed", "proc", exeName,
+                        $"family · {gone} record(s) across paths", origin);
+                }
+                return gone;
+            }
+        }
+
         /// <summary>Marks the desired state (on/off). The firewall's Enabled
         /// flags stay authoritative for traffic; this is the durable intent.</summary>
         public void SetStatus(string kind, string key, string status, string origin = "blocks-tab")
@@ -432,6 +465,33 @@ namespace AutoCommand.Contain.Core
                 r.StatusUtc = DateTime.UtcNow;
                 Save();
                 AppendEvent(status == "on" ? "resumed" : "paused", kind, key, r.ServiceKey, origin);
+            }
+        }
+
+        /// <summary>Batch form of SetStatus for an explicit target list — one
+        /// lock, one save and one audit event for a bulk pause/resume, instead
+        /// of a file rewrite per record.</summary>
+        public void SetStatuses(IEnumerable<(string Kind, string Key)> targets, string status, string origin = "blocks-tab")
+        {
+            lock (_gate)
+            {
+                Load();
+                var set = new HashSet<string>(targets.Select(t => t.Kind + ":" + t.Key),
+                    StringComparer.OrdinalIgnoreCase);
+                int n = 0;
+                foreach (var r in _records.Where(b => set.Contains(b.Kind + ":" + b.Key)))
+                {
+                    if (r.Status == status) continue;
+                    r.Status = status;
+                    r.StatusUtc = DateTime.UtcNow;
+                    n++;
+                }
+                if (n > 0)
+                {
+                    Save();
+                    AppendEvent(status == "on" ? "resumed" : "paused", "-", "-",
+                        $"{n} target(s) via {origin}", origin);
+                }
             }
         }
 
@@ -509,6 +569,7 @@ namespace AutoCommand.Contain.Core
             {
                 Directory.CreateDirectory(DataDirectory);
                 var sb = new StringBuilder();
+                bool deferred = DeferredSaves;
                 foreach (var r in _records)
                     sb.Append(string.Join("|",
                         "v3", r.Kind, Sanitize(r.Key), r.CreatedUtc.ToString("O"),
@@ -517,9 +578,26 @@ namespace AutoCommand.Contain.Core
                        .AppendLine();
                 // unknown lines survive rewrites at the tail, verbatim
                 foreach (string u in Unrecognized) sb.AppendLine(u);
-                File.WriteAllText(StorePath, sb.ToString());
+                if (deferred)
+                {
+                    // managed buffer: content-guarded, last-write-wins —
+                    // identical content never touches the disk at all
+                    Engines.Core.BufferedAppender.Rewrite(StorePath, sb.ToString());
+                }
+                else
+                {
+                    File.WriteAllText(StorePath, sb.ToString());
+                }
             }
             catch { /* best-effort: the firewall rules are the source of truth */ }
+        }
+
+        /// <summary>Write any buffered event lines and the pending store
+        /// rewrite now (disk-flush instrument, app exit, explicit flush).</summary>
+        public void FlushPending()
+        {
+            Engines.Core.BufferedAppender.Flush(EventLogPath);
+            Engines.Core.BufferedAppender.Flush(StorePath);
         }
 
         private string Sanitize(string s) =>
@@ -530,6 +608,12 @@ namespace AutoCommand.Contain.Core
         {
             try
             {
+                if (DeferredSaves)
+                {
+                    Engines.Core.BufferedAppender.Append(EventLogPath,
+                        $"{DateTime.UtcNow:O}|{action}|{kind}|{key}|{Sanitize(detail)}|{origin}");
+                    return;
+                }
                 Directory.CreateDirectory(DataDirectory);
                 File.AppendAllText(EventLogPath,
                     $"{DateTime.UtcNow:O}|{action}|{kind}|{key}|{Sanitize(detail)}|{origin}{Environment.NewLine}");
@@ -560,12 +644,27 @@ namespace AutoCommand.Contain.Core
             => _default.TryParseServiceFromDescription(desc, out serviceKey, out displayName);
         public static void AddOrUpdate(BlockRecord record, string origin = "monitor") => _default.AddOrUpdate(record, origin);
         public static void Remove(string kind, string key, string origin = "monitor") => _default.Remove(kind, key, origin);
+        public static int RemoveForExeName(string exeName, string origin = "monitor") => _default.RemoveForExeName(exeName, origin);
         public static void SetStatus(string kind, string key, string status, string origin = "blocks-tab") => _default.SetStatus(kind, key, status, origin);
+        public static bool DeferredSaves { get => _default.DeferredSaves; set => _default.DeferredSaves = value; }
+        public static void FlushPending() => _default.FlushPending();
+        public static void SetStatuses(System.Collections.Generic.IEnumerable<(string Kind, string Key)> targets, string status, string origin = "blocks-tab") => _default.SetStatuses(targets, status, origin);
         public static void SetStatusForGroup(string serviceKey, string status, string origin = "blocks-tab") => _default.SetStatusForGroup(serviceKey, status, origin);
         public static void SetAttribution(string kind, string key, string serviceKey, string displayName, string source) => _default.SetAttribution(kind, key, serviceKey, displayName, source);
         public static void SetAttributions(System.Collections.Generic.IEnumerable<(string Kind, string Key, string ServiceKey, string DisplayName, string Source)> items) => _default.SetAttributions(items);
         public static string ServiceGroupKey(BlockRecord r) => _default.ServiceGroupKey(r);
         public static string ClassForPath(string path) => _default.ClassForPath(path);
         public static void AppendEvent(string action, string kind, string key, string detail, string origin) => _default.AppendEvent(action, kind, key, detail, origin);
+
+        /// <summary>
+        /// Fleet-wide operation (panic button, re-enable all, restore-except-
+        /// risky, consolidate legacy): rules changed en masse but per-target
+        /// store statuses intentionally do NOT flip, so this is a pure audit
+        /// event — without it the log cannot answer "when did all my blocks
+        /// go off and come back". Origins: panic-button, manage-all,
+        /// restore-except-risky.
+        /// </summary>
+        public static void LogFleet(string action, string detail, string origin) =>
+            _default.AppendEvent(action, "-", "-", detail, origin);
     }
 }

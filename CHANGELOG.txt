@@ -1,115 +1,1159 @@
-AutoCommand II - release history
-All per-release notes consolidated here, newest first.
+AutoCommand III - release history
+All per-release notes consolidated here, newest first. No individual release_notes files remain in the repo; write a fresh one only for the next release (release.ps1 requires it).
 
 ================================================================================
-  2026.10.29.2  -  released 2026-10-28
+  2026.10.30.30  -  released 2026-10-31
 ================================================================================
 
-# AutoCommand v2026.10.29.2 — paused blocks, manageable from the row
+# AutoCommand III — v2026.10.30.30
 
-A small release with one job: a block you paused no longer strands you
-in the Process Monitor.
+Layer 3 arrives in Traffic Peek: **🛡 Intercept this process** — the one honest
+way to see what a program that can never write TLS keys (Windows services
+included) actually sends.
 
 ## What changed
 
-Right-clicking a row whose IP or process block is **paused** (⏸) used to
-show a disabled menu item pointing elsewhere. Now the row menu does the
-whole job in place:
-
-- **✅ Unblock … — remove the paused block**: deletes the rules for good,
-  same confirm dialog as an active block. Removal matches rule *names*,
-  not their enabled state, so a paused block is exactly as removable as
-  a live one — it just also stops pretending "traffic resumes" when it
-  was already flowing (the confirm and the toast now say which case
-  you're in).
-- **▶ Re-enable block … — traffic stops again** (new item, appears only
-  when a block is paused): flips the paused rules back on through the
-  same enable path the Blocks tab uses, with the same bookkeeping
-  (status + history event). The block action itself could not do this
-  job — re-blocking an existing rule only refreshes its provenance and
-  would silently not block anything — which is why the item exists
-  instead of the old disabled hint.
-
-Process blocks use the same identity recovery as blocking (row → live
-module → Sysmon archive), and re-enabling from any recorded path resumes
-the whole rule fleet for that exe name — sibling path rules included,
-matching how pause and unblock already behave.
-
-Everything else is untouched: active-block unblocking, the Blocked
-popup, Manage all, and the 🚑 Restore Internet button work exactly as
-before.
-
-## Verification
-
-App builds clean in Debug and Release (0 errors); the change is confined
-to the Process Monitor view (XAML menu items + three handlers).
-
-## Install — identical to AutoCommand
-
-1. Unzip anywhere.
-2. Right-click `AutoCommand.exe` -> **Run as administrator**.
-3. Blue "protected your PC" screen: **More info -> Run anyway**. If the zip
-   will not open or the exe will not start, run `unblock-autocommand.ps1`.
-
-Deleting the folder uninstalls it completely. Apache 2.0.
+- **🛡 Intercept this process.** On any "encrypted (no keys)" flow in a
+  program or tracked-service peek, one button starts a 15-minute intercept
+  session: a local TLS-terminating proxy becomes the temporary system proxy
+  (WinHTTP for services, WinINET for apps), the target's QUIC is blocked so
+  it falls back to TCP, and only connections attributed to that exact PID are
+  decrypted. Everything else is tunnelled through untouched. This is the
+  plaintext path for schannel components — the wuauserv/Delivery-Optimization
+  case the metadata view could never answer.
+- **Visible and reversible.** An amber banner shows the session, its countdown
+  and a ⏹ Stop now button; stopping (or closing the window, or the app, or the
+  15-minute box) restores the proxy, removes the firewall rule and untrusts
+  the CA. Every change is journaled before it is made — a crash mid-session is
+  undone at the next app start. A corrupt journal is never guessed at.
+- **Scoped trust.** The temporary CA is trusted machine-wide only while the
+  session runs and removed by thumbprint at its end; certmgr shows it as
+  "AutoCommand Intercept CA" whenever it is trusted. Certificate-pinned apps
+  fail loudly during a session and are recorded as "refused intercept
+  (pinning)" — a signal, not an error.
+- **The rows land in the same peek.** Intercepted conversations appear in the
+  flow list tagged "decrypted · intercept", with request/response bodies
+  readable in place (text + hex) and exportable with 💾 Save bodies — in
+  memory until you say so.
+- **Self-test coverage.** A new strict `InterceptSelfTest` CI suite drives the
+  journal round-trip, crash recovery (including the never-guess corrupt case)
+  and the CA/leaf minting with DNS and IP SANs — all in a temp dir; the
+  netsh/registry hooks themselves stay on the manual E2E pass.
 
 
 ================================================================================
-  2026.10.29.1  -  released 2026-10-27
+  2026.10.30.29  -  released 2026-10-31
 ================================================================================
 
-# AutoCommand v2026.10.29.1 — DNS queries and UDP, visible at last
+# AutoCommand III — v2026.10.30.29
 
-Two windows open that were dark since the beginning: **what this machine
-resolves** and **everything that is not TCP**.
+Python environments can now be instrumented: spawn call stacks and TLS
+session keys, surfaced in the scoped peek for exactly the process you're
+looking at.
 
-## 🌐 DNS Queries (new tab, WATCH group)
+## What changed
 
-The app's Sysmon config has captured DNS query events since the first
-install — this release is the first thing that actually reads them.
+- **🐍 Instrument…** Every Traffic Peek window gains the per-environment
+  opt-in dialog (recreated from autocommand-ii): environments are discovered
+  from the registry, PATH, Store, conda, uv, pyenv-win, scoop/choco, a bounded
+  deep scan for venvs, and python binaries this machine has actually run
+  (replayed from the Sysmon archive — nothing keeps watching). Instrumenting
+  writes two small files into that environment's site-packages — nothing else
+  changes, and removal is one click in the same dialog.
+- **Python audit trace.** A program-scoped peek of a python process now shows
+  that process's audit-hook records: the spawn APIs it called, their arguments,
+  and the full python call stack at the moment each fired — the "why", scoped
+  to the subject instead of a standing tab.
+- **TLS keys land in the same peek.** Instrumented pythons log session keys to
+  the same keylog the peek already tails, so their HTTPS traffic decrypts in
+  the flows list — alongside the call stacks that explain it.
+- **Payload seam fixed.** The hook payload is embedded in the same assembly
+  that reads it (`AutoCommand.Forensics.Core`) — autocommand-ii carried a
+  latent bug where the installer would have failed at runtime because the
+  resource lived in the app exe.
+- **Self-test coverage.** A new strict `PyTraceSelfTest` CI suite drives the
+  installer round-trip, environment detection (incl. embedded-distribution
+  refusal), the bounded venv scan, the reader's offset-resume tail, and the
+  payload embed; `docs\selftest\run-selftest.ps1` revives the end-to-end
+  harness: real python, real TLS session, decrypted via the hook's keylog.
 
-- **By domain**: who asks for each hostname, how often, what addresses came
-  back (range-classified, blocked-list checked), and **beacon regularity** —
-  a domain asked on a metronome gets flagged with its gap variation
-  (beacons look like that; scheduled updaters do too).
-- **By process**: everything a program resolves — a browser tab and a
-  background talker are instantly distinguishable.
-- **DoH honesty, built in**: queries to known encrypted resolvers
-  (Cloudflare, Google, Quad9, NextDNS…) are flagged 🔒 — that's the moment
-  a process switches to DNS no local observer can see. No false confidence.
-- Resolved addresses name the Process Monitor rows they belong to.
 
-## UDP joins the Process Monitor
+================================================================================
+  2026.10.30.28  -  released 2026-10-31
+================================================================================
 
-Rows track **every transport seen** against their remote address — a new
-**Proto** column shows TCP, UDP, or TCP+UDP — plus a transport lens
-(All / TCP / UDP) beside the TX-only lens. A UDP talker can no longer hide
-behind a TCP-first label, and pure-UDP endpoints now get rows of their own.
-The packet counters already counted UDP datagrams (the raw-IP sniffer is
-transport-agnostic by construction); now the labels tell the truth.
+# AutoCommand III — v2026.10.30.28
 
-## For AI assistants
+Traffic Peek learns your subject: peer into a program instance, or pin a
+service by name and let the window follow it across restarts.
 
-New read-only **`list_dns_queries`** tool: the same two facets, window and
-contains filters, per-address classification and blocked status, gap_cv
-regularity — with the DoH blindness note carried in the response.
+## What changed
+
+- **Three scopes, one peek.** The context menu now offers **Peer into this
+  program (PID N)** — flows attributed to that instance via Sysmon — alongside
+  the existing per-IP peek. One window per subject; a second request focuses
+  the existing one.
+- **⭐ Track this service.** On a svchost row, pin the hosted service by NAME
+  (DiagTrack, CryptSvc…). A PID pin goes stale the moment the service
+  restarts — the name doesn't. A tracked peek follows whichever svchost
+  instance hosts the pinned service next, with zero user action on respawn.
+- **🚀 Launch under watch…** Every peek window can start a program with
+  SSLKEYLOGFILE set in its environment only, and opens a program-scoped peek
+  for the new instance immediately — its TLS traffic decrypts as it connects
+  (Chromium/Electron, curl, git, OpenSSL- and Python-based tools honor it).
+  The key path is the recreated `AutoCommand.Intercept.Core` service
+  (`TransmissionKeyService`), strictly local, per-program by default.
+- **The coverage note.** On every "encrypted (no keys)" flow the window now
+  says exactly how plaintext becomes possible and why it never will for
+  schannel system components — instead of leaving an empty pane to interpret.
+- **Engine.** `FlowDossierService` takes a scope (`remote ip` / `program` /
+  `service`), with shared-host protection: a scope on svchost.exe is matched
+  only by its exact PID, never by image. The offline NetWatch suite drives all
+  three scopes end-to-end (16 new checks), including the restart-follows
+  service case and the shared-host guard.
+
+
+================================================================================
+  2026.10.30.27  -  released 2026-10-31
+================================================================================
+
+# AutoCommand III — v2026.10.30.27
+
+Process Monitor learns to look inside a connection: right-click → **Peer into this connection**.
+
+## What changed
+
+- **Traffic Peek window (Process Monitor context menu).** Any connection row can now
+  be peered into, scoped to its remote IP. While the window is open, AutoCommand
+  reassembles the TCP conversations to that IP and shows every finalized flow with
+  what it actually carried — and nothing is captured once the window closes. One
+  peek per IP; nothing is written to disk; capture, decryption and event reads are
+  all local.
+- **Honest TLS verdicts.** TLS metadata (server name, ALPN, cipher, version) is
+  always extracted from the handshake. Decrypted plaintext appears only when session
+  keys exist — and the window says exactly why when they don't: Windows services
+  (wuauserv, BITS, DoSvc) never expose keys, so their rows stay metadata-only by
+  design instead of showing empty content.
+- **Service activity pane.** For the same time window, the window lists what the
+  hosting service logged — Windows Update, BITS and Delivery Optimization operational
+  events — the plaintext answer for connections whose TLS can never be decrypted.
+- **Session-key logging toggle.** The keylog opt-out (previously a flag file) is now
+  one button in the peek window: disabling deletes the keylog and stops recording
+  keys; the dossier never recreates a file you turned off.
+- **Self-test coverage.** The NetWatch suite now drives the whole peek pipeline
+  offline: synthetic TLS/plain flows through the reassembler, remote-IP scoping,
+  PID attribution, the no-keys honesty path, and the capture refcount lifecycle.
+
+(For context: the dormant Transmissions engines from the pytrace era are what power
+this — same reassembler, same TLS decryptor, now reachable from a row you're
+actually curious about.)
+
+
+================================================================================
+  2026.10.30.26  -  released 2026-10-30
+================================================================================
+
+# AutoCommand III — v2026.10.30.26
+
+The rain pane's width stops churning the list.
+
+## What changed
+
+- **Auto-fit width changes are debounced.** The alive-process count
+  churns as connections start and stop, and every pane-width change
+  re-measures the list's DataGrid — an un-debounced fit re-measures the
+  grid at churn rate, which shows up as a busy cursor and a pane that
+  never settles (worst right after folding the nav, when everything
+  re-measures at once). The fit now applies immediately once, then
+  settles on a one-second trailing cadence while the count keeps
+  moving — the pane still tracks reality, the grid re-measures at most
+  once a second, and a user-dragged (manual) width is unaffected.
+- (For context: the invisible fold triangles and the missing drag
+  resize were fixed in .25 — solid drawn arrows + a real splitter with
+  double-click re-fit. If you're seeing a clipped rain sliver at the
+  right edge, you're on .24; update.)
+
+
+================================================================================
+  2026.10.30.25  -  released 2026-10-30
+================================================================================
+
+# AutoCommand III — v2026.10.30.25
+
+The divider you can see, grab, and drag.
+
+## What changed
+
+- **The fold triangles are drawn, not typed.** The ‹ › characters were
+  guillemets — a few pixels of ink at font size, in a gray a shade off
+  the pane background, on a rail the same color as the panes beside it:
+  effectively invisible, twice reported. The rail is now drawn with Path
+  geometry (11×13 px solid triangles in the near-white primary text
+  color) on a splitter strip in the border gray — visibly a control, in
+  both themes. Verified by rendering the exact rail strip to a bitmap in
+  isolation (a screen capture of the live app proved flaky).
+- **The divider is a real GridSplitter.** Drag it anywhere between the
+  triangles to give either pane more or less room; a size preview
+  follows the drag. Double-click re-fits the rain pane to its alive
+  columns (the auto-fit that sizes the pane to exactly its rain, no gap
+  strip). Dragging marks the width as manual — the auto-fit stands down
+  until the next double-click — and the chosen width persists in
+  `%LOCALAPPDATA%\AutoCommand\rain_panel.txt` (`auto` / `manual=N`,
+  old one-line files still migrate). The splitter disables in list-only
+  mode (nothing to drag into a hidden pane) and the fold triangles keep
+  their same corners.
+- The rain pane's fold/restore behavior is unchanged: a hidden pane
+  costs no frames, and the renderer still publishes the alive column
+  count that drives the auto-fit.
+
+
+================================================================================
+  2026.10.30.24  -  released 2026-10-30
+================================================================================
+
+# AutoCommand III — v2026.10.30.24
+
+The rail becomes findable, and the rain pane is exactly as wide as its
+rain — no gap strip.
+
+## What changed
+
+- **The rail's chevrons are visible now.** The fold rail widens 13→18 px
+  and the ‹ / › glyphs grow 10→13 pt — at the old size they all but
+  vanished against the pane background. Same behavior as .22: ‹ folds the
+  process list (rain only), › folds the rain (list only), a chevron
+  disables when its press would empty the tab.
+- **The rain pane self-sizes to its columns.** The renderer publishes the
+  alive, capped column count and the cell width in DIP
+  (ActiveColumns / CellWidthDip / ActiveColumnsChanged, on the UI
+  thread); the rain view sets its own Width to exactly columns × cell —
+  the hosting Grid column is Auto and simply follows. Three alive
+  processes → a three-column pane hugging the docked edge; nine → nine;
+  nothing alive → a single empty column of presence. The dark gap beside
+  the rain is gone in both modes: beside the list, and in rain-only mode
+  where the list column absorbs the free space so the rain hugs the
+  edge. The panel reflows live as processes come and go.
+- RainSelfTest logs the transitions (`activeCols -> 3` on the first
+  snapshot).
+
+
+================================================================================
+  2026.10.30.23  -  released 2026-10-30
+================================================================================
+
+# AutoCommand III — v2026.10.30.23
+
+The rail becomes findable, and the rain pane is exactly as wide as its
+rain — no gap strip.
+
+## What changed
+
+- **The rail's chevrons are visible now.** The fold rail widens 13→18 px
+  and the ‹ / › glyphs grow 10→13 pt — at the old size they all but
+  vanished against the pane background. Same behavior as .22: ‹ folds the
+  process list (rain only), › folds the rain (list only), a chevron
+  disables when its press would empty the tab.
+- **The rain pane self-sizes to its columns.** The renderer now publishes
+  the alive, capped column count and the cell width in DIP
+  (ActiveColumns / CellWidthDip / ActiveColumnsChanged, raised on the UI
+  thread); the rain view sets its own Width to exactly
+  columns × cell — the hosting Grid column is Auto and simply follows.
+  Three alive processes → a three-column pane hugging the docked edge;
+  nine → nine; nothing alive → a single empty column of presence. The
+  dark gap between the pane's edge and its rain is gone in both modes:
+  beside the list, and in rain-only mode where the list column absorbs
+  the free space and the rain hugs the edge. The panel reflows live as
+  processes come and go.
+- RainSelfTest logs the activeCols transitions
+  (`activeCols -> 3` on the first snapshot).
+
+
+================================================================================
+  2026.10.30.22  -  released 2026-10-30
+================================================================================
+
+# AutoCommand III — v2026.10.30.22
+
+Either pane folds: read the list, watch the rain, or give either one the
+whole tab.
+
+## What changed
+
+- **The rail between the panes now folds either side.** Two chevrons:
+  ‹ toggles the process list (rain-only mode — the animation owns the
+  whole tab), › toggles the rain (list-only — the monitor's original
+  full-width layout). A chevron disables exactly when pressing it would
+  hide the only visible pane, so both can never fold at once; a disabled
+  chevron dims to a quarter opacity and its tooltip becomes "Show …",
+  because its next press restores its pane.
+- A hidden pane costs nothing: the rain's own visibility machinery stops
+  its renderer and feed (not a frame spent), and the hidden list stops
+  rendering while its engines keep feeding the shared table the rain
+  reads — rain-only mode is a live view, not a screenshot.
+- The choice persists in `%LOCALAPPDATA%\AutoCommand\rain_panel.txt` as
+  "both" | "rain" | "grid", applied before layout so a folded pane never
+  flashes open on launch; older "collapsed"/"expanded" files migrate
+  ("collapsed" meant rain-hidden → "grid").
+
+
+================================================================================
+  2026.10.30.21  -  released 2026-10-30
+================================================================================
+
+# AutoCommand III — v2026.10.30.21
+
+The rain's column count is the truth: one column per alive process,
+never ten or more.
+
+## What changed
+
+- **Columns == alive processes.** Every snapshot counts the tracked
+  processes that still have at least one live conversation row (the same
+  rows the Process Monitor shows), and the pane lays out exactly that
+  many columns — an IP leaves the table, its column leaves the pane;
+  a new one arrives, a column slides out of the docked edge. `maxColumns`
+  drops from 64 to **9** and is clamped 1–9 on load, so ten or more can
+  never render regardless of what a hand-edited config says.
+- **The cinema wall spans exactly the data columns** — hugging the docked
+  edge — and the rest of the pane stays dark. Nothing alive, nothing
+  rains. Streams persist across alive-count changes instead of being
+  recreated, and any wall left outside the active region decays through
+  the normal fade.
+- **True edge anchoring fixed on the way**: the ranking promise ("busiest
+  at the docked edge") silently broke whenever the grid wasn't full —
+  `maxSlots-1-idx` clustered columns at the pane's left when docked
+  right. Slots are now `gridCols-1-idx`, so the busiest column really is
+  the rightmost (or leftmost, docked left).
+- A column that loses its slot (death or cap) has its strip cleared once;
+  the harness proves the shape: 3 synthetic PIDs → exactly 3 wall+data
+  columns at the edge, everything else dark.
+
+
+================================================================================
+  2026.10.30.20  -  released 2026-10-30
+================================================================================
+
+# AutoCommand III — v2026.10.30.20
+
+The rain moves in with the monitor: one tab, one glance apart.
+
+## What changed
+
+- **The Rain tab is now the Process Monitor's right panel.** The grid and
+  the rain share one tab — the live table on the left, the same live
+  table raining on the right (330 px, the dark pane it had) — no second
+  nav stop, no mode switch between reading and watching. The rain
+  attaches at startup with the tab and renders from launch.
+- **The thin rail between them collapses it.** One click: the panel
+  folds away (chevron flips › → ‹) and the rain's own visibility
+  machinery stops the renderer and the feed — a collapsed panel costs
+  nothing, not a frame. Click again to bring it back. The choice
+  persists across launches as one word in
+  `%LOCALAPPDATA%\AutoCommand\rain_panel.txt`, applied before layout so
+  a collapsed panel never flashes open.
+- The rain's right-click menu (font, colors, speed, movie look, charsets,
+  diagnostics) is unchanged — it belongs to the pane, wherever it lives.
+
+
+================================================================================
+  2026.10.30.19  -  released 2026-10-30
+================================================================================
+
+# AutoCommand III — v2026.10.30.19
+
+One polish release: the Blocks tab's master–detail layout flips sides.
+
+## Blocks tab — master on the right
+
+The category list (master) now lives on the **right**; the selected
+category's blocks (detail) fill the **left**. The header text and the
+layout comments moved with it — nothing else about the tab changed:
+same grouping by the Windows service that made the connection, same
+selection behavior replacing the old expand/collapse accordions, same
+undo ledger underneath.
 
 ## Verification
 
-New **DnsFeedSelfTest** suite (20 checks: aggregation, facets, regularity
-math, encrypted-resolver flags, result-address parsing, persistence
-lifecycle, window/contains filters) added to the CI strict gate; all nine
-offline suites green; app, AgentProxy and AgentHost build clean in Debug
-and Release.
+Shipped behind the local gate (the release path builds binaries only):
+NetWatchSelfTest, OneSettingsCadenceSelfTest, ContainSelfTest,
+ProxyInstallSelfTest and BridgeSelfTest all green, plus Debug and
+Release builds of the full app.
 
-## Install — identical to AutoCommand
 
-1. Unzip anywhere.
-2. Right-click `AutoCommand.exe` -> **Run as administrator**.
-3. Blue "protected your PC" screen: **More info -> Run anyway**. If the zip
-   will not open or the exe will not start, run `unblock-autocommand.ps1`.
+================================================================================
+  2026.10.30.18  -  released 2026-10-30
+================================================================================
 
-Deleting the folder uninstalls it completely. Apache 2.0.
+# AutoCommand III — v2026.10.30.18
+
+The Audit tab renders, grant scope tightens everywhere, and 1,300 lines of
+dead code leave the building.
+
+## Fixed
+
+- **The Audit tab actually renders.** v2026.10.30.15 shipped it with its
+  incident rows blank and every severity badge stuck green: the bound
+  members (`Severity`, `Sentence`, `Meta`, …) were public *fields*, and WPF
+  bindings to fields silently produce nothing — the same 49-instance bug
+  class the Blocks tab's redesign shipped with. The display members are
+  properties now; grouping state that only code touches stays fields.
+- **"Always allow" is now per-target for every mutating tool.** The shared
+  bridge engine's grant key previously scoped per-tool except for the gate
+  pair; since AutoScope's mutating tools run on this same engine, a
+  session-wide "always allow kill_process" would have covered *any*
+  process. Grant keys now carry the target (`ip` / `pid` / `task_path`) for
+  every tool that has one — a grant covers exactly what the user saw in
+  the confirmation, nothing more.
+
+## Removed (dead-module scan across the family)
+
+- `DefenderMonitoringService` and `DefenderPrivacyService` — compiled into
+  every build, instantiated by no app.
+- `ExternalStartMonitor`, `VendorCatalog`, `BloatwareStateConverter` —
+  same story, whole files.
+- `AuthenticodeVerifier` (this repo's copy — Shields Up ships and uses its
+  own), four XAML-orphan converters (`StatusToColor`,
+  `TaskStateToColor`, `AppNameToDisplay`, `GroupExpandedState`), and the
+  `NetworkAdapterItem` / `EfiFileResult` / `NetworkConnectionItem` model
+  classes (Shields Up carries its own live copies).
+- Net −1,326 lines. The scan covered 441 types across the three apps,
+  cross-checked against XAML and every repo before deletion.
+
+## Upgrade notes
+
+Restart the app as usual. No data, config, or session changes; block
+inventories and audit trails are untouched.
+
+
+================================================================================
+  2026.10.30.17  -  released 2026-10-30
+================================================================================
+
+# AutoCommand III — v2026.10.30.17
+
+One letter per cell: the cinema wall no longer superimposes glyphs.
+
+## What changed
+
+- **The rain reads clean — no more overwritten letters.** The decorative
+  wall occupies every cell, and the exponential fade only *decays* a
+  glyph, it never removes it. The blit is an over-composite, so a new
+  glyph stamped onto a cell blended with the 10–30% ghost of a *different
+  random katakana* from the stream's previous pass: opaque stroke cores
+  replaced, every antialiased pixel mixed — two letters jammed in one
+  cell, pane-wide. Every stamp now clears its cell first (deco trail,
+  white tip, mid-trail mutation, the data lead, the bold data-trail
+  stamp): replacement semantics, the film's one-letter-per-cell rule.
+  The data lead clears the standard cell (not its 6%-larger lifted rect,
+  which would nick the neighboring glyphs' edges); the bloom halo still
+  blends — a glow is supposed to.
+- **The overlay repo (autocommand-matrix) gets the identical renderer** —
+  the shared engine, one fix, both faces.
+
+
+================================================================================
+  2026.10.30.16  -  released 2026-10-30
+================================================================================
+
+# AutoCommand III — v2026.10.30.16
+
+The Rain tab works when you come back to it — and tells the truth while
+it's warming up.
+
+## What changed
+
+- **Rain tab fixed: returning to the tab resurrected nothing.** The first
+  build attached fine, but WPF's TabControl tears a tab's content out of
+  the visual tree the moment you select another tab (Unloaded — the
+  renderer stops, correctly, so a hidden tab costs nothing) and reconnects
+  it when you return. On that return, `IsVisibleChanged` fires while the
+  view is not yet "loaded", the restart path declines — and then the
+  attach guard saw the renderer already existed and early-returned. The
+  rain was a black pane with a frozen `attaching...` strip for the rest of
+  the session. Attach now re-applies visibility on every re-entry: same
+  renderer, resumed drawing. Proven in RainSelfTest with an
+  away-and-back round trip whose lifecycle log shows the draw counter
+  freeze while away and continue from the same value on return
+  (536 → 609 → 914 → ...) — pre-fix it stayed frozen forever.
+- **The diagnostics strip can no longer starve.** Both the strip timer and
+  the harness's ran at DispatcherPriority.Background — on a busy machine
+  Background work can be starved indefinitely while the app itself stays
+  responsive, so the strip froze mid-sentence (even at the stock
+  `attaching...`) while the rain was fine, and lied about the state. Both
+  timers now run at Render priority: two string writes per 500 ms are
+  nothing, and the strip now tells the truth.
+- **RainSelfTest grew a real regression harness**: the away/back round
+  trip is scripted, every diagnostics tick appends a timestamped lifecycle
+  line (cols / draws / fps / visibility / loaded / tree membership) to
+  `%TEMP%\rainselftest.log`, and dispatcher exceptions land in the same
+  log instead of dying silently.
+
+
+================================================================================
+  2026.10.30.15  -  released 2026-10-30
+================================================================================
+
+# AutoCommand III — v2026.10.30.15
+
+The gate tools work again, every change to your blocks becomes answerable,
+and updating Windows stops being a panic-button decision.
+
+## The gate crash — fixed
+
+**`open_gate` / `close_gate` failed on every call** with WPF's "The calling
+thread cannot access this object because a different thread owns it" — even
+`dry_run`, which was supposed to touch nothing. Root cause: the bridge's UI
+availability pre-check read `Application.MainWindow` (a thread-verified WPF
+property) on the RPC listener thread, *before* the tool handler ran, so the
+exception fired before the dry-run branch could ever be reached.
+
+Three fixes, each regression-tested in BridgeSelfTest section 7 (whose stub
+UI throws the exact field exception):
+
+- **`IsUiAvailable` is thread-safe** — the `MainWindow` read is marshalled
+  to the UI dispatcher; a shut-down dispatcher reads as "no UI".
+- **`dry_run=true` bypasses confirmation at the engine level** — the
+  documented "resolve and preview only" contract now holds even in a
+  session with no UI at all.
+- **A UI hook that throws denies cleanly** — clients get the actionable
+  "no UI to confirm with" denial instead of raw WPF exception text.
+
+## 🧾 Audit — a new CONTAIN tab
+
+Every change to your blocks — yours, AutoCommand's, or anything else —
+narrated in plain language, one incident per event burst, newest day first.
+The status strip answers "does anything need me?" before the list appears;
+red is reserved for external changes that were not confirmed undone.
+
+- **Incidents, not log lines**: the monitor's 3-block burst reads as
+  "AutoCommand blocked 2 addresses and 1 program over a quick burst"; a
+  restore-guide pause reads as "The restore guide paused 162 blocks".
+- **Fleet operations are now audited** — the panic button, Re-enable all,
+  restore-except-risky, legacy consolidation, and manual rule toggles in
+  the Firewall tab previously bypassed blocks-events.log entirely (the
+  Oct 27 fleet-disable was reconstructible only by forensics on a CSV
+  export). Each now writes one audit line with counts and origin.
+- **"Since last visit" is the default range**, backed by a shared
+  `audit-seen.txt` marker — the same marker the Blocks tab's digest toast
+  uses, so the two surfaces never disagree about what you've seen.
+- **Raw ledger** toggle for the one-row-per-event view (same filter, same
+  facts), plus CSV export of exactly what's on screen.
+- External modifications (`external-modified`) and future OS-attributed
+  events already have a severity path: restored → amber, un-remediated →
+  red with an attention summary.
+
+## 🪟 Windows Update — a new SYSTEM tab
+
+The sanctioned update path for a machine this locked down: security
+patches can't arrive through full blocking, and the panic button was the
+only way through.
+
+- **Scope is computed, never guessed**: exactly the blocks whose service
+  attribution matches the updates/Defender symptoms (ServiceOutageMap —
+  the same rule the restore guide uses), shown to you before anything
+  changes. Everything else stays blocked the whole session.
+- **Blocks lift as gates, not pauses**: a 120-minute hard stop restores
+  everything even if the app crashes, exits, or the machine reboots.
+- **The tab drives the update** via the Windows Update Agent (late-bound
+  COM — no interop dependency): scan → download → install with phase
+  reporting, a live countdown to auto-restore, and "Restore all blocks
+  now" one click away. A CDN escalation button opens the Akamai/Gcore
+  edge tier only if a download stalls — announced, audited, restored with
+  everything else.
+- **The after-loop is the feature**: gates close on completion, every
+  lifted block is re-enabled and *verified against the live firewall*
+  (one retry for stragglers, never a silent skip), dead-path rules are
+  retired (Windows Update moves Defender's binaries every time), update
+  services restart to sever lingering sockets, and the whole session
+  lands in Audit as one incident — "You updated Windows — N blocks paused
+  for M min, all restored".
+- **Nightly Defender window (opt-in)**: a standing 3:00–3:20 AM gate for
+  signature updates only, same machinery, runs while the app is running.
+
+## Also in this release
+
+- The Blocks tab's digest toast and the Audit tab share one visit marker,
+  and both count the new fleet/update events.
+- ContainSelfTest gains the audit-narration and update-session sections
+  (16 + 4 checks); BridgeSelfTest gains the gate-path regression section.
+
+## Upgrade notes
+
+Restart the app to pick this up — the running instance predates both the
+gate fix and the new tabs. The Rain tab's stuck "attaching…" from builds
+before v2026.10.30.14 resolves with this restart as well (its diagnostics
+strip has named every failure stage since .14; if it ever sticks again,
+the strip says which stage and why). Existing `matrix_rain.json`,
+session tokens, and block inventories are unchanged.
+
+
+================================================================================
+  2026.10.30.14  -  released 2026-10-30
+================================================================================
+
+# AutoCommand III — v2026.10.30.14
+
+Hotfix: the Blocks tab's lists had no text at all.
+
+## Fixed
+
+- **Blocks master/detail lists rendered without text.** Not a contrast
+  problem — the labels never rendered. The master-detail redesign's
+  view-models exposed public *fields*, and WPF `{Binding}` reads only
+  *properties*: every binding to one silently produced empty, so the
+  category list showed its checkboxes, badges and green state bars but
+  no titles, and the rows showed no targets or services. (The filter
+  chips kept their text — they render via `ToString()`.) All 49 fields
+  are now properties; a repo-wide audit confirms no other view binds to
+  fields. This bug shipped with the master-detail redesign and was
+  independent of the theme changes — the light theme just made it easy
+  to notice.
+
+No other changes from v2026.10.30.13.
+
+
+================================================================================
+  2026.10.30.13  -  released 2026-10-30
+================================================================================
+
+# AutoCommand III — v2026.10.30.13
+
+Shell polish for the Shields Up look.
+
+## What changed
+
+- **Hamburger menu.** The left sidebar now collapses: a ☰ item at the top of the strip toggles between full labels (grouped WATCH / CONTAIN / SYSTEM) and icons-only — the same collapsed-pane behavior as Shields Up's navigation. The toggle never navigates; your current tab stays put.
+- **Flat blue buttons in Light.** The diagonal two-blue gradient that primary buttons and selected combo items wore read heavy on the light surfaces. Light now uses Shields Up's flat accent fills (#007AFF primary, #D70015 danger); Dark keeps its subtle gradients.
+- Light remains the default (adopted once on upgrade since v2026.10.30.12; Settings → theme still switches live, and an explicit Dark choice sticks forever).
+
+No other changes from v2026.10.30.12.
+
+
+================================================================================
+  2026.10.30.12  -  released 2026-10-30
+================================================================================
+
+# AutoCommand III — v2026.10.30.12
+
+The Shields Up light look is now the app's default.
+
+## What changed
+
+- **Light (the Shields Up look) is the default theme.** v2026.10.30.10 shipped it as the Light option while Dark remained the default — so launching the app still showed Dark. Now a fresh install starts in the Shields Up look, and existing installs adopt it once on next launch (their registry said "Dark" only because the old default wrote it there, never because it was chosen). Prefer the operator Dark? Settings → theme switches live, and the choice sticks permanently — the one-time adoption never runs again.
+
+No other changes from v2026.10.30.11.
+
+
+================================================================================
+  2026.10.30.11  -  released 2026-10-30
+================================================================================
+
+# AutoCommand III — v2026.10.30.11
+
+Hotfix for v2026.10.30.10.
+
+## Fixed
+
+- **"A UI error occurred" when opening the Blocks tab** (and the Block
+  bulk-preview window): the theme sweep in .30.10 replaced the local
+  `BlocksMutedBrush`/`MutedBrush` XAML definitions with the theme-aware
+  `MutedTextBrush`, but seven code-behind lookups fetched the old brushes
+  by NAME STRING (`FindResource("BlocksMutedBrush")`) — invisible to both
+  the text sweep and the compiler, so they threw at view load. All seven
+  now point at `MutedTextBrush`, and an audit of every string-keyed
+  `FindResource` in the code-behind confirms no other lookup references a
+  missing key.
+
+No other changes from v2026.10.30.10.
+
+
+================================================================================
+  2026.10.30.10  -  released 2026-10-30
+================================================================================
+
+# AutoCommand III — v2026.10.30.10
+
+The audit tab, the bridge session/transport fixes from the field report,
+and the Shields Up light theme — consolidated.
+
+## What changed
+
+- **New Audit tab: the story of every block, told in sentences.**
+  `blocks-events.log` has always recorded everything; now it's readable.
+  Consecutive events group into incidents, and each incident is one
+  plain-language sentence ("AutoCommand blocked 6 addresses and 2 programs
+  over a few minutes", "You pressed the panic button — every block rule
+  went off") with day headers, severity chips and the raw lines one click
+  deep. The Blocks tab shows a one-toast-per-visit digest (counts by
+  category, never one toast per event), and a first visit adopts history
+  silently instead of replaying the log. Fleet operations (panic button,
+  re-enable-all, restore-except-risky, consolidate) and hand-toggled rules
+  now write audit events at the spots the pause history couldn't see.
+- **AI access bridge: the session-file and transport round.** A sibling
+  app instance exiting can no longer revoke the live session's
+  `session.json` (deletion is pid-guarded now — the field report's
+  "session.json never written" was written-then-deleted by the old
+  build's exit). Every transport error speaks one JSON-RPC dialect
+  (405 included); lengthless/chunked POSTs answer 411 and malformed
+  bodies a real 400 instead of closing the connection bare (the
+  flaky-empty-response class); rejections drain the request body so
+  Windows sends FIN, not RST; tool JSON embedded in results reads as
+  conventional `\"` escapes. Sixteen new wire-level self-test checks
+  lock these behaviors in.
+- **Light theme is now the Shields Up look.** Settings → theme → Light
+  switches live to the Shields Up design system (#ECF2F9 canvas, white
+  surfaces, #007AFF accent, light-tuned status colors), and the last
+  ~60 hard-coded dark-tuned colors across the views were routed through
+  theme brushes so both themes hold everywhere. Dark remains the
+  default.
+- **Smaller download:** the AgentProxy bundle ships compressed
+  (15.3 → 11.5 MB).
+
+## Upgrade notes
+
+Restart the app to pick this up. No settings or data migrations; the
+bridge token/port scheme is unchanged, and the Audit tab adopts your
+existing `blocks-events.log` history on first visit without replaying
+it as notifications.
+
+
+================================================================================
+  2026.10.30.9  -  released 2026-10-30
+================================================================================
+
+# AutoCommand III — v2026.10.30.9
+
+The confirmation popup **is** the policy: the mutating toggle is gone, and
+session grants are scoped to one target.
+
+## What changed
+
+- **Be My Guest loses the "Allow mutating actions" checkbox** (and its
+  `mutating_pref.txt` preference, deleted on startup). The gate pair —
+  `open_gate` / `close_gate` — is always offered to interactive sessions,
+  and **every request confirms in the app** with the exact target,
+  duration, auto-close time, and the agent's reason. No session-wide
+  stance to configure or forget to turn off — and the "agent asked but
+  nothing happened" failure mode (a toggle silently hiding `open_gate`
+  from the session) is impossible by construction. Headless sessions
+  remain gate-free (no UI to ask).
+- **"For this session" grants are per-target, not per-tool.** Granting
+  gates for one address or host covers only that target — every other
+  blocked service or host asks again, first time, every session. The
+  dialog's checkbox states its own scope ("Allow gates for THIS target
+  for the rest of the session — other targets still ask"), and the
+  activity log records each grant with "(this target only)".
+- The unknown-tool vs tools-off error split in the bridge keeps its
+  meaning for headless sessions.
+
+## The agent surface, complete picture
+
+19 read-only tools (observe everything: monitor, Sysmon, transmissions,
+blocks, hits, containment, diagnosis, investigation, gates list) plus the
+request path: `open_gate` (1/10/30/60 minutes, user-confirmed for one
+specific target, self-closing on expiry or app exit), `close_gate`
+(early close), `list_gates`. Blocking rules, processes, and scheduled
+tasks are human-only surfaces.
+
+## Upgrade notes
+
+Restart the app to pick this up. First launch deletes the obsolete
+`mutating_pref.txt`. Sessions started by older clients keep working —
+the token and port scheme are unchanged.
+
+
+================================================================================
+  2026.10.30.8  -  released 2026-10-30
+================================================================================
+
+# AutoCommand III — v2026.10.30.8
+
+Maintenance release following the manually-cut v2026.10.30.7: increments the
+version on a clean tree and carries the release-notes title correction
+(the v2026.10.30.7 notes were briefly mislabeled .30.6). No code changes
+since v2026.10.30.7 — binaries are functionally identical; this release
+exists so the pipeline, tag and version stay in lockstep.
+
+## For anyone arriving here from v2026.10.30.7
+
+That release (identical code) contained the agent-surface changes: the six
+MCP bridge fixes from the field bug report (proper 401 + JSON-RPC error for
+bad tokens, no stale tool list in session.json, compact payloads with
+`structuredContent`, documented port scheme, distinct unknown-tool vs
+mutating-off errors, one published row schema for `list_recent_block_hits`)
+and the removal of `block_ip`, `unblock_ip`, `kill_process` and
+`disable_task` — the agent surface is now 19 read-only tools plus the
+user-confirmed, self-closing gate pair (`open_gate` / `close_gate` /
+`list_gates`).
+
+
+================================================================================
+  2026.10.30.7  -  released 2026-10-28
+================================================================================
+
+# AutoCommand III — v2026.10.30.7
+
+The agent-surface release: six bridge fixes from field bug reports, and the
+mutating tool set pared down to exactly the gate pair.
+
+## MCP bridge fixes
+
+1. **Bad Bearer token now answers properly** — HTTP 401 plus a JSON-RPC
+   error envelope explaining that tokens change on every session restart
+   and to re-read `session.json` (was a silent close / non-RPC body). The
+   loopback-403 and payload-too-large rejects carry JSON-RPC errors too —
+   one uniform error shape.
+2. **`session.json` no longer carries a tool list** — it went stale the
+   moment a build added a tool mid-session; the live `tools/list` is
+   authoritative. The file's contract is `{port, token, pid, mutatingAllowed}`.
+3. **No more double-decoding** — tool payloads are compact JSON (no `\r\n`
+   inside the text), and parsed JSON is attached as `structuredContent`
+   for MCP 2025-06-18 clients.
+4. **Port scheme documented** — the bridge takes `portBase + first free
+   offset` per running instance; sibling instances reject foreign tokens.
+   Read `session.json`, never hardcode a port.
+5. **Distinct errors** — a typo reads "Unknown tool — call tools/list"; a
+   real tool behind the policy reads "exists, but this session has mutating
+   tools OFF — enable in AI access settings and restart the session."
+6. **One published row schema** — `list_recent_block_hits` rows now use
+   `block-hits.jsonl`'s exact field names (`Image`, `Pid`, `DestIp`,
+   `DestPort`, `MatchKind`) with aggregate extras (`Process`, `Attempts`,
+   `FirstUtc`, `LastUtc`) additive. Note: field renames from the old
+   `ts_last_utc` / `destination` / `blocked_kind` names.
+
+## The agent surface is now observe + request
+
+`block_ip`, `unblock_ip`, `kill_process`, and `disable_task` are removed.
+Agents observe everything (19 read-only tools) and may request exactly one
+mutating thing: **a time-boxed gate** — `open_gate` / `close_gate`, each
+call confirmed by the user for one specific target, each window
+self-closing (1/10/30/60 min, expiry, or app exit). Killing processes,
+disabling scheduled tasks, and creating or deleting block rules are
+human-only surfaces again.
+
+## Also in this release train
+
+The complete block-gate service with agent-visible lifecycle
+(v2026.10.30.4/.5).
+
+## Upgrade notes
+
+Restart the app (and kill any stale second instance — it holds a sibling
+bridge port and a stale token). Agents parsing `list_recent_block_hits`
+rows must use the new field names. No format or firewall-rule changes.
+
+
+================================================================================
+  2026.10.30.5  -  released 2026-10-28
+================================================================================
+
+# AutoCommand III — v2026.10.30.5
+
+Completes the **block-gate** service (introduced in v2026.10.30.4): gate
+lifecycle is now agent-visible everywhere the bridge records state.
+
+## What's new
+
+- **Gate lifecycle in the bridge's activity log** — the agent-facing record
+  (Be My Guest tab, offline agents): `opened` (target, duration, reason) at
+  the user's confirmation, `closed (by agent)` on an early close, and a
+  startup subscription logs `closed (gate-expiry)` / `closed (gate-exit)` —
+  the two closes nobody is around to watch. A window ending is visible even
+  if the requesting agent and its client are long gone.
+- **The periodic monitor snapshot (`feed.jsonl`) carries `open_gates`** —
+  target, remaining minutes, closes-at, requesting client — so feed-only
+  consumers see which targets are temporarily unblocked at every snapshot,
+  no tool call needed.
+
+## The complete gate capability (v2026.10.30.4 + this)
+
+Agents resolve and preview one specific blocked target (`dry_run`), request
+a 1/10/30/60-minute unblock with a reason; the user confirms the exact
+target and wall-clock auto-close; blocking returns ON by itself. Gates
+persist across restarts (synchronously, before blocking turns off), close
+on app exit and expiry via the calibratable `gate-watch` instrument, show
+live state on Blocks tab rows ("gate 8m · mcp"), and are exposed through
+`open_gate` / `close_gate` / `list_gates`, the `gate_minutes_remaining`
+field on every `list_blocks` row, the activity log, and now the feed.
+Ambiguous names return candidates instead of acting; gates confirm every
+time.
+
+
+================================================================================
+  2026.10.30.4  -  released 2026-10-28
+================================================================================
+
+# AutoCommand III — v2026.10.30.4
+
+**Block gates** for AI agents: a time-boxed unblock the user confirms for
+one specific target, which closes itself.
+
+## The agent flow
+
+Three new MCP tools:
+
+- **`open_gate(target, minutes, reason?, dry_run?)`** — temporarily stop
+  blocking ONE specific blocked IP or process image for **1, 10, 30 or 60
+  minutes** (the agent picks the shortest window its task needs). The user
+  confirms the exact target in AutoCommand — the dialog shows the target,
+  the rule count, the wall-clock auto-close time, and the agent's reason.
+  Blocking returns ON automatically when the window ends. `dry_run` previews
+  the resolution without asking anyone.
+- **`close_gate(target)`** — close early, blocking back ON immediately.
+  The tool descriptions teach this as good citizenship: every minute a gate
+  is open is a minute its target is unblocked.
+- **`list_gates()`** — what's open, remaining minutes, requester, reason —
+  check before requesting; `list_blocks` rows now carry
+  `gate_minutes_remaining` too.
+
+**Specificity is enforced, not requested**: an ambiguous name (40 blocked
+svchost targets) returns the candidate list with an error telling the agent
+to be precise — it never acts. Unknown targets and invalid durations return
+teaching errors. Re-opening an existing gate extends it after a fresh
+confirmation; gates confirm every time (the "always for this session" grant
+does not apply to them).
+
+## Safety properties
+
+- **gates.json is written synchronously before blocking turns off** — the
+  one store that does not ride the managed write buffers, because a lost
+  gate record would mean protection stays down.
+- **App exit closes every open gate** (a dead app never leaves a door
+  open); startup closes anything that expired while it was down, and the
+  10-second `gate-watch` instrument (calibratable like every instrument)
+  closes gates as their windows end.
+- Only `AC-BLOCK-*` rules AutoCommand itself created are ever touched;
+  every transition lands in `blocks-events.log` (`mcp`, `gate-expiry`,
+  `gate-exit`), and the Blocks tab shows live gate state on the row
+  ("gate 8m · mcp") with the auto-close time on hover.
+
+## Also in this release train
+
+Managed buffer writes for every periodic disk writer, the instrumentation
+metronome with user-calibrated cadences, the Blocks master-detail redesign
+with blocking ON/OFF wording, the preview-window crash fix, and the
+dead-code sweep (v2026.10.30.1–.3).
+
+
+================================================================================
+  2026.10.30.3  -  released 2026-10-28
+================================================================================
+
+# AutoCommand III — v2026.10.30.3
+
+The performance release: one calibrated scheduler for every periodic
+instrument, one coalescing write path for every periodic disk writer, and a
+long list of dead code removed. Plus the crash and contrast fixes from
+earlier today.
+
+## Instrumentation Metronome — spread, calibrated, self-budgeting
+
+- **One registry, one scheduler** for periodic work. Instruments are
+  phase-spread by a stable id hash (equal-cadence work never piles onto the
+  same instant — the mechanism behind the 1 Hz desktop hitch) and heavy
+  instruments are serialized a second apart.
+- **Settings ▸ Instrumentation** replaces Security Check Rate: per
+  instrument — on/off, cadence (1 s → 60 s → Off), live last-run stats,
+  restore defaults. Persisted to `cadence_settings.json`, hot-applied;
+  `check_interval.txt` migrates once as the enforcer's calibration.
+- **Self-budgeting**: a run over 500 ms on your machine auto-slows its
+  instrument (×5, capped 30 s) with an amber note, instead of stuttering
+  the desktop.
+- Migrated: the security enforcer fast checks and the svchost trace poll —
+  whose 1 s WMI enumeration now gathers **off the UI thread** (the UI
+  thread never blocks on WMI), drops its every-5th-tick second WMI pass,
+  updates status at 1/5th cadence, and caps its recording buffers.
+
+## Managed disk writes
+
+- **BufferedAppender** (Engines.Core): journal lines buffer per path
+  (self-flush at 256 KB); state/store rewrites are last-write-wins with a
+  content guard — identical content never touches the disk.
+- Routed writers: the Sysmon archive (event lines *and* the watermark that
+  used to fully rewrite per event), the agent bridge's activity/feed logs,
+  and the blocks store (`blocks.txt` + `blocks-events.log`).
+- Flushes ride the metronome (disk-flush instrument, 30 s default, user
+  calibratable) plus app exit; **readers flush their own paths first**, so
+  read-after-write stays exact. Crash window = one flush interval — safe by
+  design: the blocks store reconciles from the firewall rules, the archive
+  watermark tolerates boundary duplicates.
+- Settings shows the receipts: flushed/buffered bytes with top sinks, a
+  **Minimize disk writes** preset (5-minute flush, 1 MB buffers), and
+  Flush-now.
+
+## Fixes
+
+- **Crash (v2026.10.30.1)**: every bulk blocking action opened a preview
+  window whose XAML fired a `Checked` handler before the second radio
+  button existed — NullReferenceException on click. Handlers now attach
+  after construction; the label update is null-safe.
+- **Blocks tab contrast**: the tab carries its own brighter muted gray
+  (~9.7:1 vs the ~6:1 app-wide secondary), 10 px text bumped to 11 px, and
+  the search box no longer renders with default white chrome.
+
+## Dead code removed
+
+The v2026.10.30 sidebar slim removed tabs but left machinery: six orphaned
+views (Dns, PythonSpawn, PythonInstrumentDialog, TaskHostSpawn,
+BitsContentPreview, SvchostTrace), the BITS and PyTrace service families,
+TelemetryRulesService, DnsQueryFeedService, three test projects that existed
+only for them, and — from an earlier sweep — the orphaned AutoCommand.Sdk
+project and the Roslyn package reference it justified. Nothing the MCP
+bridge serves was lost: the bridge consumes engines, not views.
+
+## Upgrade notes
+
+No format, rule-name, or path changes; `blocks.txt`, `blocks-events.log`,
+the Sysmon archive and all `AC-BLOCK-*` firewall rules carry over
+untouched. First launch migrates `check_interval.txt` into
+`cadence_settings.json` (the old file is ignored from then on).
+
+
+================================================================================
+  2026.10.30.2  -  released 2026-10-28
+================================================================================
+
+# AutoCommand III — v2026.10.30.2
+
+The Blocks tab rebuilt as a **master–detail** view, with wording that always
+names its object — plus a fix for a crash shipped in v2026.10.30.1.
+
+## Crash fix (all v2026.10.30.1 users should upgrade)
+
+Opening any bulk action's preview crashed the app: the preview window's XAML
+wired a `Checked` handler that fired while the window was still parsing
+(`IsChecked="True"` ran before the second radio button existed). Every bulk
+button — Turn blocking back ON / OFF, the category buttons, the Restore
+guide — hit it. Handlers now attach after construction and the label update
+is null-safe.
+
+## Master–detail categories
+
+- **Left panel** — every category visible at once: severity badge (only when
+  it matters: 🔴 high, 🟠 medium, nothing for normal), service name, a
+  proportional on/off state bar and `N on · M off` counts. Clicking a
+  category shows its blocks on the right; ↑/↓ walks the list.
+- **Right panel** — the selected category's detail: description, totals and
+  leak warnings, scoped actions (`Restore blocking (N off)` /
+  `Stop blocking (N on)`), and the familiar row grid.
+- A pinned **All blocks** row keeps the flat everything-view; the **search
+  box** finds categories *and* targets (an IP hit selects its category); a
+  splitter sizes the panes.
+- The old accordion expander — its chevron, and the always-white impact
+  circle — are gone. Basket checkboxes now appear **only** on rows where
+  they can act (blocking OFF); active rows show no dead grey checker.
+- The state ribbon lenses the **category list**: click `⏸ N blocking OFF`
+  and the left panel shortens to exactly the categories holding inactive
+  rules, with each category's checkbox selecting its OFF blocks for
+  restore.
+
+## Wording: the object is always BLOCKING
+
+"Resume paused" asked users to reconstruct a reference point — is the
+process paused, or is blocking the process paused? Every verb now names its
+object, and state words are ON/OFF, which need no memory of prior state:
+
+- `Turn blocking back ON (289 off)` · `Turn blocking OFF (55 on)`
+- Rows: `Stop blocking` / `Restore blocking`
+- Chips: `⛔ N blocking ON` / `⏸ N blocking OFF` / `◐ N partial`
+- Toast: `Blocking restored — 289 targets ON again` (with ↩ Undo)
+
+## Upgrade notes
+
+No format, rule-name, or path changes — `blocks.txt`, `blocks-events.log`
+and all `AC-BLOCK-*` firewall rules carry over untouched.
+
+
+================================================================================
+  2026.10.30.1  -  released 2026-10-28
+================================================================================
+
+# AutoCommand III — v2026.10.30.1
+
+A ground-up redesign of the **Blocks tab** for large block inventories — the
+view was built for dozens of blocks, but real machines accumulate hundreds
+(one test machine: 344 targets, 565 of 671 rules disabled), and at that scale
+the old binary "Pause all / Resume all" rows hid more than they said.
+
+## What's new
+
+- **State ribbon**: the passive count chips are now filters — click `⏸ N
+  paused` (or active / partial / high-impact / unattributed / on-MS-infra)
+  and the list lenses to exactly those rows, identity columns intact. The
+  paused chip is the one view of every inactive block: what it is, who
+  triggered it, when it was blocked, whether anything still tries it.
+- **Honest group headers**: a proportional green/amber active-vs-paused bar
+  with `N active · M paused` text, and two separate commands labeled with the
+  count they will actually change — `▶ Resume paused (M)` / `⏸ Pause active
+  (N)` — replacing the ambiguous all-or-nothing toggle that a mixed group
+  rendered as "Pause all (131)".
+- **One preview instead of a modal wall**: every bulk pause/resume (global,
+  per group, per selection, and the Restore guide) goes through a single
+  change-preview sheet — scope grouped by service, exact target/rule counts,
+  amber warnings on 🔴 high-impact groups, and a one-click **"all except
+  high-impact"** option. Apply writes one batched status flip and one audit
+  event (`BlocksStore.SetStatuses`), not a file rewrite per target.
+- **Undo everywhere**: applying shows a result toast with **↩ Undo** backed
+  by a before-state snapshot, so "restore all 289 paused blocks" is one
+  decision you can take back.
+- **Truthful row state**: rows distinguish **partial** coverage (some of a
+  target's rules on, some off — `◐`) from fully active or paused, and paused
+  rows show *why* they are off — `⏸ 3d · Blocks tab` — recovered from the
+  audit log's newest pause event.
+- **Bulk-resume selection**: checkboxes on paused rows, a tri-state "Select
+  all paused" master, and `▶ Resume selected (N targets · M rules)` through
+  the same preview.
+
+## Upgrade notes
+
+- No format, rule-name, or path changes — `blocks.txt`, `blocks-events.log`
+  and all `AC-BLOCK-*` firewall rules carry over untouched. The audit log is
+  now also read (tail only) to recover pause provenance; nothing new is
+  written to it beyond the batched events.
+
+
+================================================================================
+  2026.10.30  -  released 2026-10-28
+================================================================================
+
+# AutoCommand III — v2026.10.30
+
+The same app — every view, every behavior, every self-test — with its core
+engine layer rebuilt in **F#**. The C# WPF shell and app services now drive
+app-agnostic F# engines; nothing about what you see or click changed.
+
+## What's new in III
+
+- **F# core engines** (`Engines/`, five projects, ~17.6k lines): firewall
+  management with strong-typed COM (no `dynamic`), Sysmon watching and
+  archive, the TCP capture / TLS decrypt / transmissions pipeline, DNS
+  geo/org resolution with the idle reconciler and an in-engine RDAP
+  client, process provenance / task attribution / spawn watching, the
+  site-doctor verdict engine, and the MCP agent bridge. 32 C# engine
+  implementations retired.
+- **Everything autocommand-ii added after the engine fork was ported
+  forward**: the full DNS geo architecture (/24 prefix cache, adaptive
+  backoff, RDAP fallback, ResolveNow / RetryUnresolved /
+  DescribeResolveState, idle reconciliation), firewall v2 path-hash app
+  blocks with `RetireDeadAppBlockRulesAsync`, stale-block inventory
+  surfacing (`StaleRules` / `CoverageNote`), `TlsKeylogStore`,
+  `BuildReportText`, and MCP stale-registration detection.
+- **Engines are app-agnostic by construction** — the same engine codebase
+  serves the AutoCommand / AutoScope / AutoTrack family; every app name,
+  rule prefix, data path and port is injected via `AppIdentity`.
+- **Self-tests, all green**: ContainSelfTest (firewall), SiteDoctorSelfTest
+  (diagnosis), NetWatchSelfTest (watch + DNS idle), ProxyInstallSelfTest
+  (bridge + stale detection), DnsFeedSelfTest, OneSettingsCadenceSelfTest
+  (52/52), PyTraceSelfTest reassemble.
+
+## Upgrade notes
+
+- The DNS / geo / RDAP caches now live under `%LOCALAPPDATA%\AutoCommand`
+  (engine-identity paths); same file names and formats — copy them over by
+  hand if you want to keep a warm cache.
+- AI sessions, firewall rule names (`AC-BLOCK-*`), the undo ledger and the
+  loopback bridge port (47821) are unchanged; existing rules and MCP client
+  registrations carry over untouched.
 
 
 ================================================================================

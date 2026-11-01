@@ -1,8 +1,4 @@
 using System;
-using AutoCommand.Contain.Core;
-using AutoCommand.Forensics.Core;
-using AutoCommand.Intercept.Core;
-using AutoCommand.NetWatch.Core;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -11,6 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using Microsoft.Win32;
+using AutoCommand.Engines.Watch;
 
 namespace AutoCommand.Forensics.Core
 {
@@ -21,11 +18,17 @@ namespace AutoCommand.Forensics.Core
     /// site-packages — never as sitecustomize.py (which may belong to the
     /// user) and never by touching the interpreter binary. Everything written
     /// is tracked in a local manifest so Uninstall removes only our files.
+    ///
+    /// Port note vs autocommand-ii: the payload is embedded in THIS assembly
+    /// (LogicalName AutoCommand.Assets.PyTraceHook.py) — same assembly as
+    /// ReadPayloadText(), fixing ii's cross-assembly seam where the resource
+    /// lived in the app exe while the reader ran from the core dll.
     /// </summary>
     public class PyTraceInstallerService
     {
-        // Keylog-hygiene target: null = the machine pytrace dir; the self-test
-        // injects a temp dir so a suite never touches real user state.
+        // Keylog-hygiene target: null = the identity's machine pytrace dir;
+        // the self-test injects a temp dir so a suite never touches real
+        // user state.
         private readonly TlsKeylogStore _keylogStore = new TlsKeylogStore();
 
         public PyTraceInstallerService(string keylogDir = null)

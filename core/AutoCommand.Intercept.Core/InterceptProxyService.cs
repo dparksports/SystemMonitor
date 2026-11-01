@@ -1,6 +1,4 @@
 using System;
-using AutoCommand.Intercept.Core;
-using AutoCommand.NetWatch.Core;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -11,7 +9,7 @@ using System.Security.Authentication;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using AutoCommand.Models;
+using AutoCommand.NetWatch.Core;
 
 namespace AutoCommand.Intercept.Core
 {
@@ -29,9 +27,10 @@ namespace AutoCommand.Intercept.Core
     ///     the kernel TCP table; TARGET traffic is MITM'd (leaf cert from
     ///     the session CA, upstream validated for real — both legs TLS),
     ///     everything else is tunnelled byte-for-byte, untouched
-    ///   - decrypted directions are decoded by the same HttpStreamDecoder
-    ///     and ingested into the Transmissions tab with status
-    ///     "decrypted · intercept"
+    ///   - decrypted directions are ingested through the F# Transmissions
+    ///     pipeline's intercept seam (HTTP decode, archive, body cache) with
+    ///     status "decrypted · intercept" — the scoped peek that started the
+    ///     session shows them for exactly this subject
     ///   - certificate-pinned clients fail loudly; that failure is recorded
     ///     as "refused intercept (pinning)" — a signal, not an error
     ///   - the session is time-boxed (default 15 minutes) and ends by
@@ -44,7 +43,7 @@ namespace AutoCommand.Intercept.Core
         public static readonly TimeSpan DefaultTtl = TimeSpan.FromMinutes(15);
         private const long TeeCapPerDirection = 8 * 1024 * 1024;
 
-        /// <summary>Session lifecycle + background errors, for the tab's banner.</summary>
+        /// <summary>Session lifecycle + background errors, for the peek's banner.</summary>
         public event Action<string> OnSessionEnded;
         public event Action<string> OnStatus;
 
@@ -274,7 +273,7 @@ namespace AutoCommand.Intercept.Core
 
             if (!isTarget)
             {
-                await TunnelAsync(clientStream, host, port, tee: false, initialClientBytes: leftover);
+                await TunnelAsync(clientStream, host, port, initialClientBytes: leftover);
                 return;
             }
 
@@ -315,7 +314,7 @@ namespace AutoCommand.Intercept.Core
             }
 
             string tlsVersion = TlsName(clientTls.SslProtocol);
-            string cipher = clientTls.CipherAlgorithm.ToString();
+            string cipher = clientTls.NegotiatedCipherSuite.ToString();
 
             var requestTee = new MemoryStream();
             var responseTee = new MemoryStream();
@@ -406,9 +405,8 @@ namespace AutoCommand.Intercept.Core
             }
         }
 
-        /// <summary>Byte-for-byte relay, optionally teeing both directions
-        /// for later HTTP decoding (plaintext HTTP only).</summary>
-        private static async Task TunnelAsync(NetworkStream clientStream, string host, int port, bool tee, byte[] initialClientBytes)
+        /// <summary>Byte-for-byte relay for non-target traffic — untouched.</summary>
+        private static async Task TunnelAsync(NetworkStream clientStream, string host, int port, byte[] initialClientBytes)
         {
             TcpClient upstream;
             try
@@ -492,7 +490,8 @@ namespace AutoCommand.Intercept.Core
 
                 // Same image counts as the target ONLY for non-shared-host
                 // images — matching "svchost.exe" would swallow every
-                // service on the machine.
+                // service on the machine. A svchost target is matched by
+                // its exact PID only.
                 if (_targetImage == null) return false;
                 string name = Path.GetFileName(_targetImage);
                 if (SharedHostImages.Contains(name, StringComparer.OrdinalIgnoreCase)) return false;
@@ -511,7 +510,7 @@ namespace AutoCommand.Intercept.Core
         }
 
         // -----------------------------------------------------------------------
-        // Ingest into the Transmissions pipeline
+        // Ingest into the F# Transmissions pipeline's intercept seam
         // -----------------------------------------------------------------------
 
         private void IngestIntercepted(int pid, string host, int port,
@@ -552,8 +551,8 @@ namespace AutoCommand.Intercept.Core
         {
             SslProtocols.Tls13 => "TLS 1.3",
             SslProtocols.Tls12 => "TLS 1.2",
-            SslProtocols.Tls11 => "TLS 1.1",
-            SslProtocols.Tls => "TLS 1.0",
+            // 1.0/1.1 cannot be negotiated on current OS defaults; the enum
+            // name is honest enough for the one legacy server that tried.
             _ => protocol.ToString(),
         };
 

@@ -21,12 +21,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- The top of the core layering: Forensics -> Contain -> Intercept ->
-         NetWatch. TraceMetricsService alone touches all three (catalog +
-         svchost identity, transmissions archive, sysmon archive + TCP
-         table + classification); the others touch one or two. -->
+    <!-- The top of the core layering: Forensics -> Contain -> NetWatch
+         (the Intercept layer was removed). TraceMetricsService alone
+         touches all three (catalog + svchost identity, transmissions
+         archive, sysmon archive + TCP table + classification); the
+         others touch one or two. -->
     <ProjectReference Include="..\AutoCommand.Contain.Core\AutoCommand.Contain.Core.csproj" />
-    <ProjectReference Include="..\AutoCommand.Intercept.Core\AutoCommand.Intercept.Core.csproj" />
     <ProjectReference Include="..\AutoCommand.NetWatch.Core\AutoCommand.NetWatch.Core.csproj" />
   </ItemGroup>
 
@@ -41,8 +41,31 @@
   <ItemGroup>
     <!-- WMI + event channels: provenance reads Sysmon via both; the BITS
          watcher and spawn watcher follow live event channels. -->
-    <PackageReference Include="System.Management" Version="10.0.0-preview.4.25258.110" />
-    <PackageReference Include="System.Diagnostics.EventLog" Version="10.0.0-preview.4.25258.110" />
+    <PackageReference Include="System.Management" Version="10.0.13" />
+    <PackageReference Include="System.Diagnostics.EventLog" Version="10.0.13" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The python audit-hook payload, embedded next to its reader —
+         PyTraceInstallerService.ReadPayloadText reads it from THIS assembly
+         (LogicalName keeps the ii resource name), closing ii's cross-assembly
+         seam where the resource lived in the app exe. -->
+    <EmbeddedResource Include="PyTraceHook.py" LogicalName="AutoCommand.Assets.PyTraceHook.py" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Engines\Engines.Watch\Engines.Watch.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Engines\Engines.Core\Engines.Core.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="IpClassifier = AutoCommand.Engines.Core.IpClassification" />
+
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="AutoCommand.Engines.Watch" />
+  </ItemGroup>
 </Project>

@@ -1,465 +1,185 @@
-// Offline verification for the Python Spawns engine — run via
-// docs/py-spawns-selftest.sh (which drives the TLS half with real python
-// traffic over a local relay). No elevation needed.
+// PyTrace self-test — the python instrumentation pair, offline:
+//   • the embedded hook payload (the ii cross-assembly seam regression:
+//     resource must resolve from the SAME assembly as its reader)
+//   • installer round-trip (Install/IsInstalled/manifest/Uninstall removes
+//     only our two files) against a fake site-packages in a temp dir
+//   • env detection (venv layout, embedded-distribution refusal)
+//   • ScanForVenvs (bounded hunt, skip list, streaming)
+//   • PyTraceRecord parse + the reader tail (offset resume, per-pid store)
+//   • `tls` verb (manual, driven by docs\selftest\run-selftest.ps1):
+//     decrypt a REAL captured TLS session via the keylog.
 //
-//   reassemble                    synthetic IP/TCP packets → reassembled streams
-//   tls <client.bin> <server.bin> <keylog-dir>   real captured TLS streams → plaintext
-
-using System.Net;
-using AutoCommand.Contain.Core;
-using AutoCommand.Forensics.Core;
-using AutoCommand.Intercept.Core;
-using AutoCommand.NetWatch.Core;
-using System.Threading;
+// Everything runs against temp dirs injected through the service seams;
+// the real %LOCALAPPDATA% pytrace state is never touched.
 using System.Text;
-using AutoCommand.Models;
+using System.Text.Json;
+using AutoCommand.Engines.Core;
+using AutoCommand.Engines.Watch;
+using AutoCommand.Forensics.Core;
 
-namespace PyTraceSelfTest
+int failures = 0;
+void Check(string name, bool pass, string evidence = "")
 {
-    internal static class Program
+    Console.WriteLine($"{(pass ? "PASS" : "FAIL")}  {name}{(pass || evidence.Length == 0 ? "" : "  — " + evidence)}");
+    if (!pass) failures++;
+}
+
+string tempRoot = Path.Combine(Path.GetTempPath(), "pytrace-selftest-" + Guid.NewGuid().ToString("N")[..8]);
+WatchConfig.Configure(new AppIdentity(
+    "PyTraceSelfTest", tempRoot, "TEST-IP ", "TEST-APP ",
+    Microsoft.FSharp.Collections.ListModule.OfSeq(Array.Empty<string>()), 47821, "pytrace-selftest"));
+
+if (args.Length > 0 && args[0] == "tls")
+{
+    // docs\selftest\run-selftest.ps1 drives this against a REAL captured
+    // loopback TLS session: tls <client.bin> <server.bin> <keylog-dir>
+    return RunRealTls(args);
+}
+
+// ── 1. the embedded payload ─────────────────────────────────────────
+string payload;
+try
+{
+    payload = PyTraceInstallerService.ReadPayloadText();
+    Check("payload resource resolves from the reader's own assembly", payload.Length > 200);
+    Check("payload registers an audit hook", payload.Contains("addaudithook", StringComparison.Ordinal));
+    Check("payload sets SSLKEYLOGFILE", payload.Contains("SSLKEYLOGFILE", StringComparison.Ordinal));
+    Check("payload honors the no-keylog opt-out", payload.Contains("no-keylog", StringComparison.Ordinal));
+}
+catch (Exception ex)
+{
+    Check("payload resource resolves from the reader's own assembly", false, ex.Message);
+    Console.WriteLine($"{failures} CHECK(S) FAILED");
+    return 1;
+}
+
+// ── 2. installer round-trip against a fake site-packages ────────────
+string fakeSite = Path.Combine(tempRoot, "venv", "Lib", "site-packages");
+string venvRoot = Path.GetFullPath(Path.Combine(tempRoot, "venv"));
+Directory.CreateDirectory(fakeSite);
+Directory.CreateDirectory(Path.Combine(venvRoot, "Scripts"));
+File.WriteAllText(Path.Combine(venvRoot, "pyvenv.cfg"), "home = fake\n");
+File.WriteAllText(Path.Combine(venvRoot, "Scripts", "python.exe"), "stub");
+
+var installer = new PyTraceInstallerService(keylogDir: Path.Combine(tempRoot, "keylog"));
+var env = PyTraceInstallerService.EnvFromExeDir(venvRoot, "selftest");
+Check("venv layout detected", env != null && env.Source == "selftest" &&
+      env.SitePackages.Replace('/', '\\').EndsWith("Lib\\site-packages", StringComparison.OrdinalIgnoreCase),
+      env?.SitePackages ?? "(null)");
+Check("fresh environment is not instrumented", !installer.IsInstalled(env.SitePackages));
+
+Check("install succeeds", installer.Install(env) == null);
+Check("IsInstalled after install", installer.IsInstalled(env.SitePackages));
+Check("payload module written", File.Exists(Path.Combine(env.SitePackages, "PyTraceHook_ac.py")));
+Check(".pth importer written", File.ReadAllText(Path.Combine(env.SitePackages, "PyTraceHook_ac.pth"))
+      .TrimEnd() == "import PyTraceHook_ac");
+Check("manifest records the environment",
+      installer.LoadManifest().Count == 1 &&
+      installer.LoadManifest()[0].Files.Count == 2);
+
+// an unrelated file in site-packages must survive the uninstall
+string stranger = Path.Combine(env.SitePackages, "not_ours.txt");
+File.WriteAllText(stranger, "keep me");
+Check("uninstall succeeds", installer.Uninstall(env.SitePackages) == null);
+Check("our files removed", !File.Exists(Path.Combine(env.SitePackages, "PyTraceHook_ac.py")) &&
+      !File.Exists(Path.Combine(env.SitePackages, "PyTraceHook_ac.pth")));
+Check("manifest cleaned", installer.LoadManifest().Count == 0);
+Check("unrelated files untouched", File.Exists(stranger));
+
+// ── 3. embedded-distribution refusal ─────────────────────────────────
+string embeddedRoot = Path.Combine(tempRoot, "embedded");
+Directory.CreateDirectory(Path.Combine(embeddedRoot, "Lib", "site-packages"));
+File.WriteAllText(Path.Combine(embeddedRoot, "python.exe"), "stub");
+File.WriteAllText(Path.Combine(embeddedRoot, "python._pth"), "python311.zip\n");
+var embedded = PyTraceInstallerService.EnvFromExeDir(embeddedRoot, "selftest");
+Check("embedded distribution detected but refused",
+      embedded != null && !embedded.CanInstrument &&
+      (embedded.DisableReason ?? "").Contains("Embedded", StringComparison.Ordinal));
+
+// ── 4. ScanForVenvs: bounded hunt with skip list ─────────────────────
+string scanRoot = Path.Combine(tempRoot, "scan");
+string needle = Path.Combine(scanRoot, "proj", "nested", "deeper", "venv");
+Directory.CreateDirectory(Path.Combine(needle, "Scripts"));
+Directory.CreateDirectory(Path.Combine(needle, "Lib", "site-packages"));
+File.WriteAllText(Path.Combine(needle, "pyvenv.cfg"), "home = fake\n");
+File.WriteAllText(Path.Combine(needle, "Scripts", "python.exe"), "stub");
+// decoys: a node_modules tree (skip-listed) and a deep branch past maxDepth
+Directory.CreateDirectory(Path.Combine(scanRoot, "proj", "node_modules", "pkg", "venvlike"));
+Directory.CreateDirectory(Path.Combine(scanRoot, "proj", "very", "deep", "branch", "venvlike"));
+var found = new List<string>();
+PyTraceInstallerService.ScanForVenvs(new[] { scanRoot }, maxDepth: 6, maxDirectories: 10_000,
+    e => found.Add(e.SitePackages), CancellationToken.None);
+Check("scan finds the real venv", found.Count == 1 && found[0].Replace('/', '\\')
+      .EndsWith("venv\\Lib\\site-packages", StringComparison.OrdinalIgnoreCase),
+      string.Join(" | ", found));
+
+// ── 5. record parse + reader tail ────────────────────────────────────
+var record = JsonSerializer.Deserialize<PyTraceRecord>(
+    """{"ts":1793500000.5,"pid":4242,"event":"subprocess.Popen","args":["'cmd.exe', '/c echo x'"],"stack":"  File \"t.py\", line 1, in <module>"}""");
+Check("record parses (pid/event/stack)",
+      record != null && record.Pid == 4242 && record.Event == "subprocess.Popen" &&
+      (record.Stack ?? "").Contains("t.py", StringComparison.Ordinal) && record.Header.Contains("subprocess.Popen"));
+
+string traceDir = PyTraceReaderService.TraceDir;
+Directory.CreateDirectory(traceDir);
+string traceFile = Path.Combine(traceDir, "trace-4242.jsonl");
+var sb = new StringBuilder();
+sb.AppendLine("""{"ts":1793500000.5,"pid":4242,"event":"subprocess.Popen","args":["a"],"stack":"File t.py line 1"}""");
+sb.AppendLine("this line is not json at all");   // malformed — counted, never fatal
+sb.AppendLine("""{"ts":1793500000.9,"pid":4242,"event":"os.system","args":[],"stack":"File t.py line 5"}""");
+File.WriteAllText(traceFile, sb.ToString());
+
+using var reader = new PyTraceReaderService();
+reader.Start(); // loadExisting: tails the file written just above
+Check("reader sees the pid", reader.HasTraceForPid(4242));
+var got = reader.GetForPid(4242);
+Check("reader stores valid records, skips malformed",
+      got.Count == 2 && got[0].Event == "subprocess.Popen" && got[^1].Event == "os.system" &&
+      reader.MalformedCount == 1,
+      $"{got.Count} records, {reader.MalformedCount} malformed");
+
+// tail resumes from the offset — an append adds exactly one record
+File.AppendAllText(traceFile,
+    """{"ts":1793500001.5,"pid":4242,"event":"os.startfile","args":[],"stack":"File t.py line 9"}""" + "\n");
+var deadline = DateTime.UtcNow.AddSeconds(8);
+while (reader.GetForPid(4242).Count < 3 && DateTime.UtcNow < deadline)
+    Thread.Sleep(100);
+Check("tail resumes from the offset", reader.GetForPid(4242).Count == 3,
+      reader.GetForPid(4242).Count.ToString());
+reader.Stop();
+
+try { Directory.Delete(tempRoot, true); } catch { }
+
+Console.WriteLine(failures == 0 ? "\nALL CHECKS PASSED" : $"\n{failures} CHECK(S) FAILED");
+return failures == 0 ? 0 : 1;
+
+// ── real-session decrypt (docs\selftest\run-selftest.ps1 verb) ───────
+static int RunRealTls(string[] args)
+{
+    if (args.Length < 4)
     {
-        // -----------------------------------------------------------------------
-        // TLS 1.2 parameter sweep (debug): find the exact derivation the
-        // captured OpenSSL session used, by trying the plausible variants for
-        // one post-CCS application_data record.
-        // -----------------------------------------------------------------------
-
-        private static int DebugSweep12(string[] args)
-        {
-            if (args.Length < 4)
-            {
-                Console.WriteLine("sweep12 <client.bin> <server.bin> <keylog-dir>");
-                return 2;
-            }
-            var keylog = new TlsKeylogService(args[3]);
-            keylog.Refresh();
-
-            byte[] client = File.ReadAllBytes(args[1]);
-            byte[] server = File.ReadAllBytes(args[2]);
-
-            // ClientHello random + ServerHello random
-            byte[] clientRandom = ParseRandom(client, handshakeType: 1);
-            byte[] serverRandom = ParseRandom(server, handshakeType: 2);
-            var secrets = keylog.GetSecrets(clientRandom);
-            if (secrets == null || !secrets.TryGetValue("CLIENT_RANDOM", out var master))
-            {
-                Console.WriteLine("no CLIENT_RANDOM secret");
-                return 1;
-            }
-
-            // The first post-CCS type-23 record in each direction
-            var (clientApp, clientSeqAll) = FindAppRecord(client);
-            var (serverApp, serverSeqAll) = FindAppRecord(server);
-            Console.WriteLine($"client app record: {clientApp.Length} B (record #{clientSeqAll}), server app record: {serverApp.Length} B (record #{serverSeqAll})");
-
-            var hashes = new[] { System.Security.Cryptography.HashAlgorithmName.SHA256,
-                                 System.Security.Cryptography.HashAlgorithmName.SHA384 };
-            var seeds = new (string name, byte[] seed)[]
-            {
-                ("srv||cli", serverRandom.Concat(clientRandom).ToArray()),
-                ("cli||srv", clientRandom.Concat(serverRandom).ToArray()),
-            };
-
-            int found = 0;
-            foreach (var hash in hashes)
-            foreach (var (seedName, seed) in seeds)
-            foreach (int keyLen in new[] { 16, 32 })
-            {
-                int blockLen = keyLen * 2 + 4 * 2;
-                byte[] block = Prf(master, "key expansion", seed, blockLen, hash);
-                // RFC 5246 §6.3 grouped layout: [client key][server key][client IV][server IV]
-                byte[] clientKey = block[..keyLen];
-                byte[] serverKey = block[keyLen..(keyLen * 2)];
-                byte[] clientIv = block[(keyLen * 2)..(keyLen * 2 + 4)];
-                byte[] serverIv = block[(keyLen * 2 + 4)..];
-
-                foreach (var (dir, data, halfKey, halfIv, seqAll) in new[]
-                     {
-                         ("client", clientApp, clientKey, clientIv, clientSeqAll),
-                         ("client", clientApp, serverKey, serverIv, clientSeqAll), // crossed halves
-                         ("server", serverApp, serverKey, serverIv, serverSeqAll),
-                         ("server", serverApp, clientKey, clientIv, serverSeqAll)  // crossed halves
-                     })
-                foreach (long aadSeq in new long[] { 0, 1, 2, 3, seqAll })
-                foreach (string lenMode in new[] { "plain", "ct", "full" })
-                foreach (bool ivAfter in new[] { false, true }) // fixed||explicit vs explicit||fixed
-                {
-                    if (data.Length < 8 + 16) continue;
-                    int lenValue = lenMode switch
-                    {
-                        "plain" => data.Length - 8 - 16,
-                        "ct" => data.Length - 8,
-                        _ => data.Length
-                    };
-                    var nonce = new byte[12];
-                    if (ivAfter)
-                    {
-                        Array.Copy(data, 0, nonce, 0, 8);
-                        Array.Copy(halfIv, 0, nonce, 8, 4);
-                    }
-                    else
-                    {
-                        Array.Copy(halfIv, 0, nonce, 0, 4);
-                        Array.Copy(data, 0, nonce, 4, 8);
-                    }
-                    var aad = new byte[13];
-                    for (int i = 0; i < 8; i++) aad[i] = (byte)(aadSeq >> (8 * (7 - i)));
-                    aad[8] = 23; aad[9] = 0x03; aad[10] = 0x03;
-                    aad[11] = (byte)(lenValue >> 8); aad[12] = (byte)(lenValue & 0xFF);
-
-                    if (TryGcm(halfKey, nonce, data[8..], aad, out byte[] plain))
-                    {
-                        Console.WriteLine($"HIT dir={dir} hash={hash.Name} seed={seedName} keyLen={keyLen} aadSeq={aadSeq} len={lenMode}");
-                        Console.WriteLine($"    plaintext[{plain.Length}]: {Encoding.ASCII.GetString(plain.Take(60).ToArray()).Replace("\r", "\\r").Replace("\n", "\\n")}");
-                        found++;
-                    }
-                }
-            }
-            Console.WriteLine(found > 0 ? $"SWEEP: {found} variant(s) decrypt" : "SWEEP: nothing decrypts — derivation is outside the matrix");
-            return found > 0 ? 0 : 1;
-        }
-
-        private static byte[] Prf(byte[] secret, string label, byte[] seed, int length,
-            System.Security.Cryptography.HashAlgorithmName hash)
-        {
-            byte[] labelSeed = Encoding.ASCII.GetBytes(label).Concat(seed).ToArray();
-            using System.Security.Cryptography.HMAC hmac = hash == System.Security.Cryptography.HashAlgorithmName.SHA384
-                ? new System.Security.Cryptography.HMACSHA384(secret)
-                : new System.Security.Cryptography.HMACSHA256(secret);
-            byte[] a = hmac.ComputeHash(labelSeed);
-            var output = new byte[length];
-            int filled = 0;
-            while (filled < length)
-            {
-                byte[] block = hmac.ComputeHash(a.Concat(labelSeed).ToArray());
-                int take = Math.Min(block.Length, length - filled);
-                Array.Copy(block, 0, output, filled, take);
-                filled += take;
-                a = hmac.ComputeHash(a);
-            }
-            return output;
-        }
-
-        private static bool TryGcm(byte[] key, byte[] nonce, byte[] ctAndTag, byte[] aad, out byte[] plain)
-        {
-            plain = null;
-            try
-            {
-                var result = new byte[ctAndTag.Length - 16];
-                using var aes = new System.Security.Cryptography.AesGcm(key, 16);
-                aes.Decrypt(nonce, ctAndTag[..^16], ctAndTag[^16..], result, aad);
-                plain = result;
-                return true;
-            }
-            catch { return false; }
-        }
-
-        private static byte[] ParseRandom(byte[] stream, int handshakeType)
-        {
-            int pos = 0;
-            while (pos + 5 <= stream.Length)
-            {
-                int len = (stream[pos + 3] << 8) | stream[pos + 4];
-                if (stream[pos] == 22 && stream[pos + 5] == handshakeType && pos + 5 + 38 <= stream.Length)
-                {
-                    int hsLen = (stream[pos + 6] << 16) | (stream[pos + 7] << 8) | stream[pos + 8];
-                    if (hsLen + 4 >= 36)
-                        return stream[(pos + 5 + 4 + 2)..(pos + 5 + 4 + 2 + 32)];
-                }
-                pos += 5 + len;
-            }
-            return null;
-        }
-
-        private static (byte[] payload, int indexAll) FindAppRecord(byte[] stream)
-        {
-            int pos = 0, n = 0;
-            bool ccs = false;
-            while (pos + 5 <= stream.Length)
-            {
-                int len = (stream[pos + 3] << 8) | stream[pos + 4];
-                if (stream[pos] == 20) ccs = true;
-                if (stream[pos] == 23 && ccs)
-                    return (stream[(pos + 5)..(pos + 5 + len)], n);
-                pos += 5 + len;
-                n++;
-            }
-            return (null, -1);
-        }
-
-        private static int Main(string[] args)
-        {
-            Console.OutputEncoding = Encoding.UTF8;
-            if (args.Length == 0)
-            {
-                Console.WriteLine("usage: reassemble | unblock [dir] | discover [keylog-dir] | sweep12 <client.bin> <server.bin> <keylog-dir> | tls <client.bin> <server.bin> <keylog-dir>");
-                return 2;
-            }
-            return args[0] switch
-            {
-                "reassemble" => TestReassembly(),
-                "sweep12" => DebugSweep12(args),
-                "discover" => Discover(args),
-                "unblock" => TestUnblock(args),
-                _ => TestTlsDecrypt(args)
-            };
-        }
-
-        // -----------------------------------------------------------------------
-        // MotwUnblocker — verified against synthetic Zone.Identifier marks:
-        // powershell creates two marked files, the helper strips them, and a
-        // Get-Item -Stream re-check confirms none remain.
-        // -----------------------------------------------------------------------
-
-        private static int TestUnblock(string[] args)
-        {
-            string dir = args.Length > 1
-                ? args[1]
-                : Path.Combine(Path.GetTempPath(), "unblock-cs-test");
-            string app = Path.Combine(dir, "fakeapp");
-            try
-            {
-                if (Directory.Exists(app)) Directory.Delete(app, true);
-                Directory.CreateDirectory(Path.Combine(app, "sub"));
-                File.WriteAllText(Path.Combine(app, "AutoCommand.exe"), "exe-content");
-                File.WriteAllText(Path.Combine(app, "sub", "lib.dll"), "dll-content");
-                File.WriteAllText(Path.Combine(app, "readme.txt"), "clean");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"setup failed: {ex.Message}");
-                return 1;
-            }
-
-            RunPowerShell(
-                $"foreach ($f in @('{app}\\AutoCommand.exe', '{app}\\sub\\lib.dll')) " +
-                $"{{ Set-Content -Path ($f + ':Zone.Identifier') -Value '[ZoneTransfer]`r`nZoneId=3' }}");
-            Console.WriteLine("marks created");
-
-            var result = MotwUnblocker.UnblockFolder(app);
-            Console.WriteLine(result.Summary);
-
-            string check = RunPowerShell(
-                $"foreach ($f in (Get-ChildItem -LiteralPath '{app}' -Recurse -File)) " +
-                $"{{ $s = Get-Item -LiteralPath $f.FullName -Stream Zone.Identifier -ErrorAction SilentlyContinue; " +
-                $"Write-Output ($f.Name + ' marked=' + ($null -ne $s)) }}");
-
-            bool ok = result.Unblocked == 2 && result.AlreadyClean == 1 && result.Failures.Count == 0 &&
-                      !check.Contains("marked=True");
-            Console.WriteLine(check.Trim());
-            Console.WriteLine(ok ? "UNBLOCK: PASS" : "UNBLOCK: FAIL");
-            return ok ? 0 : 1;
-        }
-
-        private static string RunPowerShell(string scriptBody)
-        {
-            using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
-                "powershell", $"-NoProfile -Command \"{scriptBody}\"")
-            {
-                CreateNoWindow = true,
-                UseShellExecute = false,
-                RedirectStandardOutput = true
-            });
-            string output = process.StandardOutput.ReadToEnd();
-            process.WaitForExit(30000);
-            return output;
-        }
-
-        // -----------------------------------------------------------------------
-        // Environment discovery (debug): print every python the installer
-        // service finds on this machine, tier 1 + a bounded venv scan.
-        // -----------------------------------------------------------------------
-
-        private static int Discover(string[] args)
-        {
-            var keylogDir = args.Length > 1 ? args[1] : null;
-            var installer = new PyTraceInstallerService(keylogDir);
-
-            Console.WriteLine("=== Tier 1: registry / PATH / Store / conda / uv / pyenv-win / scoop / choco ===");
-            var tier1 = installer.DiscoverEnvironments();
-            foreach (var env in tier1)
-                Console.WriteLine($"  [{env.Source,-12}] {(env.CanInstrument ? "ok  " : "NO  ")} {env.Root}  ->  {env.SitePackages}");
-
-            Console.WriteLine();
-            Console.WriteLine("=== Tier 2: bounded pyvenv.cfg scan ===");
-            var roots = installer.GetScanRoots();
-            Console.WriteLine($"  roots: {string.Join(", ", roots)}");
-            int found = 0;
-            PyTraceInstallerService.ScanForVenvs(roots, maxDepth: 6, maxDirectories: 100_000,
-                env =>
-                {
-                    Interlocked.Increment(ref found);
-                    Console.WriteLine($"  [{env.Source}] {env.Root}");
-                }, CancellationToken.None);
-            Console.WriteLine($"\nDISCOVER: tier1={tier1.Count}, tier2={found}");
-            return 0;
-        }
-
-        // -----------------------------------------------------------------------
-        // TCP reassembly over synthetic packets
-        // -----------------------------------------------------------------------
-
-        private static int TestReassembly()
-        {
-            var capture = new TcpStreamCaptureService { IdleTimeout = TimeSpan.FromSeconds(2) };
-            TcpFlowRecord finalized = null;
-            capture.OnFlowFinalized += f => finalized = f;
-
-            var clientEp = new IPEndPoint(IPAddress.Parse("192.0.2.10"), 51000);
-            var serverEp = new IPEndPoint(IPAddress.Parse("93.184.216.34"), 443);
-
-            // Deterministic payloads
-            var clientBytes = new byte[5234];
-            var serverBytes = new byte[3000];
-            for (int i = 0; i < clientBytes.Length; i++) clientBytes[i] = (byte)(i * 7 + 3);
-            for (int i = 0; i < serverBytes.Length; i++) serverBytes[i] = (byte)(255 - i * 5);
-
-            const byte syn = 0x02, fin = 0x01, ack = 0x10, psh = 0x08;
-            uint clientSeq = 1000, serverSeq = 5000;
-
-            capture.ProcessIpPacket(Packet(clientEp, serverEp, clientSeq, syn | ack, null), FullLen(null));
-
-            // Client data: three segments, the SECOND delivered late (out of
-            // order), the third retransmitted once (duplicate), then a
-            // retransmit that overlaps the tail of the last segment.
-            var seg1 = clientBytes[..2000];
-            var seg2 = clientBytes[2000..4000];
-            var seg3 = clientBytes[4000..];
-
-            capture.ProcessIpPacket(Packet(clientEp, serverEp, clientSeq + 1, psh | ack, seg1), FullLen(seg1));
-            capture.ProcessIpPacket(Packet(clientEp, serverEp, clientSeq + 1 + 4000, psh | ack, seg3), FullLen(seg3)); // ahead of order
-            capture.ProcessIpPacket(Packet(clientEp, serverEp, clientSeq + 1 + 2000, psh | ack, seg2), FullLen(seg2)); // fills the gap
-            capture.ProcessIpPacket(Packet(clientEp, serverEp, clientSeq + 1 + 2000, psh | ack, seg2), FullLen(seg2)); // exact duplicate
-            capture.ProcessIpPacket(Packet(clientEp, serverEp, clientSeq + 1 + 4000, psh | ack,
-                clientBytes[4500..]), FullLen(clientBytes[4500..])); // partial-overlap retransmit
-
-            // Server data in order + FIN both ways
-            capture.ProcessIpPacket(Packet(serverEp, clientEp, serverSeq + 1, psh | ack, serverBytes), FullLen(serverBytes));
-            capture.ProcessIpPacket(Packet(clientEp, serverEp, clientSeq + 1 + (uint)clientBytes.Length, fin | ack, null), FullLen(null));
-            capture.ProcessIpPacket(Packet(serverEp, clientEp, serverSeq + 1 + (uint)serverBytes.Length, fin | ack, null), FullLen(null));
-
-            if (finalized == null)
-            {
-                Console.WriteLine("FAIL: flow did not finalize after both FINs.");
-                return 1;
-            }
-
-            bool ok = true;
-            ok &= Check("client stream", clientBytes, finalized.ClientData);
-            ok &= Check("server stream", serverBytes, finalized.ServerData);
-            ok &= Expect(finalized.ClientEndpoint == "192.0.2.10:51000", "client endpoint attribution (SYN sender)");
-            ok &= Expect(finalized.FinBoth, "both FINs recorded");
-
-            Console.WriteLine(ok ? "REASSEMBLE: PASS" : "REASSEMBLE: FAIL");
-            return ok ? 0 : 1;
-        }
-
-        private static bool Check(string what, byte[] expected, byte[] actual)
-        {
-            bool equal = actual != null && actual.Length == expected.Length &&
-                         expected.AsSpan().SequenceEqual(actual);
-            if (!equal)
-                Console.WriteLine($"  mismatch in {what}: expected {expected.Length} bytes, got {actual?.Length ?? -1}");
-            return equal;
-        }
-
-        private static bool Expect(bool condition, string what)
-        {
-            if (!condition) Console.WriteLine($"  failed: {what}");
-            return condition;
-        }
-
-        private static int FullLen(byte[] payload) => 20 + 20 + (payload?.Length ?? 0);
-
-        private static byte[] Packet(IPEndPoint src, IPEndPoint dst, uint seq, byte flags, byte[] payload)
-        {
-            payload ??= Array.Empty<byte>();
-            var packet = new byte[20 + 20 + payload.Length];
-
-            // IPv4 header
-            packet[0] = 0x45;
-            packet[2] = (byte)((packet.Length >> 8) & 0xFF);
-            packet[3] = (byte)(packet.Length & 0xFF);
-            packet[8] = 64; // TTL
-            packet[9] = 6;  // TCP
-            src.Address.GetAddressBytes().CopyTo(packet, 12);
-            dst.Address.GetAddressBytes().CopyTo(packet, 16);
-
-            // TCP header
-            int tcp = 20;
-            packet[tcp] = (byte)(src.Port >> 8);
-            packet[tcp + 1] = (byte)(src.Port & 0xFF);
-            packet[tcp + 2] = (byte)(dst.Port >> 8);
-            packet[tcp + 3] = (byte)(dst.Port & 0xFF);
-            packet[tcp + 4] = (byte)(seq >> 24);
-            packet[tcp + 5] = (byte)(seq >> 16);
-            packet[tcp + 6] = (byte)(seq >> 8);
-            packet[tcp + 7] = (byte)seq;
-            packet[tcp + 12] = 0x50; // data offset 5 (20 bytes)
-            packet[tcp + 13] = flags;
-            payload.CopyTo(packet, tcp + 20);
-            return packet;
-        }
-
-        // -----------------------------------------------------------------------
-        // TLS decryption of real relayed streams
-        // -----------------------------------------------------------------------
-
-        private static int TestTlsDecrypt(string[] args)
-        {
-            if (args.Length < 4)
-            {
-                Console.WriteLine("tls mode needs <client.bin> <server.bin> <keylog-dir>");
-                return 2;
-            }
-
-            var keylog = new TlsKeylogService(args[3]);
-            keylog.Refresh();
-            Console.WriteLine($"keylog sessions: {keylog.SessionCount}");
-
-            var flow = new TcpFlowRecord
-            {
-                Key = "selftest",
-                ClientEndpoint = "127.0.0.1:client",
-                ServerEndpoint = "relay:443",
-                ClientData = File.ReadAllBytes(args[1]),
-                ServerData = File.ReadAllBytes(args[2]),
-                StartedUtc = DateTime.UtcNow.AddMinutes(-1),
-                EndedUtc = DateTime.UtcNow
-            };
-
-            var result = TlsDecryptor.Decrypt(flow, keylog);
-
-            Console.WriteLine($"header : {result.HeaderLine}");
-            Console.WriteLine($"status : {result.Status}");
-            Console.WriteLine($"app    : {result.ClientAppBytes} bytes up, {result.ServerAppBytes} bytes down");
-
-            bool ok = true;
-            ok &= Expect(!string.IsNullOrEmpty(result.Sni), "SNI parsed");
-            ok &= Expect(result.Success, "at least one application_data record decrypted");
-            ok &= Expect(result.TlsVersion != null, "TLS version identified");
-
-            if (result.HttpSummary != null)
-            {
-                Console.WriteLine("http summary:");
-                Console.WriteLine(result.HttpSummary);
-            }
-            else
-            {
-                ok &= Expect(false, "HTTP/1.x summary parsed from plaintext");
-            }
-
-            // Show the first decrypted request bytes as evidence
-            var firstRequest = result.Records
-                .FirstOrDefault(r => r.Decrypted && r.FromClient && r.ContentType == "application_data");
-            if (firstRequest != null)
-            {
-                var text = Encoding.ASCII.GetString(firstRequest.Data.Take(160).ToArray());
-                Console.WriteLine($"first request bytes: {text.Replace("\r", "\\r").Replace("\n", "\\n")}");
-            }
-
-            Console.WriteLine(ok ? "TLS-DECRYPT: PASS" : "TLS-DECRYPT: FAIL");
-            return ok ? 0 : 1;
-        }
+        Console.Error.WriteLine("usage: tls <client.bin> <server.bin> <keylog-dir>");
+        return 1;
     }
+    string tempRoot = Path.Combine(Path.GetTempPath(), "pytrace-tls-" + Guid.NewGuid().ToString("N")[..8]);
+    AutoCommand.Engines.Watch.WatchConfig.Configure(new AutoCommand.Engines.Core.AppIdentity(
+        "PyTraceSelfTest", tempRoot, "TEST-IP ", "TEST-APP ",
+        Microsoft.FSharp.Collections.ListModule.OfSeq(Array.Empty<string>()), 47821, "pytrace-selftest"));
+
+    var flow = new AutoCommand.Engines.Watch.TcpFlowRecord
+    {
+        ClientData = File.ReadAllBytes(args[1]),
+        ServerData = File.ReadAllBytes(args[2]),
+    };
+    var keylog = new AutoCommand.Engines.Watch.TlsKeylogService(args[3]);
+    keylog.Refresh();
+    var result = AutoCommand.Engines.Watch.TlsDecryptor.Decrypt(flow, keylog);
+
+    bool pass = result.Success && !string.IsNullOrEmpty(result.Sni) &&
+                (result.HttpSummary ?? "").Length > 0;
+    Console.WriteLine($"SNI: {result.Sni ?? "(none)"} · {result.TlsVersion ?? "?"} · {result.Status}");
+    Console.WriteLine($"HTTP summary: {result.HttpSummary ?? "(none)"}");
+    Console.WriteLine(pass ? "TLS-DECRYPT: PASS" : "TLS-DECRYPT: FAIL");
+    try { Directory.Delete(tempRoot, true); } catch { }
+    return pass ? 0 : 1;
 }

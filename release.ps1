@@ -78,17 +78,6 @@ if (-not $DryRun) {
     $newProxyText = $proxyText -replace "(?m)^(\s*<Version>)[\d.]+(</Version>\s*)$", "`${1}$Version`${2}"
     if ($newProxyText -eq $proxyText) { Die 'failed to rewrite <Version> in AgentProxy\AutoCommand.AgentProxy.csproj' }
     [System.IO.File]::WriteAllText($proxyCsproj, $newProxyText)
-
-    # The tracked version-attribute file follows too (the compiled attributes
-    # and the csproj <Version> are one version, shipped together).
-    $verInfoCs = Join-Path $PSScriptRoot 'Properties\GeneratedVersionInfo.cs'
-    $verText = [System.IO.File]::ReadAllText($verInfoCs)
-    $four = if ($Version -match '^\d+\.\d+\.\d+$') { "$Version.0" } else { $Version }
-    $newVerText = $verText -replace 'AssemblyVersion\("[\d.]+"\)', "AssemblyVersion(`"$four`")" `
-        -replace 'AssemblyFileVersion\("[\d.]+"\)', "AssemblyFileVersion(`"$four`")" `
-        -replace 'AssemblyInformationalVersion\("[\d.]+"\)', "AssemblyInformationalVersion(`"$Version`")"
-    if ($newVerText -eq $verText) { Die 'failed to rewrite versions in Properties\GeneratedVersionInfo.cs' }
-    [System.IO.File]::WriteAllText($verInfoCs, $newVerText)
 }
 
 $relVersion = if ($DryRun) { $currentVersion } else { $Version }
@@ -103,7 +92,9 @@ dotnet publish AutoCommand.csproj -c Release -r win-x64 --self-contained true -o
 Assert-Exit 'dotnet publish'
 
 # The AgentProxy MCP clients spawn: self-contained SINGLE FILE, so no
-# framework lookup happens at spawn time. Desktop MCP clients are known to
+# framework lookup happens at spawn time. Bundle compression shrinks the
+# 15.3 MB trimmed exe to 11.5 MB at a small one-time decompress cost at
+# first spawn - verified against the stdio offline-guidance handshake. Desktop MCP clients are known to
 # export their own DOTNET_ROOT (often an older .NET) for everything they
 # spawn - a framework-dependent proxy dies in the apphost before any managed
 # code runs ("You must install .NET to run this application"). The app's
@@ -111,7 +102,7 @@ Assert-Exit 'dotnet publish'
 # %LOCALAPPDATA%\AutoCommand\tools\v<version>\ and points client configs at
 # that stable path.
 Step "Publishing self-contained single-file AgentProxy (tools)"
-dotnet publish AgentProxy\AutoCommand.AgentProxy.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:PublishTrimmed=true -o "publish/v$relVersion/tools/AgentProxy"
+dotnet publish AgentProxy\AutoCommand.AgentProxy.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:PublishTrimmed=true /p:EnableCompressionInSingleFile=true -o "publish/v$relVersion/tools/AgentProxy"
 Assert-Exit 'dotnet publish proxy'
 
 # The headless agent face (phase 6): framework-dependent is fine here - it
@@ -168,7 +159,7 @@ if (-not $Yes) {
 
 # -- Commit, tag, push, release -----------------------------------------------
 Step "Committing and tagging v$Version"
-git add AutoCommand.csproj AgentProxy\AutoCommand.AgentProxy.csproj Properties\GeneratedVersionInfo.cs "release_notes_v$Version.md"
+git add AutoCommand.csproj AgentProxy\AutoCommand.AgentProxy.csproj "release_notes_v$Version.md"
 git commit -m "release: v$Version"
 Assert-Exit 'git commit'
 git tag "v$Version"
@@ -205,4 +196,4 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host 'WARNING: archived-README mirror failed to push - the frozen repo is showing a stale readme' -ForegroundColor Yellow
 }
 
-Step "Released v${Version}: https://github.com/dparksports/autocommand-ii/releases/tag/v${Version}"
+Step "Released v${Version}: https://github.com/dparksports/autocommand-iii/releases/tag/v${Version}"

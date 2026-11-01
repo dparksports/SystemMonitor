@@ -1,7 +1,6 @@
 using AutoCommand.NetWatch.Core;
 using System;
 using AutoCommand.Contain.Core;
-using AutoCommand.Intercept.Core;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -27,7 +26,7 @@ namespace AutoCommand.Contain.Core
         {
             public DateTime TakenUtc;
             public List<BlockHitFeedService.HitAggregate> Hits;
-            public List<FirewallService.BlockedTarget> Inventory;
+            public List<BlockedTarget> Inventory;
             public List<BlockContainmentVerifier.Instance> Instances;
             public string Note = "";   // feed/inventory errors, surfaced by both consumers
         }

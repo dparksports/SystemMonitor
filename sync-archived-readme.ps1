@@ -32,7 +32,7 @@ if (-not $ArchiveRepoPath) {
 function Step($msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
 function Die($msg)  { Write-Host "ERROR: $msg" -ForegroundColor Red; exit 1 }
 
-$NewOwner = 'dparksports/autocommand-ii'
+$NewOwner = 'dparksports/autocommand-iii'
 $NewRaw   = "https://raw.githubusercontent.com/$NewOwner/master"
 $NewBlob  = "https://github.com/$NewOwner/blob/master"
 $NewReleases = "https://github.com/$NewOwner/releases/latest"
@@ -82,10 +82,10 @@ if ($old -eq $out) {
 }
 [IO.File]::WriteAllText($readmePath, $out, $utf8NoBom)
 
-Step "Committing mirrored README (from autocommand-ii v$Version)"
+Step "Committing mirrored README (from autocommand-iii v$Version)"
 git -C $ArchiveRepoPath add README.md
 if ($LASTEXITCODE -ne 0) { Die 'git add' }
-git -C $ArchiveRepoPath commit -m "readme mirror: sync from autocommand-ii master (v$Version) - notice on top, downloads point to the new repo"
+git -C $ArchiveRepoPath commit -m "readme mirror: sync from autocommand-iii master (v$Version) - notice on top, downloads point to the new repo"
 if ($LASTEXITCODE -ne 0) { Die 'git commit (no change or failure)' }
 
 Step 'Pushing to the archived repo'

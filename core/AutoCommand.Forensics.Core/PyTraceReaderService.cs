@@ -1,31 +1,25 @@
 using System;
-using AutoCommand.Contain.Core;
-using AutoCommand.Forensics.Core;
-using AutoCommand.Intercept.Core;
-using AutoCommand.NetWatch.Core;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Text.Json;
 using System.Threading;
-using AutoCommand.Models;
+using AutoCommand.Engines.Watch;
 
 namespace AutoCommand.Forensics.Core
 {
     /// <summary>
     /// Tails the per-pid JSONL files the instrumented python hook writes into
-    /// %LOCALAPPDATA%\AutoCommand\pytrace. A FileSystemWatcher alone can miss
-    /// or coalesce notifications under rapid writes, so a periodic tail
-    /// (remembering a per-file read offset) does the actual catching up —
-    /// the watcher only nudges the same tail to run sooner.
+    /// the pytrace dir (DataRoot\pytrace, the same directory the keylog lives
+    /// in). A FileSystemWatcher alone can miss or coalesce notifications under
+    /// rapid writes, so a periodic tail (remembering a per-file read offset)
+    /// does the actual catching up — the watcher only nudges the same tail to
+    /// run sooner.
     /// </summary>
     public class PyTraceReaderService : IDisposable
     {
-        public static string TraceDir =>
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "AutoCommand", "pytrace");
+        public static string TraceDir => Path.Combine(WatchConfig.Identity.DataRoot, "pytrace");
 
         private readonly string _dir;
         private readonly int _perPidCap;
@@ -67,7 +61,7 @@ namespace AutoCommand.Forensics.Core
             }
 
             if (_loadExisting)
-                TailAllFiles(); // stacks of processes started before the tab
+                TailAllFiles(); // stacks of processes started before the window opened
 
             try
             {
@@ -138,7 +132,7 @@ namespace AutoCommand.Forensics.Core
 
                 using var fs = new FileStream(path, FileMode.Open, FileAccess.Read,
                     FileShare.ReadWrite | FileShare.Delete);
-                fs.Seek(offset, SeekOrigin.Begin);
+                fs.Seek(offset, System.IO.SeekOrigin.Begin);
                 using var reader = new StreamReader(fs);
 
                 string line;
@@ -204,6 +198,7 @@ namespace AutoCommand.Forensics.Core
                     bool alive;
                     try { Process.GetProcessById(pid); alive = true; }
                     catch (ArgumentException) { alive = false; }
+                    catch (InvalidOperationException) { alive = false; }
 
                     if (!alive)
                     {

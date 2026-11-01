@@ -1,17 +1,12 @@
 using System;
-using AutoCommand.Agent.Core;
-using AutoCommand.Contain.Core;
-using AutoCommand.Forensics.Core;
-using AutoCommand.Intercept.Core;
-using AutoCommand.NetWatch.Core;
-using AutoCommand.Sitedoctor.Core;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
-using AutoCommand.Services;
+using AutoCommand.Engines.Watch;
+using AutoCommand.Forensics.Core;
 
 namespace AutoCommand.Views
 {
@@ -19,17 +14,18 @@ namespace AutoCommand.Views
     /// Per-environment opt-in for the audit hook. Environments are discovered
     /// automatically from every source the installer service knows (registry,
     /// PATH, Store, conda, uv, pyenv-win, scoop/choco), a bounded background
-    /// scan for venvs, and python images the spawn watcher has seen run.
+    /// scan for venvs, and python images this machine has actually run (a
+    /// transient Sysmon backfill — no live watcher is left behind).
     /// Auto-populating the list never installs anything — Instrument stays
     /// behind the confirmation, by design.
     /// </summary>
     public partial class PythonInstrumentDialog : Window
     {
         private readonly PyTraceInstallerService _installer = new();
-        private readonly ImageSpawnWatcherService _watcher;
 
         private readonly ObservableCollection<EnvRow> _rows = new();
         private readonly HashSet<string> _knownSitePackages = new(StringComparer.OrdinalIgnoreCase);
+        private List<string> _excluded = new();
 
         private CancellationTokenSource _scanCts;
 
@@ -42,18 +38,16 @@ namespace AutoCommand.Views
             public string Display { get; set; }
             public string ToolTipText { get; set; }
             public string Reason => Env.DisableReason;
-            public System.Windows.Visibility ReasonVisibility =>
-                string.IsNullOrEmpty(Env.DisableReason)
-                    ? System.Windows.Visibility.Collapsed
-                    : System.Windows.Visibility.Visible;
+            public Visibility ReasonVisibility =>
+                string.IsNullOrEmpty(Env.DisableReason) ? Visibility.Collapsed : Visibility.Visible;
         }
 
-        public PythonInstrumentDialog(ImageSpawnWatcherService watcher = null)
+        public PythonInstrumentDialog()
         {
             InitializeComponent();
-            _watcher = watcher;
             EnvList.ItemsSource = _rows;
             Populate();
+            _ = DiscoverSeenRunningAsync(); // tier 3 streams in after the fast tiers
         }
 
         // -----------------------------------------------------------------------
@@ -64,26 +58,7 @@ namespace AutoCommand.Views
         {
             _rows.Clear();
             _knownSitePackages.Clear();
-
-            var excluded = _installer.LoadScanState().Excluded;
-
-            void AddEnv(PyTraceInstallerService.PythonEnv env)
-            {
-                if (env?.SitePackages == null) return;
-                string key = System.IO.Path.GetFullPath(env.SitePackages);
-                if (!_knownSitePackages.Add(key)) return;
-                if (excluded.Any(x => x.Equals(key, StringComparison.OrdinalIgnoreCase))) return;
-
-                bool installed = _installer.IsInstalled(env.SitePackages);
-                _rows.Add(new EnvRow
-                {
-                    Env = env,
-                    Checked = installed && env.CanInstrument,
-                    Display = $"{(installed ? "[instrumented] " : env.CanInstrument ? "[plain]       " : "[unusable]    ")}{env.Display}",
-                    ToolTipText = $"site-packages: {env.SitePackages}{Environment.NewLine}source: {env.Source}" +
-                                  (env.DisableReason != null ? Environment.NewLine + env.DisableReason : "")
-                });
-            }
+            _excluded = _installer.LoadScanState().Excluded;
 
             foreach (var env in _installer.DiscoverEnvironments())
                 AddEnv(env);
@@ -102,15 +77,62 @@ namespace AutoCommand.Views
                     });
             }
 
-            // Tier 3: pythons the spawn watcher has actually seen run
-            if (_watcher != null)
-            {
-                foreach (string image in _watcher.GetSeenImages())
-                    AddEnv(PyTraceInstallerService.EnvFromImage(image));
-            }
-
             SortRows();
             UpdateStatus();
+        }
+
+        /// <summary>Adds one env to the list unless already known or excluded.</summary>
+        private void AddEnv(PyTraceInstallerService.PythonEnv env)
+        {
+            if (env?.SitePackages == null) return;
+            string key = System.IO.Path.GetFullPath(env.SitePackages);
+            if (!_knownSitePackages.Add(key)) return;
+            if (_excluded.Any(x => x.Equals(key, StringComparison.OrdinalIgnoreCase))) return;
+
+            bool installed = _installer.IsInstalled(env.SitePackages);
+            _rows.Add(new EnvRow
+            {
+                Env = env,
+                Checked = installed && env.CanInstrument,
+                Display = $"{(installed ? "[instrumented] " : env.CanInstrument ? "[plain]       " : "[unusable]    ")}{env.Display}",
+                ToolTipText = $"site-packages: {env.SitePackages}{Environment.NewLine}source: {env.Source}" +
+                              (env.DisableReason != null ? Environment.NewLine + env.DisableReason : "")
+            });
+        }
+
+        /// <summary>
+        /// Tier 3: python images this machine has actually run — replayed from
+        /// the Sysmon archive through a transient spawn watcher (created,
+        /// backfilled, stopped; nothing keeps watching).
+        /// </summary>
+        private async System.Threading.Tasks.Task DiscoverSeenRunningAsync()
+        {
+            try
+            {
+                var seen = await System.Threading.Tasks.Task.Run(() =>
+                {
+                    var watcher = new ImageSpawnWatcherService(
+                        new Func<string, bool>(ImageSpawnWatcherService.IsPythonImage),
+                        "python", venvPairing: true);
+                    try
+                    {
+                        watcher.Backfill(TimeSpan.FromHours(6));
+                        return watcher.GetSeenImages().ToList();
+                    }
+                    finally
+                    {
+                        watcher.Stop();
+                    }
+                });
+                foreach (string image in seen)
+                    AddEnv(PyTraceInstallerService.EnvFromImage(image));
+                SortRows();
+                UpdateStatus();
+            }
+            catch
+            {
+                // seen-running is a bonus tier — never fails the dialog
+            }
         }
 
         private void SortRows()
@@ -148,31 +170,7 @@ namespace AutoCommand.Views
             var roots = _installer.GetScanRoots();
             _scanCts = new CancellationTokenSource();
             DeepScanBtn.Content = "⏹ Stop scan";
-            var found = 0;
-
-            var excluded = _installer.LoadScanState().Excluded;
-
-            void OnFound(PyTraceInstallerService.PythonEnv env)
-            {
-                if (env?.SitePackages == null) return;
-                string key = System.IO.Path.GetFullPath(env.SitePackages);
-                if (_knownSitePackages.Contains(key)) return;
-                if (excluded.Any(x => x.Equals(key, StringComparison.OrdinalIgnoreCase))) return;
-
-                Dispatcher.Invoke(() =>
-                {
-                    _knownSitePackages.Add(key);
-                    _rows.Add(new EnvRow
-                    {
-                        Env = env,
-                        Checked = _installer.IsInstalled(env.SitePackages),
-                        Display = $"{(_installer.IsInstalled(env.SitePackages) ? "[instrumented] " : "[plain]       ")}{env.Display}",
-                        ToolTipText = $"site-packages: {env.SitePackages}{Environment.NewLine}source: {env.Source}"
-                    });
-                    Interlocked.Increment(ref found);
-                    StatusText.Text = $"Scanning… {found} new environment(s) found so far";
-                });
-            }
+            int found = 0;
 
             var cts = _scanCts;
             System.Threading.Tasks.Task.Run(() =>
@@ -180,7 +178,7 @@ namespace AutoCommand.Views
                 try
                 {
                     PyTraceInstallerService.ScanForVenvs(roots, maxDepth: 6, maxDirectories: 100_000,
-                        OnFound, cts.Token);
+                        env => Dispatcher.Invoke(() => OnScanFound(env, cts, ref found)), cts.Token);
                 }
                 finally
                 {
@@ -197,6 +195,19 @@ namespace AutoCommand.Views
                     });
                 }
             });
+        }
+
+        private void OnScanFound(PyTraceInstallerService.PythonEnv env, CancellationTokenSource cts, ref int found)
+        {
+            if (env?.SitePackages == null) return;
+            string key = System.IO.Path.GetFullPath(env.SitePackages);
+            if (_knownSitePackages.Contains(key)) return;
+            if (_excluded.Any(x => x.Equals(key, StringComparison.OrdinalIgnoreCase))) return;
+
+            _knownSitePackages.Add(key);
+            AddEnv(env);
+            found++;
+            StatusText.Text = $"Scanning… {found} new environment(s) found so far";
         }
 
         // -----------------------------------------------------------------------
@@ -228,14 +239,7 @@ namespace AutoCommand.Views
                 return;
             }
             _installer.AddScanRoot(dialog.FolderName); // future deep scans include it
-            _knownSitePackages.Add(System.IO.Path.GetFullPath(env.SitePackages));
-            _rows.Add(new EnvRow
-            {
-                Env = env,
-                Checked = _installer.IsInstalled(env.SitePackages),
-                Display = $"{(_installer.IsInstalled(env.SitePackages) ? "[instrumented] " : "[plain]       ")}{env.Display}",
-                ToolTipText = $"site-packages: {env.SitePackages}{Environment.NewLine}source: {env.Source}"
-            });
+            AddEnv(env);
             SortRows();
             UpdateStatus();
         }
@@ -300,7 +304,9 @@ namespace AutoCommand.Views
 
             if (install)
             {
-                string machineWide = selected.Any(r => IsMachineWide(r.Env)) ? "\n⚠ Machine-wide environment(s) in the selection — every user of this python gets instrumented." : "";
+                string machineWide = selected.Any(r => IsMachineWide(r.Env))
+                    ? "\n⚠ Machine-wide environment(s) in the selection — every user of this python gets instrumented."
+                    : "";
                 var confirm = MessageBox.Show(this,
                     $"Instrument {selected.Count} environment(s)?\n\n" +
                     "Writes two small files into each site-packages (PyTraceHook_ac.py + PyTraceHook_ac.pth):\n" +

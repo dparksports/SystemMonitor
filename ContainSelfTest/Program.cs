@@ -1,18 +1,15 @@
 // Contain self-test — the blocking/safety path, offline:
 //   1. BlocksStore — round-trip persistence against a temp dir: add/upsert/
 //      pause/remove, event log, provenance parsing, grouping keys.
-//   2. TelemetryRulesService — synthetic catalog beats the built-in seed;
-//      file detection + JSON state probe driven entirely by temp files.
-//   3. FirewallService — the v2 rule-name builders (the strings the whole
+//   2. FirewallService — the v2 rule-name builders (the strings the whole
 //      block/undo/coverage machinery joins on).
-//   4. BlockContainmentVerifier — the verify_block_containment join: every
+//   3. BlockContainmentVerifier — the verify_block_containment join: every
 //      verdict (contained / stale-flow / leak) plus the identity guards
 //      (pid reuse, archive image match, loopback) from synthetic rows.
 // Nothing touches the real %LOCALAPPDATA% store, the hosts file, netsh, or
 // Defender; those halves are exercised by the app itself.
 using System;
 using AutoCommand.Contain.Core;
-using AutoCommand.Intercept.Core;
 using AutoCommand.NetWatch.Core;
 using System.IO;
 using System.Linq;
@@ -118,75 +115,7 @@ finally
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// 2. TelemetryRulesService — catalog load + offline evaluation
-// ─────────────────────────────────────────────────────────────────────
-string assetsDir = Path.Combine(AppContext.BaseDirectory, "Assets");
-string rulesPath = Path.Combine(assetsDir, "telemetry_rules.json");
-try
-{
-    Directory.CreateDirectory(assetsDir);
-    string detOn  = Path.Combine(Path.GetTempPath(), "contain-selftest-on.json");
-    string detOff = Path.Combine(Path.GetTempPath(), "contain-selftest-off.json");
-    string detGone = Path.Combine(Path.GetTempPath(), "contain-selftest-gone-" + Guid.NewGuid().ToString("N") + ".json");
-    File.WriteAllText(detOn,  JsonSerializer.Serialize(new { sync = true }));
-    File.WriteAllText(detOff, JsonSerializer.Serialize(new { sync = false }));
-
-    File.WriteAllText(rulesPath, JsonSerializer.Serialize(new
-    {
-        rules = new object[]
-        {
-            new
-            {
-                id = "selftest-on", appName = "SelfTest ON", category = "test", mechanism = "x",
-                scope = "User", riskNote = "none",
-                detection = new { type = "file", path = detOn },
-                stateProbe = new { type = "json", path = detOn, key = "sync", offValues = new[] { "false" } },
-            },
-            new
-            {
-                id = "selftest-off", appName = "SelfTest OFF", category = "test", mechanism = "x",
-                scope = "User", riskNote = "none",
-                detection = new { type = "file", path = detOff },
-                stateProbe = new { type = "json", path = detOff, key = "sync", offValues = new[] { "false" } },
-            },
-            new
-            {
-                id = "selftest-undetected", appName = "SelfTest ABSENT", category = "test", mechanism = "x",
-                scope = "User", riskNote = "none",
-                detection = new { type = "file", path = detGone },
-                stateProbe = new { type = "json", path = detGone, key = "sync", offValues = new[] { "false" } },
-            },
-        }
-    }));
-
-    var svc = new TelemetryRulesService();
-    Check("catalog file beats the built-in seed", svc.Rules.Count == 3,
-          $"count={svc.Rules.Count}");
-
-    var statuses = await svc.EvaluateAllAsync();
-    var on  = statuses.First(s => s.Rule.Id == "selftest-on");
-    var off = statuses.First(s => s.Rule.Id == "selftest-off");
-    var gone = statuses.First(s => s.Rule.Id == "selftest-undetected");
-    Check("detected + still on → State=On", on.Detected && on.State == TelemetryState.On,
-          $"detected={on.Detected} state={on.State} evidence='{on.Evidence}'");
-    Check("detected + off-value → State=Off", off.Detected && off.State == TelemetryState.Off,
-          $"detected={off.Detected} state={off.State} evidence='{off.Evidence}'");
-    Check("not installed → Detected=false", !gone.Detected, gone.Evidence);
-
-    // seed fallback: with no catalog file the built-in seed rules load
-    File.Delete(rulesPath);
-    var seedSvc = new TelemetryRulesService();
-    Check("missing catalog falls back to the built-in seed",
-          seedSvc.Rules.Count >= 2 && seedSvc.Rules.All(r => r.Id.StartsWith("ultralytics")),
-          $"count={seedSvc.Rules.Count}");
-}
-finally
-{
-    try { File.Delete(rulesPath); Directory.Delete(assetsDir, true); } catch { }
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// 3. FirewallService — the v2 rule-name builders every surface joins on
+// 2. FirewallService — the v2 rule-name builders every surface joins on
 // ─────────────────────────────────────────────────────────────────────
 Check("ip rule prefix is the v2 shape", FirewallService.NewIpPrefix == "AC-BLOCK-IP ");
 Check("app rule prefix is the v2 shape", FirewallService.NewAppPrefix == "AC-BLOCK-APP ");
@@ -204,7 +133,7 @@ Check("same path → same sibling name", s1 == s2);
 Check("different path → different sibling name", s1 != s3);
 
 // ─────────────────────────────────────────────────────────────────────
-// 4. BlockContainmentVerifier — the containment join behind the
+// 3. BlockContainmentVerifier — the containment join behind the
 //    verify_block_containment bridge tool. All rows synthetic; the live
 //    halves (feed, kernel table, WMI, archive) are exercised by the app.
 // ─────────────────────────────────────────────────────────────────────
@@ -217,7 +146,7 @@ BlockHitFeedService.HitAggregate CAgg(string image, int pid, string ip, int coun
             DestIp = ip, DestPort = 443, MatchKind = kind,
             Count = count, FirstUtc = first, LastUtc = last };
 
-var cInv = new List<FirewallService.BlockedTarget>
+var cInv = new List<BlockedTarget>
 {
     new() { Target = "1.2.3.4", Kind = "ip", Ip = "1.2.3.4", Rules = 1, EnabledRules = 1, Created = cT0 },
     new() { Target = "5.6.7.8", Kind = "ip", Ip = "5.6.7.8", Rules = 1, EnabledRules = 1, Created = cT0 },
@@ -254,7 +183,7 @@ Check("containment: socket owner started after block → leak",
 var cV4 = BlockContainmentVerifier.Evaluate(
     new() { CAgg(@"C:\Tools\b.exe", 400, "5.6.7.8", 4, cT0.AddMinutes(1), cNow.AddMinutes(-1)) },
     cInv, new(),
-    new() { new AutoCommand.Models.TransmissionRecord { Pid = 400, Image = @"C:\Tools\b.exe",
+    new() { new TransmissionRecord { Pid = 400, Image = @"C:\Tools\b.exe",
              RemoteIp = "5.6.7.8", TsUtc = cT0.AddMinutes(30), ClientBytes = 5_000, ServerBytes = 1_000 } });
 Check("containment: archived bytes to blocked IP after t0 → leak",
       cV4[0].Verdict == BlockContainmentVerifier.Leak && cV4[0].BytesSinceT0 == 6_000,
@@ -263,7 +192,7 @@ Check("containment: archived bytes to blocked IP after t0 → leak",
 var cV5 = BlockContainmentVerifier.Evaluate(
     new() { CAgg(@"C:\Tools\b.exe", 410, "5.6.7.8", 4, cT0.AddMinutes(1), cNow.AddMinutes(-1)) },
     cInv, new(),
-    new() { new AutoCommand.Models.TransmissionRecord { Pid = 410, Image = @"C:\Tools\b.exe",
+    new() { new TransmissionRecord { Pid = 410, Image = @"C:\Tools\b.exe",
              RemoteIp = "203.0.113.9", TsUtc = cT0.AddMinutes(30), ClientBytes = 9_000, ServerBytes = 0 } });
 Check("containment: ip-block, bytes to unblocked IP stay allowed",
       cV5[0].Verdict == BlockContainmentVerifier.Contained, cV5[0].Verdict);
@@ -287,7 +216,7 @@ Check("containment: reused-pid socket flagged, never accused",
 var cV8 = BlockContainmentVerifier.Evaluate(
     new() { CAgg(@"C:\Tools\upd.exe", 600, "8.8.8.8", 2, cT0.AddMinutes(5), cNow.AddMinutes(-5), kind: "app") },
     cInv, new(),
-    new() { new AutoCommand.Models.TransmissionRecord { Pid = 600, Image = @"C:\Tools\other.exe",
+    new() { new TransmissionRecord { Pid = 600, Image = @"C:\Tools\other.exe",
              RemoteIp = "8.8.8.8", TsUtc = cT0.AddMinutes(30), ClientBytes = 9_999, ServerBytes = 0 } });
 Check("containment: archive join requires image match",
       cV8[0].Verdict == BlockContainmentVerifier.Contained, cV8[0].Verdict);
@@ -342,7 +271,7 @@ Check("roll-up: untouched target is quiet (null)",
 
 // QuietTargets — the engine-owned quiet roll-up (the rule the bridge tool
 // applies; disabled rules are never listed because there is nothing to verify)
-var qInv = new List<FirewallService.BlockedTarget>
+var qInv = new List<BlockedTarget>
 {
     new() { Target = "5.6.7.8", Kind = "ip", Ip = "5.6.7.8", Rules = 2, EnabledRules = 2 },
     new() { Target = "9.9.9.9", Kind = "ip", Ip = "9.9.9.9", Rules = 2, EnabledRules = 2 },
@@ -355,6 +284,174 @@ Check("quiet: app-blocked image (sibling path) is not quiet",
       quietTargets.All(t => !BlockContainmentVerifier.IsAppBlockMatch(t, @"C:\Tools\v2\upd.exe")));
 Check("quiet: untouched enabled ip is quiet; paused rule never listed",
       quietTargets.Any(t => t.Ip == "9.9.9.9") && quietTargets.All(t => t.Ip != "7.7.7.7"));
+
+// ─────────────────────────────────────────────────────────────────────
+// 4. AuditTrail — the Audit tab's grouping + language. Synthetic lines
+//    only (the same format AppendEvent writes); nothing opens the real
+//    %LOCALAPPDATA% event log.
+// ─────────────────────────────────────────────────────────────────────
+var auditT0 = DateTime.UtcNow;
+string AuditLine(int sec, string action, string kind, string key, string detail, string origin) =>
+    $"{auditT0.AddSeconds(sec):O}|{action}|{kind}|{key}|{detail}|{origin}";
+
+var auditLines = new List<string>
+{
+    "garbage line with no pipes",
+    AuditLine(0,  "created", "ip",   "1.2.3.4",    "wuauserv/Microsoft/Azure",        "monitor"),
+    AuditLine(2,  "created", "ip",   "5.6.7.8",    "cryptsvc/Akamai (MS CDN)",        "monitor"),
+    AuditLine(4,  "created", "proc", @"C:\P\m.exe","msmpeng/Windows Defender",         "monitor"),
+    AuditLine(600,"created", "ip",   "9.9.9.9",    "netprofm/Unclassified",           "monitor"),  // 10 min later: new incident
+    AuditLine(610,"paused",  "-",    "-",          "162 target(s) via restore-guide", "restore-guide"),
+    AuditLine(700,"resumed", "-",    "-",          "23 target(s) via blocks-tab",     "blocks-tab"),
+    AuditLine(800,"fleet-disabled", "-", "-",      "490/500 rule(s) disabled",        "panic-button"),
+    AuditLine(900,"fleet-enabled",  "-", "-",      "565/565 rule(s) re-enabled",      "manage-all"),
+    AuditLine(950,"rule-toggled","-", "AC-BLOCK-APP bash.exe (Out)", "disabled",     "firewall-tab"),
+    AuditLine(960,"external-modified","app","bash.exe","disabled by wf.msc; restored","os-audit"),
+    AuditLine(970,"removed", "ip",   "142.251.210.131","cryptsvc/after 03d 13h 38m",  "monitor"),
+};
+
+int auditParsed = auditLines.Count(l => AuditTrail.ParseLine(l) != null);
+Check("audit: parse skips garbage, keeps all 11", auditParsed == 11, $"{auditParsed}");
+
+var incidents = AuditTrail.BuildIncidents(
+    auditLines.Select(AuditTrail.ParseLine).Where(e => e != null));
+
+// grouping: [burst of 3] [burst of 1] [paused] [resumed] [fleet] [fleet] [toggled] [external] [removed]
+Check("audit: 9 incidents from 11 events", incidents.Count == 9, $"{incidents.Count}");
+var burst = incidents[0];
+Check("audit: monitor burst collapses with per-kind counts",
+      burst.Count == 3 && burst.KindCounts["ip"] == 2 && burst.KindCounts["proc"] == 1,
+      $"count={burst.Count}");
+Check("audit: burst sentence says addresses and programs",
+      burst.Sentence.Contains("2 addresses") && burst.Sentence.Contains("1 program"),
+      burst.Sentence);
+Check("audit: burst meta carries the owning service key", burst.Meta.Contains("wuauserv"), burst.Meta);
+
+var pause = incidents.First(i => i.EventsAction == "paused");
+Check("audit: bulk pause counts targets from the detail line",
+      pause.Count == 162 && pause.Sentence.Contains("162"), pause.Sentence);
+Check("audit: restore-guide pause names the actor, not 'You'",
+      pause.Sentence.StartsWith("The restore guide"), pause.Sentence);
+
+var panic = incidents.First(i => i.EventsAction == "fleet-disabled");
+Check("audit: panic stands alone and says who pressed it",
+      panic.Category == "fleet" && panic.Severity == "resolved" &&
+      panic.Sentence.Contains("panic button"), panic.Sentence);
+var reen = incidents.First(i => i.EventsAction == "fleet-enabled");
+Check("audit: re-enable-all is its own incident", reen.Count == 1 && !ReferenceEquals(reen, panic));
+
+var toggle = incidents.First(i => i.EventsAction == "rule-toggled");
+Check("audit: manual rule toggle reads as a sentence",
+      toggle.Category == "pause" && toggle.Sentence.Contains("bash.exe") &&
+      toggle.Sentence.Contains("OFF"), toggle.Sentence);
+
+var ext = incidents.First(i => i.EventsAction == "external-modified");
+Check("audit: external change restored is 'resolved', not 'attention'",
+      ext.Category == "external" && ext.Severity == "resolved", ext.Severity);
+Check("audit: unrestored external change would be 'attention'",
+      AuditTrail.SeverityOf("external-modified", "disabled by netsh") == "attention");
+
+var gone = incidents.First(i => i.EventsAction == "removed");
+Check("audit: expiry sentence names the target",
+      gone.Sentence.Contains("142.251.210.131"), gone.Sentence);
+
+// update-mode sessions narrate as fleet incidents with the actor the
+// Audit tab shows ("you · Windows Update")
+var uo = AuditTrail.ParseLine($"{auditT0.AddSeconds(2000):O}|update-opened|-|-|78 target(s) lifted, hard stop 22:00|update-mode");
+var ur = AuditTrail.ParseLine($"{auditT0.AddSeconds(2010):O}|update-restored|-|-|78/78 target(s) restored · verified on|update-mode");
+Check("audit: update events parse", uo != null && ur != null);
+var uInc = AuditTrail.BuildIncidents(new[] { uo, ur }.Where(e => e != null));
+Check("audit: update session collapses to one fleet incident, resolved",
+      uInc.Count == 1 && uInc[0].Category == "fleet" && uInc[0].Severity == "resolved",
+      $"{uInc.Count} incident(s)");
+Check("audit: update sentences read as a session",
+      uInc[0].Sentence.Contains("updated Windows") && uInc[0].Sentence.Contains("78") &&
+      uInc[0].Sentence.Contains("restored"),
+      uInc[0].Sentence);
+Check("audit: update actor names the tab, not a mystery",
+      AuditTrail.ActorFor("update-mode") == "you · Windows Update",
+      AuditTrail.ActorFor("update-mode"));
+
+Check("audit: every incident has a day header", incidents.All(i => i.DayHeader.Length > 0));
+string auditMarker = Path.Combine(Path.GetTempPath(), "audit-seen-" + Guid.NewGuid().ToString("N"));
+try
+{
+    Check("audit: unseen marker reads MinValue", AuditTrail.ReadSeenUtc(auditMarker) == DateTime.MinValue);
+    AuditTrail.MarkSeenUtc(auditMarker, auditT0);
+    Check("audit: marker round-trips UTC", AuditTrail.ReadSeenUtc(auditMarker) == auditT0);
+}
+finally { try { File.Delete(auditMarker); } catch { } }
+
+// ─────────────────────────────────────────────────────────────────────
+// 7. MatchesAppTarget — the unblock family semantics. AppBlockCoverage-
+//    Service keeps a name-blocked exe blocked at every path it runs from,
+//    so a single-path unblock that leaves a sibling rule resurrects the
+//    block on the exe's next run (observed live 2026-10-30: bash.exe
+//    unblocked at 20:17, re-extended by the Git\bin sibling at 20:20, six
+//    duplicate rules from unserialized concurrent adds).
+// ─────────────────────────────────────────────────────────────────────
+var acNaming = AutoCommand.Engines.Firewall.Naming.autocommand();
+bool M(string ruleName, string ruleApp, string target) =>
+    AutoCommand.Engines.Firewall.FirewallService.MatchesAppTarget(acNaming, ruleName, ruleApp, target);
+
+Check("match: exact path covered", M("AC-BLOCK-APP bash.exe (Out)", @"C:\Program Files\Git\usr\bin\bash.exe", @"C:\Program Files\Git\usr\bin\bash.exe"));
+Check("match: case-insensitive path", M("AC-BLOCK-APP bash.exe (Out)", @"C:\Program Files\Git\USR\bin\bash.exe", @"C:\Program Files\Git\usr\bin\bash.exe"));
+Check("match: '..' path normalizes to the same image",
+      M("AC-BLOCK-APP bash.exe (Out)", @"C:\Program Files\Git\usr\lib\..\bin\bash.exe", @"C:\Program Files\Git\usr\bin\bash.exe"));
+Check("match: sibling path — same exe NAME, different dir (the resurrection leg)",
+      M("AC-BLOCK-APP bash.exe (Out) · 63746dcd", @"C:\Program Files\Git\bin\bash.exe", @"C:\Program Files\Git\usr\bin\bash.exe"));
+Check("match: legacy family prefix honored",
+      M("AutoCommand Process Block - bash.exe (Outbound Block)", @"C:\old\path\bash.exe", @"C:\Program Files\Git\usr\bin\bash.exe"));
+Check("match: different exe name is NOT the family",
+      !M("AC-BLOCK-APP sh.exe (Out)", @"C:\Program Files\Git\usr\bin\sh.exe", @"C:\Program Files\Git\usr\bin\bash.exe"));
+Check("match: non-family rule name never matches",
+      !M("Google Update (Out)", @"C:\Program Files\Git\usr\bin\bash.exe", @"C:\Program Files\Git\usr\bin\bash.exe"));
+Check("match: family rule with empty ApplicationName never matches a path",
+      !M("AC-BLOCK-APP bash.exe (Out)", "", @"C:\Program Files\Git\usr\bin\bash.exe"));
+Check("match: device-path form falls back to leaf-name family match",
+      M("AC-BLOCK-APP bash.exe (Out)", @"\Device\HarddiskVolume3\Program Files\Git\usr\bin\bash.exe", @"C:\Program Files\Git\usr\bin\bash.exe"));
+
+// The store-side half of family unblock: sibling-path records must go with
+// the exact-key one, or the Blocked list keeps showing the exe.
+var famDir = Path.Combine(Path.GetTempPath(), "contain-selftest-" + Guid.NewGuid().ToString("N"));
+try
+{
+    var fam = new BlocksLedger(famDir);
+    fam.AddOrUpdate(new BlockRecord { Kind = "proc", Key = @"C:\Program Files\Git\usr\bin\bash.exe", Origin = "monitor" });
+    fam.AddOrUpdate(new BlockRecord { Kind = "proc", Key = @"C:\Program Files\Git\bin\bash.exe", Origin = "reconcile" });
+    fam.AddOrUpdate(new BlockRecord { Kind = "proc", Key = @"C:\Windows\System32\smartscreen.exe", Origin = "monitor" });
+    fam.AddOrUpdate(new BlockRecord { Kind = "ip", Key = "142.251.214.99", Origin = "monitor" });
+    int removedRecs = fam.RemoveForExeName("bash.exe");
+    Check("store: family remove drops every path record of the exe",
+          removedRecs == 2 && fam.Records.Count == 2 &&
+          fam.Records.Any(r => r.Key == @"C:\Windows\System32\smartscreen.exe") &&
+          fam.Records.Any(r => r.IsIp), $"gone={removedRecs}, left={fam.Records.Count}");
+    Check("store: family remove logs one family event",
+          File.ReadAllText(fam.EventLogPath).Contains("family · 2 record(s)"));
+    Check("store: family remove of an unknown exe is a no-op", fam.RemoveForExeName("nope.exe") == 0);
+}
+finally { try { Directory.Delete(famDir, true); } catch { } }
+
+// ─────────────────────────────────────────────────────────────────────
+// 8. CountRedundantDuplicates — the quota-aware duplicate definition.
+//    Distinct shapes (TCP+UDP per IP, the paths of a name family) never
+//    count; only exact identity repeats do.
+// ─────────────────────────────────────────────────────────────────────
+int D(params string[] ids) => AutoCommand.Engines.Firewall.FirewallService.CountRedundantDuplicates(ids);
+
+Check("dup: v2 quota shape (TCP+UDP) is not a duplicate",
+      D("AC-BLOCK-IP 1.2.3.4 (TCP Out)", "AC-BLOCK-IP 1.2.3.4 (UDP Out)") == 0);
+Check("dup: same name twice counts one redundant",
+      D("AC-BLOCK-APP bash.exe (Out)", "AC-BLOCK-APP bash.exe (Out)") == 1);
+Check("dup: six race-era copies count five redundant",
+      D(Enumerable.Repeat("AC-BLOCK-APP bash.exe (Out)", 6).ToArray()) == 5);
+Check("dup: app identity includes the path — family paths are not dups",
+      D("AC-BLOCK-APP x.exe (Out)|C:\\a\\x.exe", "AC-BLOCK-APP x.exe (Out)|C:\\b\\x.exe") == 0);
+Check("dup: same name + same path is one redundant",
+      D("AC-BLOCK-APP x.exe (Out)|C:\\a\\x.exe", "AC-BLOCK-APP x.exe (Out)|C:\\a\\x.exe") == 1);
+Check("dup: mixed identities sum per-identity redundants",
+      D("n", "n", "m", "m", "m") == 3);
+Check("dup: empty input is clean", D(Array.Empty<string>()) == 0);
 
 Console.WriteLine();
 Console.WriteLine(failures == 0 ? "ALL CONTAIN SELF-TESTS PASSED" : $"{failures} CHECK(S) FAILED");

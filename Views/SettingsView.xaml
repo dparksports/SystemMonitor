@@ -1,4 +1,4 @@
-<UserControl x:Class="AutoCommand.Views.SettingsView"
+﻿<UserControl x:Class="AutoCommand.Views.SettingsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Loaded="UserControl_Loaded">
@@ -112,57 +112,38 @@
                     </Grid>
                 </Border>
 
-                <!-- Security Check Rate -->
+                <!-- Instrumentation -->
                 <Border Style="{StaticResource CardPanel}">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="Instrumentation" Style="{StaticResource SectionHeader}"/>
 
-                        <TextBlock Text="Security Check Rate" Style="{StaticResource SectionHeader}"/>
+                        <TextBlock Text="Every periodic background instrument, with its cadence under your control. Instruments are phase-spread so equal-cadence work never piles onto the same instant; heavy ones are serialized a second apart; and a run that takes too long on this machine auto-slows its instrument (noted in amber) until you recalibrate it here. Changes apply immediately and persist across restarts."
+                                   Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,10"/>
 
-                        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,8,0,8">
-                            <TextBlock Text="Background check interval:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                            <ComboBox x:Name="CheckRateCombo" Width="200"
-                                      SelectionChanged="CheckRateCombo_SelectionChanged">
-                                <ComboBoxItem Content="Every 60 seconds" Tag="60"/>
-                                <ComboBoxItem Content="Every 30 seconds" Tag="30"/>
-                                <ComboBoxItem Content="Every 10 seconds" Tag="10"/>
-                                <ComboBoxItem Content="Every 6 seconds" Tag="6"/>
-                                <ComboBoxItem Content="Every 5 seconds (default)" Tag="5"/>
-                                <ComboBoxItem Content="Every 3 seconds" Tag="3"/>
-                                <ComboBoxItem Content="Every second" Tag="1"/>
-                            </ComboBox>
+                        <ItemsControl x:Name="InstrumentsList"/>
+
+                        <TextBlock Text="Managed disk writes" FontSize="12" FontWeight="SemiBold" Margin="0,8,0,2"/>
+                        <TextBlock x:Name="DiskStatsText" FontSize="11"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                            <CheckBox x:Name="ThriftyDiskChk" FontSize="11"
+                                      Content="Minimize disk writes — flush every 5 minutes, 1 MB buffers"
+                                      Checked="ThriftyDisk_Changed" Unchecked="ThriftyDisk_Changed"
+                                      ToolTip="Batching for HDD-friendliness and idle machines: the flush instrument's cadence moves to 5 minutes and buffers grow to 1 MB (a buffer still self-flushes at its threshold). The trade-off is a larger crash window - one flush interval - which every routed writer tolerates by design."/>
+                            <Button x:Name="FlushDiskBtn" Content="Flush now" Click="FlushDiskBtn_Click"
+                                    Padding="10,3" FontSize="11" Margin="12,0,0,0"
+                                    ToolTip="Write every buffered journal line and pending store rewrite immediately."/>
                         </StackPanel>
 
-                        <TextBlock Grid.Row="2" Text="How often the fast security checks run (SSTP service, hosted network, adapter events). Heavier scans (kernel debug, hosts file, privileged tasks, firewall drift) keep fixed 30–60 second cadences. Takes effect immediately; persisted across restarts."
-                                   Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" TextWrapping="Wrap"/>
-                    </Grid>
-                </Border>
-
-                <!-- Advanced investigation -->
-                <Border Style="{StaticResource CardPanel}">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-
-                        <TextBlock Text="Advanced investigation" Style="{StaticResource SectionHeader}"/>
-
-                        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,8,0,8">
-                            <CheckBox x:Name="AdvancedTabsCheck"
-                                      Content="Show advanced investigation tabs"
-                                      Checked="AdvancedTabsCheck_Checked"
-                                      Unchecked="AdvancedTabsCheck_Unchecked"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <Button x:Name="ResetInstrumentsBtn" Content="↺ Restore defaults" Click="ResetInstrumentsBtn_Click"
+                                    Padding="10,3" FontSize="11"
+                                    ToolTip="Every instrument returns to its default cadence and on/off state."/>
+                            <Button x:Name="RefreshInstrumentsBtn" Content="⟳ Refresh stats" Click="RefreshInstrumentsBtn_Click"
+                                    Padding="10,3" FontSize="11" Margin="8,0,0,0"
+                                    ToolTip="Re-read each instrument's live run stats."/>
                         </StackPanel>
-
-                        <TextBlock Grid.Row="2" Text="Off by default: the sidebar stays a plain watch-and-block tool. When on, eight deep-dive tabs appear — Spawns, BITS Transfers and Traffic Patterns (WATCH); Black Hole and Windows Defender (CONTAIN); Data &amp; Privacy, OneSettings and Sysmon Audit (SYSTEM). Applies immediately and is remembered for next launch."
-                                   Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" TextWrapping="Wrap"/>
-                    </Grid>
+                    </StackPanel>
                 </Border>
 
                 <!-- Application Information -->

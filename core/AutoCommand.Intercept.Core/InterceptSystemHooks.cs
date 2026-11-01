@@ -1,6 +1,4 @@
 using System;
-using AutoCommand.Intercept.Core;
-using AutoCommand.NetWatch.Core;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -29,8 +27,6 @@ namespace AutoCommand.Intercept.Core
     /// the machine proxied: RecoverAfterCrash() runs at every app start and
     /// undoes whatever the journal still describes.
     /// </summary>
-    // public since the Intercept core extraction: the app calls
-    // RecoverAfterCrash() at startup
     public static class InterceptSystemHooks
     {
         public const string FirewallRulePrefix = "AutoCommand Intercept QUIC block";
@@ -66,6 +62,10 @@ namespace AutoCommand.Intercept.Core
             catch { /* unreadable journal — best-effort recovery below still runs */ }
             return null;
         }
+
+        /// <summary>Test seam: the self-test round-trips the journal through
+        /// a temp dir via the CA dir override; this exposes the file path.</summary>
+        internal static string JournalPathForTest => JournalPath;
 
         // ── WinHTTP (services) ────────────────────────────────────────────
 
@@ -218,7 +218,10 @@ namespace AutoCommand.Intercept.Core
 
         /// <summary>
         /// App-start safety net: a crash mid-session leaves the journal on
-        /// disk — undo everything it describes. No journal, no action.
+        /// disk — undo everything it describes. No journal, no action. An
+        /// UNREADABLE journal is left in place, never guessed at: a partial
+        /// write means the hooks may be live with the journal as their only
+        /// undo record, so deleting it could strand the machine proxied.
         /// </summary>
         public static void RecoverAfterCrash()
         {

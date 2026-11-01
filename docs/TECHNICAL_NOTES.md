@@ -29,6 +29,31 @@ How AutoCommand delivers what the [README](../README.md) promises: the technolog
 | Live ordering | WPF `ICollectionView` live sorting on the row's `LastSeen` timestamp; stale rows detected off a UI timer |
 | TX-only filter | Off-by-default view lens: `ICollectionView.Filter` + live filtering over a time-gated `IsTxOnly` flag (sent bytes > 0, received = 0, row ≥ 30 s old — the grace keeps mid-handshake rows from flashing, since rows seed at 0/0 and Rx only lands when a reply crosses the sniffer); the checkbox label carries the live count while the lens is off; a view lens only — ingestion, the CSV export and the AI-audit context all read the unfiltered source |
 | Row lifecycle | `LastSeen` seeded from the Sysmon event's UTC time (one-shot connections still get a real timestamp); the UI timer marks rows "— exited" once their PID is gone, and a later Sysmon event re-attributes the row to a new PID on the same remote IP |
+| Traffic Peek | Right-click → **Peer into this connection / this program** or **Track this service** opens a subject-scoped window (see below) |
+
+### Traffic Peek ("Peer into this connection")
+
+A subject-scoped inspection window from the Process Monitor context menu, powered by a
+`FlowPeekService` in `Engines.Watch`:
+
+| Concern | Technology |
+|---|---|
+| Capture lifetime | The shared `TcpStreamCaptureService` (raw socket, SIO_RCVALL) runs **only while a peek window is open** — the peek is the sole `AddRef`/`Release` holder, so idle AutoCommand captures nothing; nothing is persisted (flow persistence stays off) |
+| Flow finalization | The peek shortens the capture's idle sweep to 10 s while open (restored on close), so long-lived conversations surface without waiting for them to close; RST/FIN-closed flows appear immediately |
+| Scopes | Three subjects, one engine: **remote IP** (`RemoteIpScope` — "this connection"), **program instance** (`ProgramScope` — PID-anchored via EID 3, with image-equality fallback that is refused for shared hosts), and **service name** (`ServiceScope` — each connecting PID's hosted services are resolved over WMI with a 30 s TTL, so a pinned service keeps being tracked across restarts where a PID pin would go stale) |
+| PID attribution | Its own `SysmonConnectWatcherService` (Sysmon EID 3) feeds `TagFlow` — first-writer-wins, so a future Transmissions pipeline doing the same is harmless; Sysmon absent degrades to a note, never a failure. Program/service scopes say so in the status strip: without Sysmon they stay empty |
+| Track this service | Right-click a svchost row → **Track this service** opens a service-scoped peek: it follows whichever svchost instance hosts the pinned service next (DiagTrack, CryptSvc…), with no user action on respawn — the scope is the NAME, not the PID |
+| Launch under watch | **🚀 Launch under watch…** (`TransmissionKeyService`, recreated from autocommand-ii) starts one program with `SSLKEYLOGFILE` set in *its* environment only and opens a program-scoped peek for the new PID — its flows decrypt as they finalize. The system-wide capture (HKCU\Environment + broadcast) ships in the same service |
+| TLS metadata | Always extracted from the ClientHello (SNI, ALPN, cipher, TLS version) — keys or no keys |
+| Plaintext | Only when session keys exist in the keylog (`%LOCALAPPDATA%\AutoCommand\pytrace\sslkeys.log` — opt-out flag file honored: the peek never recreates a keylog the user disabled). **schannel services (wuauserv, BITS, DoSvc) never log keys** — their rows stay metadata-only and the window shows the decryptor's verbatim reason instead of pretending |
+| Coverage note | On every "encrypted (no keys)" row the window shows which apps honor SSLKEYLOGFILE and states plainly that schannel components never will — the honest coverage answer, not a gap |
+| Python instrumentation | **🐍 Instrument…** (any peek window) opens the per-environment opt-in dialog: the audit hook (`PyTraceHook_ac.py` + `.pth`, embedded in `AutoCommand.Forensics.Core` and read from that same assembly) lands in discovered environments' site-packages. Instrumented pythons report spawn call stacks (`trace-<pid>.jsonl`) and TLS session keys — a program-scoped peek of a python process shows the "Python audit trace" section for exactly that pid |
+| Intercept (layer 3) | On a "encrypted (no keys)" flow in a program/service scope: **🛡 Intercept this process…** — a time-boxed (15 min) local TLS-terminating proxy (`InterceptProxyService` in the recreated `AutoCommand.Intercept.Core`). The session installs the loopback proxy as the temporary WinHTTP (services) + WinINET (apps) proxy via `InterceptSystemHooks`, blocks the target's UDP/443 so QUIC falls back to TCP, and MITMs only connections the kernel TCP table attributes to the target PID — everything else is tunnelled untouched. Only the PID matches; image matching is refused for shared hosts, so a svchost target is always exactly one service tenant |
+| Intercept trust & teardown | A per-install CA (`CN=AutoCommand Intercept CA`, RSA-2048, `%LOCALAPPDATA%\AutoCommand\intercept\ca.pfx`) is trusted into the MACHINE Root store only while a session runs and removed by thumbprint at session end. Every hook change is journaled to `session-active.json`; `RecoverAfterCrash()` runs at app start and undoes whatever the journal still describes. An UNREADABLE journal is left in place, never guessed at (a partial write may be the only undo record). The app exit path stops any live session. Certificate-pinned clients fail loudly — recorded as "refused intercept (pinning)", a signal, not an error |
+| Intercept results | Decrypted conversations flow through the pipeline's `IngestIntercepted` seam into the scoped peek that started the session: rows tagged "decrypted · intercept" with request/response bodies viewable in-place (text + hex) and exportable with 💾 Save bodies — in memory until the user says so |
+| Service activity | The Windows Update / BITS / Delivery Optimization operational channels read for the flows' time window — the plaintext "what did this service actually do" that TLS metadata cannot show; missing channels (DO on some SKUs) contribute nothing |
+| Scope guard | Only flows belonging to the subject are processed; one window per subject ("ip:x" · "pid:N" · "svc:name" — a second Peer on the same subject focuses the existing window) |
+| Where data goes | Nowhere. Capture, decryption and event reads are local; the only network I/O is the connection being observed itself |
 
 ### DNS & org resolution (the Host column)
 
@@ -42,18 +67,6 @@ How AutoCommand delivers what the [README](../README.md) promises: the technolog
 | Idle reconciliation | Every placeholder answer is already persisted in the hostname cache, so "all unresolved IPs" falls out of it oldest-first. When the Sysmon feed has been quiet for 5 minutes (traffic idle — re-checked every minute), batches of 8 addresses are re-asked through the normal paced pipeline; 2-minute cooldown between batches; 5 attempts per address per session, then left until the entries age out (24 h). Fresh negative answers are never re-asked early. Wired to the watcher's `QuietFor` in the app; never runs in headless faces |
 | Cache files | `C:\ProgramData\AutoCommand\dns_cache.json`, `geo_prefix_cache.json`, `dns_forward_cache.json` — machine-wide, so they survive install-folder moves (a legacy beside-the-exe cache is copied once on first run) |
 | AI access | `lookup_ip` on the bridge reports the same cascade and state; `force: true` is the urgent path |
-
-### DNS queries + UDP transports (the 🌐 tab and the Proto column)
-
-| Concern | Technology |
-|---|---|
-| Query feed | `DnsQueryFeedService` — own `EventLogWatcher` over `*[System[(EventID=22)]]` (the app's Sysmon config captures DNS queries; this service is their only consumer). 24 h ring persisted to `%LOCALAPPDATA%\AutoCommand\dns\dns-queries.jsonl`, so yesterday's lookups stay explainable |
-| Two facets | **Per domain** — who asks, how often, first/last seen, resolved addresses with classification and blocked status, and beacon regularity (inter-query gap CV: lower = the machine asks on a metronome; beacons look like that, scheduled updaters too). **Per process** — everything a program resolves, busiest first |
-| DoH honesty | DNS-over-HTTPS produces no EID 22 events. A query FOR a known encrypted resolver (Cloudflare, Google, Quad9, NextDNS…) is flagged 🔒 — it marks the moment a process switches to DNS this feed cannot see |
-| Monitor seeding | Resolved addresses name already-tracked monitor rows via `SeedFromSysmon` (targeted: the cache never fills with never-connected domains) |
-| UDP transports | Rows track **every transport seen** against their remote address (`Proto` column: TCP / UDP / TCP+UDP) plus a transport lens (All/TCP/UDP) over the same view filter as the TX-only lens. The raw-IP sniffer is transport-agnostic by construction — UDP datagrams to tracked addresses were always counted |
-| MCP | `list_dns_queries` (minutes / domain facet / contains / max) reports the same aggregates; offline stub included |
-| Limits | Loopback traffic never crosses the NIC (invisible to the sniffer and to EID 3's usefulness); QUIC shows as UDP/443 volumes without content — same metadata-only stance as the transmissions archive |
 
 ### Sysmon Audit
 | Concern | Technology |
@@ -159,7 +172,6 @@ Process Monitor, where it can be blocked like any other destination.
 
 ### Platform
 * **.NET 10 (WPF)** front end.
-* **Plugins** load through the bundled `AutoCommand.Sdk` (the Plugins tab is currently disabled in the UI; the loader ships with the app).
 * **README infographics** are generated by `Assets/generate_infographics.py` (Python + matplotlib).
 
 ---

@@ -1,12 +1,14 @@
-using System.Linq;
+﻿using System.Linq;
 using System.Windows;
 
 using AutoCommand.Agent.Core;
 using AutoCommand.Contain.Core;
 using AutoCommand.Forensics.Core;
-using AutoCommand.Intercept.Core;
 using AutoCommand.NetWatch.Core;
 using AutoCommand.Sitedoctor.Core;
+
+using AutoCommand.Services;
+using AutoCommand.Engines.Core;
 
 namespace AutoCommand
 {
@@ -70,6 +72,17 @@ namespace AutoCommand
         {
             base.OnStartup(e);
 
+            // The F# watch engines are app-agnostic: give them AutoCommand's
+            // identity (data root, rule prefixes, port base) before anything
+            // touches them (same call autoscope makes at startup).
+            AutoCommand.Engines.Watch.WatchConfig.Configure(
+                AutoCommand.Engines.Core.Identity.autocommand());
+
+            // Layer-3 crash safety: if a previous run died mid-intercept, the
+            // journal on disk still describes the hooks it installed — undo
+            // them (proxy, firewall rule, CA) before anything else runs.
+            AutoCommand.Intercept.Core.InterceptSystemHooks.RecoverAfterCrash();
+
             // ── headless agent mode (no UI, no dialogs, no theme) ────────
             // --agent-headless [sec]
             //      start an AI session without the UI (scripts/tests).
@@ -104,7 +117,11 @@ namespace AutoCommand
             NotifyIfInstallMoved();
 
             // Apply the saved theme before any window loads (brushes are
-            // DynamicResource, so this also re-themes live when changed later)
+            // DynamicResource, so this also re-themes live when changed later).
+            // AdoptDefaultOnce first: the default era changed to Light (the
+            // Shields Up look), and installs that lived under the old Dark
+            // default adopt it once here.
+            Services.ThemeService.AdoptDefaultOnce();
             Services.ThemeService.ApplyTheme(Services.ThemeService.Saved);
 
             // Handle UI thread exceptions
@@ -154,6 +171,54 @@ namespace AutoCommand
             // listener immediately so proof accumulates even if that tab is
             // never opened this session. Touching the proof store also wires
             // its recorder to the sinkhole. No sinkhole pins → both are no-ops.
+
+            // Managed disk writes: block store + event journals buffer
+            // and flush on one calibratable cadence (Settings shows it)
+            BlocksStore.DeferredSaves = true;
+            InstrumentMetronome.Instance.Register(new InstrumentSpec
+            {
+                Id = "disk-flush",
+                Name = "Disk flush (managed buffers)",
+                Description = "Writes every buffered journal line and pending store rewrite to disk. " +
+                              "Between flushes, writes coalesce in memory (bounded by a byte threshold " +
+                              "that self-flushes) - per-event disk writes are what this replaces.",
+                Cost = InstrumentCost.Light,
+                DefaultSeconds = 30,
+                MinSeconds = 5,
+                MaxSeconds = 600,
+                Callback = () =>
+                {
+                    BufferedAppender.FlushAll();
+                    BlocksStore.FlushPending();
+                    return Task.CompletedTask;
+                },
+            });
+
+            // Block gates: close anything that expired while the app was
+            // down, then keep watch — an open gate is a promise to re-block
+            try { System.IO.File.Delete(AgentPrefPath("mutating_pref.txt")); } catch { }
+            _ = Agent.Core.BlockGateService.Instance.ReconcileOnStartupAsync();
+            // every gate close reaches the bridge's activity log — the
+            // agent-facing record (Be My Guest tab + offline agents), so a
+            // window ending is visible even if nobody was watching
+            Agent.Core.BlockGateService.Instance.GateClosed += (g, origin) =>
+            {
+                try { AgentBridgeService.Instance.LogActivity(
+                    "gate", $"closed ({origin})", $"{g.Display} — blocking restored"); } catch { }
+            };
+            InstrumentMetronome.Instance.Register(new InstrumentSpec
+            {
+                Id = "gate-watch",
+                Name = "Block gate watch",
+                Description = "Closes expired block gates - temporary agent-requested unblocks whose " +
+                              "time window ended - restoring blocking automatically.",
+                Cost = InstrumentCost.Light,
+                DefaultSeconds = 10,
+                MinSeconds = 5,
+                MaxSeconds = 60,
+                Callback = () => Agent.Core.BlockGateService.Instance.CloseExpiredAsync(),
+            });
+
             SinkholeService.Instance.EnsureRunningForCurrentPins();
             _ = Services.TelemetryProofService.Instance.TotalDenied;
 
@@ -164,22 +229,25 @@ namespace AutoCommand
             // code: telemetry/ in the repository.
             _ = Services.UsagePingService.RunStartupFlowAsync();
 
-            // The agent bridge's confirmation seam: mutating AI-session
-            // asks show the AgentConfirmWindow dialog at the app's UI.
-            // Headless hosts never install one — their mutating tools are
-            // denied with the plain-language note, exactly as before.
-            AgentBridgeService.Interaction = new Services.WpfAgentInteraction();
+            // The F# bridge engine + the app's tool surface, then the WPF
+            // confirm seam: mutating AI-session asks show the
+            // AgentConfirmWindow dialog at the app's UI. Headless hosts Wire
+            // without a Ui — their mutating tools are denied with the
+            // plain-language note, exactly as before.
+            Agent.Core.BridgeHost.Wire();
+            AutoCommand.Engines.Bridge.AgentBridgeService.Ui = new Services.AgentBridgeUI();
 
             // Auto-started AI session (opt-in from Settings → AI access): the
             // consent was given once at the checkbox; every launch honors it.
-            // Read-only unless the mutating preference is separately on.
+            // Read-only tools answer freely; the gate pair confirms per call
+            // in the app (mutating is the gates, nothing else).
             if (AgentAutostartPrefOn())
             {
                 var (ok, message) = AgentBridgeService.Instance.Start(
-                    allowMutating: AgentMutatingPrefOn());
+                    allowMutating: true);   // the gate pair - each request confirms in the app
                 if (ok)
                     AgentBridgeService.Instance.LogActivity("session", "started (auto)",
-                        $"mutating {(AgentMutatingPrefOn() ? "on" : "off")}");
+                        "gate requests ask per request");
             }
         }
 
@@ -189,12 +257,6 @@ namespace AutoCommand
         private static bool AgentAutostartPrefOn()
         {
             try { return System.IO.File.ReadAllText(AgentPrefPath("autostart_pref.txt")).Trim() == "on"; }
-            catch { return false; }
-        }
-
-        private static bool AgentMutatingPrefOn()
-        {
-            try { return System.IO.File.ReadAllText(AgentPrefPath("mutating_pref.txt")).Trim() == "on"; }
             catch { return false; }
         }
 
@@ -264,6 +326,10 @@ namespace AutoCommand
             // a live session must never outlive the app: the session file is
             // what grants access, so it dies here even on a crash-next-launch
             AgentBridgeService.Instance.Stop();
+            Agent.Core.BlockGateService.Instance.CloseAllAsync("gate-exit").GetAwaiter().GetResult();
+            BufferedAppender.FlushAll();
+            BlocksStore.FlushPending();
+            InstrumentMetronome.Instance.Stop();
             base.OnExit(e);
         }
 

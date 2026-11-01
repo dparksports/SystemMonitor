@@ -1,8 +1,7 @@
-using System;
+﻿using System;
 using AutoCommand.Agent.Core;
 using AutoCommand.Contain.Core;
 using AutoCommand.Forensics.Core;
-using AutoCommand.Intercept.Core;
 using AutoCommand.NetWatch.Core;
 using AutoCommand.Sitedoctor.Core;
 using System.Collections.Concurrent;
@@ -69,9 +68,20 @@ namespace AutoCommand.Views
         // Scheduled-task attribution for taskhostw rows (who/what/why launched)
         private readonly TaskAttributionService _taskAttribution = new();
 
+        // Traffic Peek windows, one per subject ("Peer into this connection",
+        // "Peer into this program", "Track this service") — keys name the
+        // scope: "ip:x" · "pid:N" · "svc:name".
+        private readonly Dictionary<string, ConnectionPeekWindow> _peekWindows = new(StringComparer.OrdinalIgnoreCase);
+
         /// <summary>The live monitor instance — the Blocks tab reads current
         /// connections from it for its "last traffic" column.</summary>
         public static SvchostMonitorView Current { get; private set; }
+
+        /// <summary>The shared row table both engines write into — the Rain
+        /// tab's MatrixRainFeed aggregates it (read-only by contract) so the
+        /// rain is literally the same data the DataGrid shows, with no
+        /// second watcher or sniffer.</summary>
+        public ConcurrentDictionary<string, SvchostMonitorItem> TrackedTable => _trackedIps;
 
         /// <summary>Newest live row still talking to this IP, or null — the
         /// Blocks tab's freshest "last traffic" source (beats the archive).</summary>
@@ -119,11 +129,8 @@ namespace AutoCommand.Views
                 liveShaping.IsLiveSorting = true;
                 // TX-only filter membership is live too: rows slide in when
                 // their grace period lapses with zero Rx, and drop out the
-                // moment a reply packet lands. ProtocolDisplay is live as
-                // well: a row gains UDP (and with the protocol lens on) the
-                // moment the first UDP event lands against its IP.
+                // moment a reply packet lands.
                 liveShaping.LiveFilteringProperties.Add(nameof(SvchostMonitorItem.IsTxOnly));
-                liveShaping.LiveFilteringProperties.Add(nameof(SvchostMonitorItem.ProtocolDisplay));
                 liveShaping.IsLiveFiltering = true;
             }
             if (CollectionViewSource.GetDefaultView(_uiCollection) is ListCollectionView view)
@@ -257,8 +264,8 @@ namespace AutoCommand.Views
 
             MonitorStatusText.Text = "Downloading and configuring Sysmon... please wait.";
 
-            var result = await _installerService.InstallAndConfigureAsync();
-            if (result.Success)
+            var (installOk, installError) = await _installerService.InstallAndConfigureAsync();
+            if (installOk)
             {
                 MessageBox.Show("Sysmon has been successfully installed and configured for network tracking.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
                 CheckSysmonStatus();
@@ -266,7 +273,7 @@ namespace AutoCommand.Views
             }
             else
             {
-                MessageBox.Show($"Failed to install Sysmon.\n\nDetails: {result.ErrorMessage}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to install Sysmon.\n\nDetails: {installError}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 SetupSysmonBtn.IsEnabled = true;
                 MonitorStatusText.Text = "Sysmon is not installed — install it from the Sysmon Audit tab. Network tracking will not work.";
             }
@@ -289,9 +296,9 @@ namespace AutoCommand.Views
             }
 
             MonitorStatusText.Text = "Repairing Sysmon... removing leftovers and reinstalling.";
-            var repaired = await _installerService.RepairAsync();
+            var (repairedOk, repairedError, rebootRequired) = await _installerService.RepairAsync();
 
-            if (repaired.Success)
+            if (repairedOk)
             {
                 MessageBox.Show("Sysmon repair completed and verified. No restart was needed.", "Repair complete", MessageBoxButton.OK, MessageBoxImage.Information);
                 CheckSysmonStatus();
@@ -299,7 +306,7 @@ namespace AutoCommand.Views
                 return;
             }
 
-            if (repaired.RebootRequired)
+            if (rebootRequired)
             {
                 var restart = MessageBox.Show(
                     "Windows still holds the stale Sysmon registration; it can only be cleared during a restart.\n\n" +
@@ -322,7 +329,7 @@ namespace AutoCommand.Views
                 return;
             }
 
-            MessageBox.Show($"Sysmon repair failed.\n\nDetails: {repaired.ErrorMessage}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"Sysmon repair failed.\n\nDetails: {repairedError}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             SetupSysmonBtn.IsEnabled = true;
             MonitorStatusText.Text = "Sysmon is not installed. Network tracking will not work.";
         }
@@ -345,26 +352,13 @@ namespace AutoCommand.Views
         {
             // Assigning Filter refreshes the view; with live filtering on
             // IsTxOnly, membership keeps itself current afterwards.
-            CollectionViewSource.GetDefaultView(_uiCollection).Filter = RowsFilterPredicate;
+            CollectionViewSource.GetDefaultView(_uiCollection).Filter =
+                TxOnlyCheck.IsChecked == true ? TxOnlyPredicate : null;
             UpdateTxOnlyCheckLabel();
         }
 
-        /// <summary>The one view filter: the TX-only lens AND the transport
-        /// lens (both optional — a row must satisfy every active lens).</summary>
-        private string _protocolFilter;   // null = all transports
-
-        private bool RowsFilterPredicate(object o) =>
-            o is SvchostMonitorItem m &&
-            (TxOnlyCheck.IsChecked != true || m.IsTxOnly) &&
-            (string.IsNullOrEmpty(_protocolFilter) ||
-             (m.ProtocolDisplay ?? "").Contains(_protocolFilter, StringComparison.OrdinalIgnoreCase));
-
-        private void ProtoCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            _protocolFilter = (ProtoCombo.SelectedItem as ComboBoxItem)?.Tag as string;
-            if (_uiCollection == null) return; // toolbar built before the collection
-            CollectionViewSource.GetDefaultView(_uiCollection).Filter = RowsFilterPredicate;
-        }
+        private static bool TxOnlyPredicate(object o) =>
+            o is SvchostMonitorItem m && m.IsTxOnly;
 
         /// <summary>
         /// Keeps the TX-only count in the checkbox label so users can see how
@@ -637,6 +631,29 @@ namespace AutoCommand.Views
                 ? $"🔎 Trace PID {sel.ProcessId} — how was it spawned?"
                 : "🔎 Trace: how was this PID spawned?";
 
+            // Peer needs a real remote endpoint to scope the capture to.
+            bool peerable = sel != null &&
+                System.Net.IPAddress.TryParse(sel.RemoteIp, out _);
+            PeerMenuItem.IsEnabled = peerable;
+            PeerMenuItem.Header = peerable
+                ? $"🔬 Peer into this connection ({sel.RemoteIp})"
+                : "🔬 Peer into this connection";
+
+            // Program scope needs a live PID (Sysmon EID 3 does the rest).
+            bool programPeekable = sel != null && sel.ProcessId > 0;
+            ProgramPeekMenuItem.IsEnabled = programPeekable;
+            ProgramPeekMenuItem.Header = programPeekable
+                ? $"🔬 Peer into this program (PID {sel.ProcessId})"
+                : "🔬 Peer into this program";
+
+            // A service pin is the subject that survives restarts — anchored
+            // to the NAME, so it tracks whichever instance pops up next.
+            string pinnedService = sel == null ? null : FirstService(sel.HostedServicesCsv);
+            TrackServiceMenuItem.IsEnabled = !string.IsNullOrEmpty(pinnedService);
+            TrackServiceMenuItem.Header = !string.IsNullOrEmpty(pinnedService)
+                ? $"⭐ Track this service ({pinnedService}) — follows restarts"
+                : "⭐ Track this service (svchost rows only)";
+
             ResolveNowMenuItem.IsEnabled = sel != null &&
                 System.Net.IPAddress.TryParse(sel.RemoteIp, out _) && !sel.IsResolved;
             ResolveNowMenuItem.Visibility = ResolveNowMenuItem.IsEnabled
@@ -652,12 +669,9 @@ namespace AutoCommand.Views
                 ? $"🚫 Ignore process '{sel.ProcessName}'"
                 : "🚫 Ignore process (no row selected)";
 
-            // Block items tell the current state: flip to Unblock whenever a
-            // block exists — removal matches rule NAMES, so it works on
-            // paused rules too. A paused block also grows a '▶ Re-enable'
-            // sibling right below: resuming must go through
-            // SetTargetsEnabledAsync, because AddIpBlockAsync on an existing
-            // rule just refreshes provenance and would silently not re-block.
+            // Block items tell the current state: flip to Unblock when a
+            // block exists, and explain (disabled) when it is only paused —
+            // re-blocking a paused target would silently not block anything.
             bool validIp = sel != null && System.Net.IPAddress.TryParse(sel.RemoteIp, out _);
             if (validIp && sel.IpBlockState == BlockRuleState.Active)
             {
@@ -666,8 +680,8 @@ namespace AutoCommand.Views
             }
             else if (validIp && sel.IpBlockState == BlockRuleState.Paused)
             {
-                BlockIpMenuItem.IsEnabled = true;
-                BlockIpMenuItem.Header = $"✅ Unblock remote IP {sel.RemoteIp} — remove the paused block";
+                BlockIpMenuItem.IsEnabled = false;
+                BlockIpMenuItem.Header = $"⏸ IP block for {sel.RemoteIp} is paused — re-enable from 'Blocked' → Manage all";
             }
             else
             {
@@ -676,10 +690,6 @@ namespace AutoCommand.Views
                     ? $"⛔ Block remote IP {sel.RemoteIp} in Firewall"
                     : "⛔ Block Remote IP in Firewall";
             }
-            bool ipPaused = validIp && sel.IpBlockState == BlockRuleState.Paused;
-            ResumeIpBlockMenuItem.Visibility = ipPaused ? Visibility.Visible : Visibility.Collapsed;
-            if (ipPaused)
-                ResumeIpBlockMenuItem.Header = $"▶ Re-enable block for {sel.RemoteIp} — traffic to it stops again";
 
             bool blockableProcess = sel != null && sel.ProcessId > 0;
             if (blockableProcess && sel.ProcessBlockState == BlockRuleState.Active)
@@ -689,8 +699,8 @@ namespace AutoCommand.Views
             }
             else if (blockableProcess && sel.ProcessBlockState == BlockRuleState.Paused)
             {
-                BlockProcessMenuItem.IsEnabled = true;
-                BlockProcessMenuItem.Header = $"✅ Unblock process '{sel.ProcessName}' — remove the paused block";
+                BlockProcessMenuItem.IsEnabled = false;
+                BlockProcessMenuItem.Header = "⏸ Process block is paused — re-enable from 'Blocked' → Manage all";
             }
             else
             {
@@ -699,10 +709,6 @@ namespace AutoCommand.Views
                     ? $"⛔ Block process '{sel.ProcessName}' in Firewall"
                     : "⛔ Block Process in Firewall";
             }
-            bool procPaused = blockableProcess && sel.ProcessBlockState == BlockRuleState.Paused;
-            ResumeProcessBlockMenuItem.Visibility = procPaused ? Visibility.Visible : Visibility.Collapsed;
-            if (procPaused)
-                ResumeProcessBlockMenuItem.Header = $"▶ Re-enable block for '{sel.ProcessName}' — its traffic stops again";
 
             bool killable = sel != null && sel.ProcessId > 0;
             KillProcessMenuItem.IsEnabled = killable;
@@ -795,6 +801,100 @@ namespace AutoCommand.Views
             if (SvchostGrid.SelectedItem is SvchostMonitorItem item)
                 OpenPidTrace(item.ProcessId, item);
         }
+
+        // -----------------------------------------------------------------------
+        // Traffic Peek — peer into what a connection carries
+        // -----------------------------------------------------------------------
+
+        private void PeerMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (SvchostGrid.SelectedItem is not SvchostMonitorItem item ||
+                string.IsNullOrEmpty(item.RemoteIp))
+                return;
+
+            OpenIpPeekWindow(item.RemoteIp, item.ProcessName, item.ProcessId, item.HostedServicesCsv, item.Hostname);
+        }
+
+        private void ProgramPeekMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (SvchostGrid.SelectedItem is not SvchostMonitorItem item || item.ProcessId <= 0)
+                return;
+            OpenProgramPeekWindow(item.ProcessId, item.ImagePath ?? item.ProcessName, item.ProcessName, item.HostedServicesCsv, item.Hostname);
+        }
+
+        private void TrackServiceMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (SvchostGrid.SelectedItem is not SvchostMonitorItem item) return;
+            string service = FirstService(item.HostedServicesCsv);
+            if (string.IsNullOrEmpty(service)) return;
+            OpenServicePeekWindow(service, item.ProcessName, item.HostedServicesCsv, item.Hostname);
+        }
+
+        /// <summary>The first SCM-resident service name on a svchost row.</summary>
+        private static string FirstService(string hostedServicesCsv)
+        {
+            if (string.IsNullOrWhiteSpace(hostedServicesCsv)) return null;
+            foreach (var part in hostedServicesCsv.Split(','))
+                if (!string.IsNullOrWhiteSpace(part)) return part.Trim();
+            return null;
+        }
+
+        // One peek window per subject: a second request focuses the existing
+        // window instead of stacking two captures on the same subject. The
+        // key names the scope ("ip:x" · "pid:N" · "svc:name").
+        private ConnectionPeekWindow OpenOrFocus(string key, Func<ConnectionPeekWindow> create)
+        {
+            if (_peekWindows.TryGetValue(key, out var existing))
+            {
+                if (existing != null && existing.IsLoaded)
+                {
+                    existing.Activate();
+                    return existing;
+                }
+                _peekWindows.Remove(key);
+            }
+            var win = create();
+            win.Closed += (_, _) => _peekWindows.Remove(key);
+            _peekWindows[key] = win;
+            win.Show();
+            return win;
+        }
+
+        private ConnectionPeekWindow OpenIpPeekWindow(
+            string remoteIp, string processName, int pid, string hostedServices, string hostname) =>
+            OpenOrFocus($"ip:{remoteIp}", () => new ConnectionPeekWindow(
+                remoteIp, processName, pid, hostedServices, hostname)
+            {
+                Owner = Window.GetWindow(this)
+            });
+
+        /// <summary>
+        /// Opens (or focuses) the program-scoped peek for a PID. Public so
+        /// Launch-under-watch can point a fresh window at the instance it
+        /// just started, from inside any peek window.
+        /// </summary>
+        public ConnectionPeekWindow OpenProgramPeekWindow(
+            int pid, string image, string processName,
+            string hostedServices = null, string hostname = null) =>
+            OpenOrFocus($"pid:{pid}", () => new ConnectionPeekWindow(
+                pid, image, processName, hostedServices, hostname)
+            {
+                Owner = Window.GetWindow(this)
+            });
+
+        /// <summary>
+        /// Opens (or focuses) a service-scoped peek. The window follows the
+        /// service across restarts: the scope is the service NAME, so every
+        /// future svchost instance hosting it is tracked with no user action.
+        /// </summary>
+        public ConnectionPeekWindow OpenServicePeekWindow(
+            string service, string processName, string hostedServices = null, string hostname = null) =>
+            OpenOrFocus($"svc:{service}", () => new ConnectionPeekWindow(
+                AutoCommand.Engines.Watch.PeekScope.NewServiceScope(service), service, processName, 0,
+                hostedServices, hostname)
+            {
+                Owner = Window.GetWindow(this)
+            });
 
         /// <summary>
         /// Opens the read-only PID inquiry window. Row hints (name, Sysmon
@@ -968,12 +1068,15 @@ namespace AutoCommand.Views
             }
 
             // The menu flips to "Unblock" once a block exists — the same
-            // item removes it again, paused or not (removal matches rule
-            // names, not their enabled state).
-            if (item.IpBlockState == BlockRuleState.Active ||
-                item.IpBlockState == BlockRuleState.Paused)
+            // item removes it again.
+            if (item.IpBlockState == BlockRuleState.Active)
             {
                 await ConfirmAndRemoveBlockAsync("ip", ip);
+                return;
+            }
+            if (item.IpBlockState == BlockRuleState.Paused)
+            {
+                ShowToast($"⏸ The block for {ip} is paused (traffic flows). Re-enable it from 'Blocked' → Manage all.");
                 return;
             }
 
@@ -1055,12 +1158,14 @@ namespace AutoCommand.Views
                 return;
             }
 
-            // Active or paused — the same item removes the rules (removal
-            // matches rule names, not their enabled state).
-            if (item.ProcessBlockState == BlockRuleState.Active ||
-                item.ProcessBlockState == BlockRuleState.Paused)
+            if (item.ProcessBlockState == BlockRuleState.Active)
             {
                 await ConfirmAndRemoveBlockAsync("proc", path);
+                return;
+            }
+            if (item.ProcessBlockState == BlockRuleState.Paused)
+            {
+                ShowToast($"⏸ The block for {path} is paused (traffic flows). Re-enable it from 'Blocked' → Manage all.");
                 return;
             }
 
@@ -1144,77 +1249,6 @@ namespace AutoCommand.Views
         /// check-off). MessageBox cannot host the checkbox, hence the dialog;
         /// a checked box persists the per-class suppression immediately.
         /// </summary>
-        // ── Re-enable (resume) a paused block from the row ────────────────
-        //
-        // The mirror of unblocking a paused target: pause leaves the rules
-        // in place but disabled, so resuming is an enable-flip through
-        // SetTargetsEnabledAsync — never AddIpBlockAsync, which on an
-        // existing rule only refreshes provenance and would silently not
-        // re-block.
-
-        private async void ResumeIpBlock_Click(object sender, RoutedEventArgs e)
-        {
-            if (SvchostGrid.SelectedItem is not SvchostMonitorItem item) return;
-            string ip = item.RemoteIp;
-            if (!System.Net.IPAddress.TryParse(ip, out _)) return;
-
-            if (MessageBox.Show(
-                    $"Re-enable the firewall block for {ip}?\n\nIts paused rules turn back on and traffic to it stops again.",
-                    "Re-enable block", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
-
-            try
-            {
-                var (matched, changed) = await FirewallService.Instance
-                    .SetTargetsEnabledAsync(new[] { ("ip", ip) }, true);
-                BlocksStore.SetStatus("ip", ip, "on", "monitor");
-                BlocksStore.AppendEvent("resumed", "ip", ip, $"{changed}/{matched} rules", "monitor");
-                _ = RefreshBlockStateFromFirewallAsync();
-                ShowToast(changed > 0
-                    ? $"▶ Block for {ip} re-enabled — {changed} rule(s) back on, traffic to it stops."
-                    : $"No rules found for {ip} — the block was already removed.");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to re-enable block: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-        private async void ResumeProcessBlock_Click(object sender, RoutedEventArgs e)
-        {
-            if (SvchostGrid.SelectedItem is not SvchostMonitorItem item) return;
-
-            // Same identity recovery as blocking: the rules outlive the
-            // process, and SetTargetsEnabledAsync matches the exe name, so
-            // any recorded path of the target resumes the whole fleet.
-            var target = await ResolveBlockTargetAsync(item);
-            string path = target.Path;
-            if (string.IsNullOrEmpty(path))
-            {
-                ShowToast("Cannot re-enable: the process exited and its path could not be recovered. Use 'Blocked' → Manage all.");
-                return;
-            }
-
-            if (MessageBox.Show(
-                    $"Re-enable the firewall block for\n{path}?\n\nIts paused rules turn back on and the process's traffic stops again.",
-                    "Re-enable block", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
-
-            try
-            {
-                var (matched, changed) = await FirewallService.Instance
-                    .SetTargetsEnabledAsync(new[] { ("proc", path) }, true);
-                BlocksStore.SetStatus("proc", path, "on", "monitor");
-                BlocksStore.AppendEvent("resumed", "proc", path, $"{changed}/{matched} rules", "monitor");
-                _ = RefreshBlockStateFromFirewallAsync();
-                ShowToast(changed > 0
-                    ? $"▶ Block for {path} re-enabled — {changed} rule(s) back on, its traffic stops."
-                    : $"No rules found for {path} — the block was already removed.");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to re-enable block: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
         private bool ConfirmBlockWithDialog(string headline, string warning, string detail,
                                             string suppressKey, string suppressLabel)
         {
@@ -1268,7 +1302,14 @@ namespace AutoCommand.Views
         /// <summary>Asks once, then removes the block (rules + monitor record) and toasts the outcome.</summary>
         private async Task ConfirmAndRemoveBlockAsync(string kind, string key)
         {
-            if (MessageBox.Show($"Remove the firewall block for\n{key}?\n\nIts rules are deleted. Traffic resumes immediately if the block was\nactive; a paused block (traffic already flowing) is just cleaned up.",
+            // Process blocks are a NAME family (AppBlockCoverageService keeps
+            // a blocked exe covered at every path it runs from) — say so, so
+            // the removal scope is never a surprise.
+            string family = kind == "ip"
+                ? ""
+                : "\n\nThis lifts every path the executable is blocked from —\n" +
+                  "coverage siblings included, or they would re-block it on its next run.";
+            if (MessageBox.Show($"Remove the firewall block for\n{key}?\n\nIts rules are deleted and traffic resumes immediately.{family}",
                 "Confirm Unblock", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
             await RemoveBlockCoreAsync(kind, key);
         }
@@ -1282,12 +1323,46 @@ namespace AutoCommand.Views
                     ? await FirewallService.Instance.RemoveBlockRulesForIpAsync(key)
                     : await FirewallService.Instance.RemoveBlockRulesForAppAsync(key);
 
-                BlocksStore.Remove(kind, key);
+                if (kind == "ip")
+                {
+                    BlocksStore.Remove(kind, key);
+                }
+                else
+                {
+                    // The removal above lifted the whole name family — drop
+                    // the exe from the coverage cache (a spawn arriving before
+                    // the next 30 s inventory refresh must not re-extend what
+                    // this just lifted) and clear every sibling-path record.
+                    string exeName = System.IO.Path.GetFileName(key);
+                    AppBlockCoverageService.Instance.NotifyUnblocked(exeName);
+                    BlocksStore.RemoveForExeName(exeName);
+                }
                 RefreshBlockedUi();
+
+                // Verify against the live firewall before claiming success: a
+                // surviving rule re-blocks on the next run, and "unblocked but
+                // still reported blocked" must never be a silent outcome.
+                var inventory = await FirewallService.Instance.GetBlockedInventoryAsync();
+                int surviving = kind == "ip"
+                    ? inventory.Count(t => t.Kind == "ip" &&
+                        string.Equals(t.Ip, key, StringComparison.OrdinalIgnoreCase) && t.EnabledRules > 0)
+                    : inventory.Count(t => t.Kind == "app" && t.EnabledRules > 0 &&
+                        string.Equals(System.IO.Path.GetFileName(t.AppPath ?? ""), System.IO.Path.GetFileName(key),
+                                      StringComparison.OrdinalIgnoreCase));
+
                 _ = RefreshBlockStateFromFirewallAsync();
-                ShowToast(removed > 0
-                        ? $"✅ Unblocked {key} — {removed} firewall rule(s) removed; traffic can flow now."
-                        : $"No matching firewall rules found for {key} (already removed?).");
+                if (surviving > 0)
+                {
+                    ShowToast(removed > 0
+                        ? $"⚠ {surviving} enabled rule(s) still cover {key} ({removed} removed) — the block persists. Check 'Blocked' → Manage all."
+                        : $"⚠ Nothing was removed — {surviving} enabled rule(s) still cover {key}. Check 'Blocked' → Manage all.");
+                }
+                else
+                {
+                    ShowToast(removed > 0
+                            ? $"✅ Unblocked {key} — {removed} firewall rule(s) removed, traffic resumes."
+                            : $"No matching firewall rules found for {key} (already removed?).");
+                }
             }
             catch (Exception ex)
             {
@@ -1524,11 +1599,11 @@ namespace AutoCommand.Views
         /// start-time window ±5 s AND image match &gt; window &gt; image —
         /// ties keep the newest record (the list comes newest-first).
         /// </summary>
-        private static SysmonArchiveService.ArchiveEvent PickBestCreateRecord(
-            List<SysmonArchiveService.ArchiveEvent> records, SvchostMonitorItem item)
+        private static ArchiveEvent PickBestCreateRecord(
+            List<ArchiveEvent> records, SvchostMonitorItem item)
         {
             if (records == null || records.Count == 0) return null;
-            SysmonArchiveService.ArchiveEvent best = null;
+            ArchiveEvent best = null;
             int bestScore = -1;
             foreach (var rec in records)
             {

@@ -20,7 +20,7 @@
         <StackPanel Grid.Row="0" Margin="0,0,0,4">
             <TextBlock Text="Instrument python environments" FontSize="18" FontWeight="SemiBold"/>
             <TextBlock Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" TextWrapping="Wrap"
-                       Text="Found automatically: registry, PATH, Store, conda, uv, pyenv-win, scoop — plus a deep scan for venvs and every python the Spawns tab has seen run. Instrumenting writes the AutoCommand audit hook (PyTraceHook_ac.py + a .pth importer) into that environment's site-packages so its pythons report spawn stacks and TLS session keys. Nothing else changes — no interpreter modification, no reads inside the venv."
+                       Text="Found automatically: registry, PATH, Store, conda, uv, pyenv-win, scoop — plus a deep scan for venvs and every python this machine has seen run. Instrumenting writes the AutoCommand audit hook (PyTraceHook_ac.py + a .pth importer) into that environment's site-packages so its pythons report spawn stacks and TLS session keys to Traffic Peek. Nothing else changes — no interpreter modification, no reads inside the venv."
                        ToolTip="Reach limits: -I/-E defeats PYTHONPATH-style injection but a .pth in real site-packages survives. -S, frozen and embedded interpreters never load site at all and cannot be instrumented."/>
         </StackPanel>
 

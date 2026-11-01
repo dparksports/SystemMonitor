@@ -23,13 +23,6 @@
                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,-12,0,0"/>
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal">
-                <ComboBox x:Name="ProtoCombo" Width="110" FontSize="11" Margin="0,0,8,0" VerticalAlignment="Center"
-                          SelectionChanged="ProtoCombo_SelectionChanged" SelectedIndex="0"
-                          ToolTip="Filter rows by transport. Rows are keyed by remote address and may carry both transports (shown in the Proto column)">
-                    <ComboBoxItem Content="All transports" Tag=""/>
-                    <ComboBoxItem Content="TCP" Tag="TCP"/>
-                    <ComboBoxItem Content="UDP" Tag="UDP"/>
-                </ComboBox>
                 <Button x:Name="SetupSysmonBtn" Content="🛠 Setup Sysmon" Style="{StaticResource PrimaryButton}" Click="SetupSysmonBtn_Click" Margin="0,0,8,0" Visibility="Collapsed"/>
                 <Button x:Name="ToggleMonitorBtn" Content="Start Monitor" Style="{StaticResource PrimaryButton}" Click="ToggleMonitorBtn_Click" Margin="0,0,8,0"/>
                 <Button x:Name="SaveCsvBtn" Content="Force Save CSV" Style="{StaticResource PrimaryButton}" Click="SaveCsvBtn_Click" Margin="0,0,8,0"/>
@@ -53,14 +46,14 @@
                 <!-- Ignored/blocked counts sit right after the monitor state
                      they belong to, not at the far end of the controls row. -->
                 <Button x:Name="IgnoredListBtn" Grid.Column="1" Content="Ignored: 0" Click="IgnoredListBtn_Click" Margin="0,0,8,0" Padding="10,2" FontSize="11"
-                        Background="#3A1520" Foreground="#F2A0B4" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center"
+                        Background="{DynamicResource BadgeRedBg}" Foreground="{DynamicResource AccentRedBrush}" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center"
                         ToolTip="View and manage ignored processes">
                     <Button.Resources>
                         <Style TargetType="Border"><Setter Property="CornerRadius" Value="10"/></Style>
                     </Button.Resources>
                 </Button>
                 <Button x:Name="BlockedListBtn" Grid.Column="2" Content="Blocked: 0" Click="BlockedListBtn_Click" Margin="0,0,12,0" Padding="10,2" FontSize="11"
-                        Background="#3A1520" Foreground="#F2A0B4" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center"
+                        Background="{DynamicResource BadgeRedBg}" Foreground="{DynamicResource AccentRedBrush}" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center"
                         ToolTip="View and remove firewall blocks created from this monitor">
                     <Button.Resources>
                         <Style TargetType="Border"><Setter Property="CornerRadius" Value="10"/></Style>
@@ -68,11 +61,11 @@
                 </Button>
                 <!-- High-transmitter threshold chip: rows at/above this TX
                      volume pin to the top of the grid and get tinted. -->
-                <Border Grid.Column="3" Background="#3A2A14" CornerRadius="10" Padding="10,3" Margin="0,0,12,0" VerticalAlignment="Center"
+                <Border Grid.Column="3" Background="{DynamicResource BadgeAmberBg}" CornerRadius="10" Padding="10,3" Margin="0,0,12,0" VerticalAlignment="Center"
                         ToolTip="Rows whose transmitted volume reaches this threshold are pinned to the top of the grid and tinted red — the heavy talkers separate themselves from the noise. Change the number or unit anytime; remembered across launches.">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock x:Name="HighTxCountText" Text="High TX: 0 ≥ 1 KB"
-                                   Foreground="#E5C77B" FontSize="11" FontFamily="Consolas" VerticalAlignment="Center"/>
+                                   Foreground="{DynamicResource AccentAmberBrush}" FontSize="11" FontFamily="Consolas" VerticalAlignment="Center"/>
                         <TextBox x:Name="TxThresholdBox" Width="44" Margin="8,0,0,0" Padding="2" FontFamily="Consolas" FontSize="11"
                                  Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
                                  BorderBrush="{DynamicResource BorderBrush}" TextChanged="TxThreshold_Changed"/>
@@ -84,9 +77,9 @@
                     </StackPanel>
                 </Border>
                 <!-- DNS cache counter chip -->
-                <Border Grid.Column="4" Background="#1A4A8A" CornerRadius="10" Padding="10,3" Margin="0,0,12,0" VerticalAlignment="Center">
+                <Border Grid.Column="4" Background="{DynamicResource BadgeBlueBg}" CornerRadius="10" Padding="10,3" Margin="0,0,12,0" VerticalAlignment="Center">
                     <TextBlock x:Name="DnsCacheChip" Text="DNS cache: 0 entries"
-                               Foreground="#7EB8F7" FontSize="11" FontFamily="Consolas"/>
+                               Foreground="{DynamicResource AccentBlueBrush}" FontSize="11" FontFamily="Consolas"/>
                 </Border>
                 <StackPanel Grid.Column="5" Orientation="Horizontal">
                     <CheckBox x:Name="HideCloudCheck" Content="Hide Known/Cloud IPs" IsChecked="False" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,12,0" Checked="Filter_Changed" Unchecked="Filter_Changed"/>
@@ -112,13 +105,13 @@
                                 <ListBox x:Name="BlockedListBox" MaxHeight="200" MinHeight="34" Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}" FontFamily="Consolas" FontSize="11"/>
                                 <Button Content="Unblock Selected" Click="UnblockBtn_Click" Margin="0,8,0,0" Padding="12,2" HorizontalAlignment="Left" Style="{StaticResource PrimaryButton}"/>
                                 <Button Content="🛠 Manage all (grouped, classified, bulk actions)…" Click="ManageBlockedBtn_Click" Margin="0,6,0,0" Padding="4,2" HorizontalAlignment="Left"
-                                        Background="Transparent" Foreground="#7EB8F7" BorderThickness="0" Cursor="Hand"/>
+                                        Background="Transparent" Foreground="{DynamicResource AccentBlueBrush}" BorderThickness="0" Cursor="Hand"/>
                                 <Separator Margin="0,8,0,4"/>
                                 <!-- 'Don't ask again' state: visible + reversible, not a hidden cookie -->
                                 <TextBlock x:Name="SuppressedPromptsText" Text="All confirmation prompts active"
                                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" Margin="0,0,0,4"/>
                                 <Button Content="↩ Reset 'don't ask again' choices" Click="ResetConfirmPrefsBtn_Click" Margin="0,0,0,0" Padding="4,2" HorizontalAlignment="Left"
-                                        Background="Transparent" Foreground="#7EB8F7" BorderThickness="0" Cursor="Hand"
+                                        Background="Transparent" Foreground="{DynamicResource AccentBlueBrush}" BorderThickness="0" Cursor="Hand"
                                         ToolTip="Re-arm every block confirmation warning that was suppressed with 'Don't ask again'"/>
                             </StackPanel>
                         </Border>
@@ -158,15 +151,16 @@
             <DataGrid.ContextMenu>
                 <ContextMenu Opened="RowMenu_Opened">
                     <MenuItem x:Name="TracePidMenuItem" Header="🔎 Trace: how was this PID spawned?" Click="TracePidMenuItem_Click"/>
+                    <MenuItem x:Name="PeerMenuItem" Header="🔬 Peer into this connection" Click="PeerMenuItem_Click"/>
+                    <MenuItem x:Name="ProgramPeekMenuItem" Header="🔬 Peer into this program" Click="ProgramPeekMenuItem_Click"/>
+                    <MenuItem x:Name="TrackServiceMenuItem" Header="⭐ Track this service (follows restarts)" Click="TrackServiceMenuItem_Click"/>
                     <MenuItem x:Name="RevealNameMenuItem" Header="🏷 Reveal real process name (Sysmon record)" Click="RevealNameMenuItem_Click"/>
                     <MenuItem x:Name="ResolveNowMenuItem" Header="🔄 Resolve now (re-ask hostname/org)" Click="ResolveNowMenuItem_Click"/>
                     <Separator/>
                     <MenuItem x:Name="IgnoreRowMenuItem" Header="🚫 Ignore this process" Click="IgnoreRowMenuItem_Click"/>
                     <Separator/>
-                <MenuItem x:Name="BlockIpMenuItem" Header="⛔ Block Remote IP in Firewall" Click="BlockRemoteIP_Click"/>
-                <MenuItem x:Name="ResumeIpBlockMenuItem" Header="▶ Re-enable IP block" Click="ResumeIpBlock_Click" Visibility="Collapsed"/>
-                <MenuItem x:Name="BlockProcessMenuItem" Header="⛔ Block Process in Firewall" Click="BlockProcess_Click"/>
-                <MenuItem x:Name="ResumeProcessBlockMenuItem" Header="▶ Re-enable process block" Click="ResumeProcessBlock_Click" Visibility="Collapsed"/>
+                    <MenuItem x:Name="BlockIpMenuItem" Header="⛔ Block Remote IP in Firewall" Click="BlockRemoteIP_Click"/>
+                    <MenuItem x:Name="BlockProcessMenuItem" Header="⛔ Block Process in Firewall" Click="BlockProcess_Click"/>
                     <MenuItem x:Name="KillProcessMenuItem" Header="💀 Kill process" Click="KillProcess_Click"/>
                     <MenuItem x:Name="TaskDetailsMenuItem" Header="📋 Scheduled task details" Click="TaskDetails_Click"/>
                     <MenuItem x:Name="DisableTaskMenuItem" Header="⏸ Disable this scheduled task" Click="DisableTask_Click"/>
@@ -201,7 +195,7 @@
                                                 <Setter Property="ToolTip" Value="{x:Null}"/>
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsProcessBlocked}" Value="True">
-                                                <Setter Property="Foreground" Value="#E5534B"/>
+                                                <Setter Property="Foreground" Value="{DynamicResource AccentRedBrush}"/>
                                                 <Setter Property="TextDecorations" Value="Strikethrough"/>
                                             </DataTrigger>
                                         </Style.Triggers>
@@ -228,7 +222,7 @@
                                         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsIpBlocked}" Value="True">
-                                                <Setter Property="Foreground" Value="#E5534B"/>
+                                                <Setter Property="Foreground" Value="{DynamicResource AccentRedBrush}"/>
                                                 <Setter Property="TextDecorations" Value="Strikethrough"/>
                                                 <Setter Property="ToolTip" Value="{Binding IpBlockToolTip}"/>
                                             </DataTrigger>
@@ -262,15 +256,6 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="Proto" Width="86">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding ProtocolDisplay}" FontSize="11" VerticalAlignment="Center"
-                                       Foreground="{DynamicResource TextSecondaryBrush}"
-                                       ToolTip="Transports seen against this remote address — rows are keyed by IP, so one row may carry both TCP and UDP"/>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
                 <DataGridTextColumn Header="Rx Pkts"    Binding="{Binding RxPackets}"      Width="80"/>
                 <DataGridTextColumn Header="Rx Bytes"   Binding="{Binding RxBytesDisplay}" Width="90"/>
             </DataGrid.Columns>
@@ -281,7 +266,7 @@
              ⛔ IS the confirmation; this just says what happened and offers
              the takeback. Auto-hides after a few seconds. -->
         <Border x:Name="BlockToast" Grid.Row="2" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,16,16"
-                Background="{DynamicResource SurfaceAltBrush}" BorderBrush="#3FBF7F" BorderThickness="1" CornerRadius="6"
+                Background="{DynamicResource SurfaceAltBrush}" BorderBrush="{DynamicResource AccentGreenBrush}" BorderThickness="1" CornerRadius="6"
                 Padding="14,10" Visibility="Collapsed" Panel.ZIndex="5" MaxWidth="560">
             <StackPanel Orientation="Horizontal">
                 <TextBlock x:Name="BlockToastText" TextWrapping="Wrap" MaxWidth="400" VerticalAlignment="Center"

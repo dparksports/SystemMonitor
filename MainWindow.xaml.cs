@@ -1,8 +1,7 @@
-using System;
+﻿using System;
 using AutoCommand.Agent.Core;
 using AutoCommand.Contain.Core;
 using AutoCommand.Forensics.Core;
-using AutoCommand.Intercept.Core;
 using AutoCommand.NetWatch.Core;
 using AutoCommand.Sitedoctor.Core;
 using System.Collections.Generic;
@@ -28,21 +27,199 @@ namespace AutoCommand
         private static string AppVersion =>
             FileVersionInfo.GetVersionInfo(Environment.ProcessPath).ProductVersion ?? "unknown";
 
+        // ── hamburger: sidebar collapse ──────────────────────────────────
+        // The burger item at the top of the strip is a fake tab — its
+        // selection is intercepted here to toggle IsPaneCollapsed (labels
+        // and group headers hide; the strip narrows to its icons) and the
+        // previously selected tab is restored. NavPaneLabel/NavGroupLabel
+        // styles in MainWindow.xaml bind their Visibility to this property.
+
+        public static readonly DependencyProperty IsPaneCollapsedProperty =
+            DependencyProperty.Register(nameof(IsPaneCollapsed), typeof(bool), typeof(MainWindow),
+                new PropertyMetadata(false));
+
+        public bool IsPaneCollapsed
+        {
+            get => (bool)GetValue(IsPaneCollapsedProperty);
+            set => SetValue(IsPaneCollapsedProperty, value);
+        }
+
+        private object _lastContentItem;
+        private bool _reselecting;
+
+        private void MainTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_reselecting) return;
+            if (e.AddedItems.Count > 0 && e.AddedItems[0] == NavPaneToggleItem)
+            {
+                IsPaneCollapsed = !IsPaneCollapsed;
+                _reselecting = true;
+                MainTabControl.SelectedItem = _lastContentItem ?? ProcessMonitorNavItem;
+                _reselecting = false;
+            }
+            else if (e.AddedItems.Count > 0)
+            {
+                _lastContentItem = e.AddedItems[0];
+            }
+        }
+
+        // ── the monitor tab's two panes: the list and the rain ───────────
+        // The Matrix rain lives beside the Process Monitor grid (one glance
+        // apart, same live table) instead of its own tab. The rail between
+        // them folds EITHER pane: ‹ toggles the list, › toggles the rain —
+        // a chevron disables when pressing it would empty the tab, so both
+        // can never hide at once. A hidden pane costs nothing: the rain's
+        // IsVisibleChanged machinery stops its renderer and feed; the list
+        // stops rendering while its engines keep feeding the shared table
+        // the rain reads. State persists as one word in rain_panel.txt —
+        // "both" | "rain" | "grid" (older "collapsed"/"expanded" files
+        // migrate), the same %LOCALAPPDATA%\AutoCommand home as the other
+        // preference files.
+
+        private string _paneState = "both";
+        private double _rainWidth = 110;     // rain pane width in DIP (auto-fit or user-dragged)
+        private bool _rainWidthManual;       // the splitter was dragged — auto-fit stands down
+
+        private static string RainPanelPath => System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "AutoCommand", "rain_panel.txt");
+
+        private void ListToggleBtn_Click(object sender, RoutedEventArgs e)
+        {
+            _paneState = _paneState == "rain" ? "both" : "rain";
+            ApplyPaneState();
+            SavePaneState();
+        }
+
+        private void RainToggleBtn_Click(object sender, RoutedEventArgs e)
+        {
+            _paneState = _paneState == "grid" ? "both" : "grid";
+            ApplyPaneState();
+            SavePaneState();
+        }
+
+        private void ApplyPaneState()
+        {
+            bool list = _paneState != "rain";
+            bool rain = _paneState != "grid";
+            ListColumn.Width = new GridLength(1, GridUnitType.Star);
+            SvchostTab.Visibility = list ? Visibility.Visible : Visibility.Collapsed;
+            RainColumn.Width = rain ? new GridLength(_rainWidth) : new GridLength(0);
+            MatrixRainTab.Visibility = rain ? Visibility.Visible : Visibility.Collapsed;
+            RainSplitter.IsEnabled = rain;   // dragging must not widen a hidden pane
+            // a triangle disables exactly when its press would hide the
+            // only visible pane
+            ListToggleBtn.IsEnabled = rain;
+            RainToggleBtn.IsEnabled = list;
+            ListToggleBtn.Opacity = rain ? 1.0 : 0.25;
+            RainToggleBtn.Opacity = list ? 1.0 : 0.25;
+            ListToggleBtn.ToolTip = rain ? "Hide the process list — rain only" : "Show the process list";
+            RainToggleBtn.ToolTip = list ? "Hide the Matrix rain" : "Show the Matrix rain";
+        }
+
+        // ── rain pane width: auto-fit vs user-dragged ────────────────────
+        // The renderer knows how wide the rain wants to be (alive columns ×
+        // cell); the splitter lets the user take over. Dragging sets the
+        // manual flag; double-clicking the splitter returns to auto-fit;
+        // both persist. Auto-fit changes are DEBOUNCED: the alive count
+        // churns as connections start and stop, and every width change
+        // re-measures the list's DataGrid — an un-debounced fit spins the
+        // UI on a busy desktop.
+
+        private readonly System.Windows.Threading.DispatcherTimer _rainWidthDebounce =
+            new(System.Windows.Threading.DispatcherPriority.Background)
+            { Interval = TimeSpan.FromSeconds(1) };
+        private double _rainWidthPending = double.NaN;
+
+        private void ApplyRainColumnWidth()
+        {
+            if (_rainWidthManual || _paneState == "grid") return;
+            double dip = MatrixRainTab.DesiredWidthDip;
+            if (dip <= 0 || Math.Abs(dip - _rainWidth) < 0.5) return;
+            if (_rainWidthDebounce.IsEnabled)
+            {
+                _rainWidthPending = dip;   // settle after the churn quiets down
+                return;
+            }
+            _rainWidth = dip;
+            RainColumn.Width = new GridLength(dip);
+            _rainWidthDebounce.Start();
+        }
+
+        private void RainWidthDebounce_Tick(object sender, EventArgs e)
+        {
+            _rainWidthDebounce.Stop();
+            if (_rainWidthManual || _paneState == "grid" ||
+                double.IsNaN(_rainWidthPending) ||
+                Math.Abs(_rainWidthPending - _rainWidth) < 0.5) return;
+            _rainWidth = _rainWidthPending;
+            _rainWidthPending = double.NaN;
+            RainColumn.Width = new GridLength(_rainWidth);
+            _rainWidthDebounce.Start();   // keep debouncing while it keeps changing
+        }
+
+        private void RainSplitter_DragStarted(object sender, System.Windows.Controls.Primitives.DragStartedEventArgs e)
+            => _rainWidthManual = true;
+
+        private void RainSplitter_DragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
+        {
+            if (RainColumn.Width.IsAbsolute) _rainWidth = RainColumn.Width.Value;
+            SavePaneState();
+        }
+
+        private void RainSplitter_DoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            _rainWidthManual = false;
+            ApplyRainColumnWidth();
+            SavePaneState();
+        }
+
+        private void SavePaneState()
+        {
+            try
+            {
+                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(RainPanelPath));
+                var width = _rainWidthManual ? $"manual={_rainWidth.ToString("0", System.Globalization.CultureInfo.InvariantCulture)}" : "auto";
+                System.IO.File.WriteAllText(RainPanelPath, _paneState + "\n" + width);
+            }
+            catch { /* read-only profile — the choice lives for this session */ }
+        }
+
         public MainWindow()
         {
             InitializeComponent();
 
+            // persisted pane state applies BEFORE layout so a folded pane
+            // never flashes open on launch
+            try
+            {
+                var lines = System.IO.File.Exists(RainPanelPath)
+                    ? System.IO.File.ReadAllLines(RainPanelPath)
+                    : Array.Empty<string>();
+                var saved = lines.Length > 0 ? lines[0].Trim() : "";
+                _paneState = saved switch
+                {
+                    "rain" => "rain",
+                    "grid" => "grid",
+                    "collapsed" => "grid",   // pre-two-pane file: the rain was hidden
+                    _ => "both",
+                };
+                if (lines.Length > 1 && lines[1].Trim().StartsWith("manual=", System.StringComparison.Ordinal)
+                    && double.TryParse(lines[1].Trim().AsSpan(7), System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out var w)
+                    && w >= 24 && w <= 1200)
+                {
+                    _rainWidth = w;
+                    _rainWidthManual = true;
+                }
+            }
+            catch { _paneState = "both"; }
+            MatrixRainTab.ColumnWidthChanged += ApplyRainColumnWidth;
+            _rainWidthDebounce.Tick += RainWidthDebounce_Tick;
+            ApplyPaneState();
+
             // Live version from the assembly instead of a hardcoded string
             VersionText.Text = $"AutoCommand v{AppVersion}";
-
-            // Advanced investigation tabs are opt-in (Settings) — apply the
-            // saved state before anything can be selected
-            ApplyAdvancedTabs(Services.AdvancedTabsPrefs.Load());
-
-            // Layer-3 crash safety: if a previous run died mid-intercept, the
-            // journal on disk still describes the hooks it installed — undo
-            // them (proxy, firewall rule, CA) before anything else runs.
-            InterceptSystemHooks.RecoverAfterCrash();
 
             InitializeEnforcer();
 
@@ -103,56 +280,17 @@ namespace AutoCommand
         /// </summary>
         public void ShowTransmissionsToast(string title, string message)
         {
+            // The Transmissions tab was removed from the sidebar (the engine
+            // and its toasts remain) — activating the toast lands on the
+            // Process Monitor instead of selecting a tab that no longer exists.
             _trayNotifier?.ShowSecurityAlert(title, message, durationMs: 10000, onActivated: () =>
-                Dispatcher.Invoke(() => MainTabControl.SelectedItem = TransmissionsNavItem));
+                Dispatcher.Invoke(() => MainTabControl.SelectedItem = ProcessMonitorNavItem));
         }
 
-        // -------------------------------------------------------------------
-        // Advanced investigation tabs — opt-in deep-dive surfaces, hidden
-        // until Settings → Advanced investigation turns them on
-        // -------------------------------------------------------------------
+        // Advanced investigation tabs were removed with the tab strip slimmed
+        // down (their views, the Settings toggle and this machinery went with
+        // them; the engines and AI tools behind them are unchanged).
 
-        /// <summary>True when the tab is one of the opt-in tabs.</summary>
-        private bool IsAdvancedTab(System.Windows.Controls.TabItem t) =>
-            t == SpawnsNavItem || t == BitsNavItem || t == TrafficNavItem ||
-            t == TracesNavItem ||
-            t == BlackHoleNavItem || t == DefenderNavItem ||
-            t == PrivacyNavItem || t == OneSettingsNavItem || t == SysmonNavItem ||
-            t == InvestigateNavItem;
-
-        /// <summary>
-        /// Shows or hides the advanced-investigation tabs. Also called
-        /// by SettingsView when the toggle flips (applies immediately), and
-        /// keeps the group-header tooltips honest about what is currently
-        /// shown. When the tab being viewed is hidden, selection lands back
-        /// on the Process Monitor — an invisible tab must not stay selected.
-        /// </summary>
-        public void ApplyAdvancedTabs(bool enabled)
-        {
-            var v = enabled ? Visibility.Visible : Visibility.Collapsed;
-            SpawnsNavItem.Visibility = v;
-            BitsNavItem.Visibility = v;
-            TrafficNavItem.Visibility = v;
-            TracesNavItem.Visibility = v;
-            BlackHoleNavItem.Visibility = v;
-            DefenderNavItem.Visibility = v;
-            PrivacyNavItem.Visibility = v;
-            OneSettingsNavItem.Visibility = v;
-            SysmonNavItem.Visibility = v;
-            InvestigateNavItem.Visibility = v;
-
-            WatchHeaderText.ToolTip = enabled
-                ? "Feeds that show what this machine is running and where it connects."
-                : "Feeds that show what this machine is running and where it connects.\n" +
-                  "Spawns, Traces, BITS Transfers and Traffic Patterns are hidden — Settings → Advanced investigation shows them.";
-            SystemHeaderText.ToolTip = enabled
-                ? "AI access, privacy, Windows telemetry, Sysmon health, the process Investigate tab and app settings."
-                : "AI access and app settings.\n" +
-                  "Data & Privacy, OneSettings, Sysmon Audit and Investigate are hidden — Settings → Advanced investigation shows them.";
-
-            if (!enabled && IsAdvancedTab(MainTabControl.SelectedItem as System.Windows.Controls.TabItem))
-                MainTabControl.SelectedItem = ProcessMonitorNavItem;
-        }
 
         private void OnThreatDetected(string type, string details)
         {
@@ -257,11 +395,11 @@ namespace AutoCommand
             // (up to its 3s budget), then releases its capture reference.
             TransmissionsPipelineService.Shared.Stop();
 
+            TlsKeylogService.CleanupAtExit(); // drop the rotated TLS keylog leftover
+
             // Layer 3 must never outlive the app: stop restores the system
             // proxy, removes the QUIC block rule and untrusts the CA.
-            InterceptProxyService.Shared.StopSession("app exit");
-
-            TlsKeylogService.CleanupAtExit(); // drop the rotated TLS keylog leftover
+            AutoCommand.Intercept.Core.InterceptProxyService.Shared.StopSession("app exit");
             base.OnClosed(e);
         }
 
@@ -287,7 +425,7 @@ namespace AutoCommand
             try
             {
                 var result = await FirewallService.Instance
-                    .SetAllAutoCommandBlocksEnabledAsync(false);
+                    .SetAllBlocksEnabledAsync(false);
 
                 // A stale DNS cache keeps sites dead even after the block is
                 // lifted — flush it automatically so recovery is one click.
@@ -311,6 +449,12 @@ namespace AutoCommand
                 {
                     dnsNote = $"Could not flush DNS automatically ({ex.Message}); run  ipconfig /flushdns  manually.";
                 }
+
+                // Fleet ops bypass SetStatuses by design — log the incident
+                // so the Blocks tab's audit digest can answer "when did all
+                // my blocks go off, and how far did it reach".
+                BlocksStore.LogFleet("fleet-disabled",
+                    $"{result.Changed}/{result.Matched} rule(s) disabled", "panic-button");
 
                 string extra = result.FirstError != null ? $"\nFirst error: {result.FirstError}" : "";
                 MessageBox.Show(

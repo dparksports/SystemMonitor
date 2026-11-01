@@ -1,8 +1,10 @@
-using System;
+﻿using System;
 using AutoCommand.Agent.Core;
+using AutoCommand.Engines.Bridge;
+using AgentBridgeService = AutoCommand.Agent.Core.AgentBridgeService;
+using McpClientCatalog = AutoCommand.Agent.Core.McpClientCatalog;
 using AutoCommand.Contain.Core;
 using AutoCommand.Forensics.Core;
-using AutoCommand.Intercept.Core;
 using AutoCommand.NetWatch.Core;
 using AutoCommand.Sitedoctor.Core;
 using System.Collections.Generic;
@@ -28,13 +30,11 @@ namespace AutoCommand.Views
             // AI access: mutating + autostart + wake preferences + live session status
             try
             {
-                AgentMutatingCheck.IsChecked = PrefOn(MutatingPrefPath);
                 AgentAutostartCheck.IsChecked = PrefOn(AutostartPrefPath);
                 AgentWakeCheck.IsChecked = PrefOn(WakePrefPath);
             }
             catch
             {
-                AgentMutatingCheck.IsChecked = false;
                 AgentAutostartCheck.IsChecked = false;
                 AgentWakeCheck.IsChecked = false;
             }
@@ -48,10 +48,6 @@ namespace AutoCommand.Views
 
         private readonly System.Windows.Threading.DispatcherTimer _agentRefresh =
             new() { Interval = TimeSpan.FromSeconds(2) };
-
-        private static string MutatingPrefPath => Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "AutoCommand", "agent", "mutating_pref.txt");
 
         private static string AutostartPrefPath => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -97,7 +93,7 @@ namespace AutoCommand.Views
                 ? $"Session ACTIVE · 127.0.0.1:{bridge.Port} · client: {bridge.ClientName} · {bridge.ConnectedCalls} call(s)"
                 : "Session off. The assistant can connect but every tool answers 'start the session'.";
 
-            AgentActivityList.ItemsSource = AgentBridgeService.RecentActivity(30)
+            AgentActivityList.ItemsSource = AgentBridgeService.Instance.RecentActivity(30)
                 .Select(l => l.Length > 160 ? l[..160] + "…" : l)
                 .ToList();
         }
@@ -112,14 +108,16 @@ namespace AutoCommand.Views
                 "live connections and their processes, svchost identities, PID provenance reports,\n" +
                 "Sysmon events and trace analysis. What it reads can be repeated by the assistant.\n\n" +
                 "• Read-only tools answer immediately while the session is on.\n" +
-                "• Mutating actions (block/kill/disable) ask you again on every single call\n" +
-                "  (and only exist at all if you tick them on below).\n" +
+                "• The only mutating actions are block gates — temporary unblocks that ask\n" +
+                "  you to confirm every single call in this app.\n" +
                 "• The session ends when you stop it or close AutoCommand.\n\n" +
                 "Start the session?",
                 "Be My Guest — consent", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
             if (answer != MessageBoxResult.Yes) return;
 
-            var (ok, message) = AgentBridgeService.Instance.Start(AgentMutatingCheck.IsChecked == true);
+            // gates are always offered; every request confirms in the app -
+            // there is no session-wide mutating stance to configure anymore
+            var (ok, message) = AgentBridgeService.Instance.Start(allowMutating: true);
             if (!ok) MessageBox.Show(message, "Be My Guest", MessageBoxButton.OK, MessageBoxImage.Warning);
             RefreshAgentUi();
         }
@@ -128,22 +126,6 @@ namespace AutoCommand.Views
         {
             AgentBridgeService.Instance.Stop();
             RefreshAgentUi();
-        }
-
-        private void AgentMutatingCheck_Changed(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(MutatingPrefPath));
-                File.WriteAllText(MutatingPrefPath, AgentMutatingCheck.IsChecked == true ? "on" : "off");
-            }
-            catch { /* persistence best-effort */ }
-
-            // a running session keeps its launch-time setting; say so plainly
-            if (AgentBridgeService.Instance.IsRunning)
-                MessageBox.Show(
-                    "Takes effect for NEW sessions. Stop and restart the session to apply it now.",
-                    "Be My Guest", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void AgentAutostartCheck_Changed(object sender, RoutedEventArgs e)
@@ -160,7 +142,8 @@ namespace AutoCommand.Views
                     "live connections and their processes, svchost identities, PID provenance reports,\n" +
                     "Sysmon events and trace analysis. What it reads can be repeated by the assistant.\n\n" +
                     "• Read-only tools answer immediately while a session is on.\n" +
-                    "• Mutating actions still ask you on every single call (and only exist if ticked on above).\n" +
+                    "• The only mutating actions are block gates — temporary unblocks that\n" +
+                    "  still ask you on every single call.\n" +
                     "• A session still ends when you stop it or close AutoCommand.\n\n" +
                     "Keep sessions automatic?",
                     "Be My Guest — consent", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
@@ -232,8 +215,8 @@ namespace AutoCommand.Views
             // refresh; nothing is rewritten silently.
             try
             {
-                var stale = McpClientCatalog.FindStaleRegistrations(
-                    McpClientCatalog.ResolveAndInstallProxy().ProxyPath);
+                var (currentProxy, _) = McpClientCatalog.ResolveAndInstallProxy();
+                var stale = McpClientCatalog.FindStaleRegistrations(currentProxy);
                 if (stale.Count > 0) AgentClientsPanel.Children.Insert(0, StaleBanner(stale));
             }
             catch { /* the scan is advisory — never block the tab */ }
@@ -242,7 +225,7 @@ namespace AutoCommand.Views
         /// <summary>One-line offer above the Register buttons: N stale
         /// registrations + the button that repairs them via the same
         /// resolve → preflight → Register path as a manual click.</summary>
-        private UIElement StaleBanner(List<McpClientCatalog.StaleMcpRegistration> stale)
+        private UIElement StaleBanner(List<AutoCommand.Engines.Bridge.StaleMcpRegistration> stale)
         {
             var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8) };
             row.Children.Add(new TextBlock
@@ -265,7 +248,7 @@ namespace AutoCommand.Views
             return row;
         }
 
-        private void RefreshStaleRegistrations(List<McpClientCatalog.StaleMcpRegistration> stale)
+        private void RefreshStaleRegistrations(List<AutoCommand.Engines.Bridge.StaleMcpRegistration> stale)
         {
             var (proxy, installNote) = McpClientCatalog.ResolveAndInstallProxy();
             if (proxy == null)
@@ -349,7 +332,7 @@ namespace AutoCommand.Views
 
         private void CopyAgentConfigBtn_Click(object sender, RoutedEventArgs e)
         {
-            string proxy = McpClientCatalog.ResolveAndInstallProxy().ProxyPath
+            string proxy = McpClientCatalog.ResolveAndInstallProxy().Item1
                 ?? "%LOCALAPPDATA%\\AutoCommand\\tools\\AutoCommand.AgentProxy.exe";
             string config =
                 "{\n  \"mcp\": {\n    \"servers\": {\n      \"autocommand\": {\n" +

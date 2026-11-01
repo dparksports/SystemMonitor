@@ -1,4 +1,4 @@
-# AutoCommand — see what your Windows PC is really doing
+﻿# AutoCommand — see what your Windows PC is really doing
 
 ![AutoCommand](Assets/corp_banner.png?v=light1)
 
@@ -32,7 +32,7 @@ One question the list can answer for itself: the **TX-only (no reply)** checkbox
 
 ![Where everything lives](Assets/app_map_infographic.png?v=oss3)
 
-The sidebar groups its tools by the question you're asking. **Watch** is everything that shows what's happening — including **Spawns**, one tab for "who launched this?": scheduled-task launches, Python programs and the svchost timeline sit side by side there, each with a dot that glows green while it records. When a site feels slow, **Why is this site slow?** runs a 60-second check — recorded traffic, a handful of handshakes, a comparison site — and says what it found in one plain sentence, with the math one click away. **Contain** holds the stopping tools (firewall, telemetry sinkholes, Defender). **System** is the rest: AI access, privacy, settings — and, behind the Advanced-investigation toggle, **Investigate**, which joins everything the app recorded about one process (who launched it, where it connected, whether anything was blocked) into a single verdict and a copyable report. And watching never stops just because you looked at another screen — a feed runs until you stop it, not until you click away.
+The sidebar groups its tools by the question you're asking. **Watch** is everything that shows what's happening — including **Spawns**, one tab for "who launched this?": scheduled-task launches, Python programs and the svchost timeline sit side by side there, each with a dot that glows green while it records. For when rows of numbers aren't the mood, the Process Monitor's right panel replays the same live process traffic as a Matrix-style digital rain — one column per alive process (never ten or more), falling glyphs for transmits, red for a blocked process — and either pane folds from the thin rail between them: ‹ hides the list for rain-only, › hides the rain for list-only, with a right-click menu on the rain for font, colors, speed and movie-look vs data-only styles. When a site feels slow, **Why is this site slow?** runs a 60-second check — recorded traffic, a handful of handshakes, a comparison site — and says what it found in one plain sentence, with the math one click away. **Contain** holds the stopping tools (firewall, telemetry sinkholes, Defender). **System** is the rest: AI access, privacy, settings — and, behind the Advanced-investigation toggle, **Investigate**, which joins everything the app recorded about one process (who launched it, where it connected, whether anything was blocked) into a single verdict and a copyable report. And watching never stops just because you looked at another screen — a feed runs until you stop it, not until you click away.
 
 ## When something looks odd
 
@@ -87,14 +87,33 @@ Everything happens on your computer; the app talks to no one by default, and the
 
 ## For developers and tinkerers
 
+![Architecture](docs/infographic-architecture.svg)
+
+This is **AutoCommand III**: the same app you just read about, with its core
+engine layer rebuilt in **F#** — the C# WPF shell and app services drive
+app-agnostic F# engines (firewall with strong-typed COM, Sysmon watching,
+DNS/geo/RDAP, TLS interception, forensics, site diagnosis, the MCP agent
+bridge), injected with AutoCommand's identity. Same behavior, same
+self-tests, all of them green. The full story — what moved, what was
+ported forward from II, what the seams look like — is in
+**[README-III.md](README-III.md)**.
+
+![The migration](docs/infographic-migration.svg)
+
 ```powershell
 # .NET 10 SDK required
-git clone https://github.com/dparksports/autocommand-windows.git
-cd autocommand-windows
+git clone https://github.com/dparksports/autocommand-iii.git
+cd autocommand-iii
 dotnet build AutoCommand.csproj -c Release
 
 # self-contained build (what the releases ship)
 dotnet publish AutoCommand.csproj -c Release -r win-x64 --self-contained
+
+# the offline self-test suites (synthetic inputs, run anywhere)
+dotnet run --project ContainSelfTest      # firewall engine
+dotnet run --project SiteDoctorSelfTest   # diagnosis engines
+dotnet run --project NetWatchSelfTest     # watch engines
+dotnet run --project ProxyInstallSelfTest # MCP bridge
 ```
 
 How it actually works — the dual-family kernel connection table, the Sysmon archive, the svchost decoder, the AI-assistant consent model, every engine's offline self-test — is documented in **[TECHNICAL_NOTES.md](docs/TECHNICAL_NOTES.md)**. Apache 2.0.

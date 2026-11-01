@@ -1,7 +1,6 @@
 using AutoCommand.NetWatch.Core;
 using System;
 using AutoCommand.Contain.Core;
-using AutoCommand.Intercept.Core;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -13,7 +12,7 @@ namespace AutoCommand.Contain.Core
     public class ProfileApplyResult
     {
         public string ProfileName { get; set; }
-        public List<FirewallService.GroupToggleResult> Groups { get; } = new List<FirewallService.GroupToggleResult>();
+        public List<GroupToggleResult> Groups { get; } = new List<GroupToggleResult>();
         public int TotalMatched { get; set; }
         public int TotalChanged { get; set; }
         public int TotalFailed { get; set; }
@@ -97,7 +96,7 @@ namespace AutoCommand.Contain.Core
         private async Task Toggle(ProfileApplyResult acc, IProgress<string> progress, string group, bool enable)
         {
             progress?.Report($"{(enable ? "Enabling" : "Disabling")} group '{group}'…");
-            FirewallService.GroupToggleResult r = enable ? await EnableGroup(group) : await DisableGroup(group);
+            GroupToggleResult r = enable ? await EnableGroup(group) : await DisableGroup(group);
             acc.Groups.Add(r);
             acc.TotalMatched += r.Matched;
             acc.TotalChanged += r.Changed;
@@ -105,12 +104,12 @@ namespace AutoCommand.Contain.Core
             if (r.FirstError != null && acc.FirstError == null) acc.FirstError = r.FirstError;
         }
 
-        private Task<FirewallService.GroupToggleResult> ApplyShieldsUpMdns()
+        private Task<GroupToggleResult> ApplyShieldsUpMdns()
         {
             // Disable ALL rules, then re-enable whitelisted groups
             return Task.Run(() =>
             {
-                var result = new FirewallService.GroupToggleResult { GroupName = "Shields Up + mDNS (block all)" };
+                var result = new GroupToggleResult { GroupName = "Shields Up + mDNS (block all)" };
                 try
                 {
                     Type fwPolicyType = Type.GetTypeFromProgID("HNetCfg.FwPolicy2");
@@ -187,12 +186,12 @@ namespace AutoCommand.Contain.Core
             });
         }
 
-        private Task<FirewallService.GroupToggleResult> EnableGroup(string group)
+        private Task<GroupToggleResult> EnableGroup(string group)
         {
             return FirewallService.Instance.ToggleGroupAsync(group, true);
         }
 
-        private Task<FirewallService.GroupToggleResult> DisableGroup(string group)
+        private Task<GroupToggleResult> DisableGroup(string group)
         {
             return FirewallService.Instance.ToggleGroupAsync(group, false);
         }

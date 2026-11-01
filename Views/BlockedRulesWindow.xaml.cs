@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using AutoCommand.Agent.Core;
 using AutoCommand.Contain.Core;
 using AutoCommand.Forensics.Core;
-using AutoCommand.Intercept.Core;
 using AutoCommand.NetWatch.Core;
 using AutoCommand.Sitedoctor.Core;
 using System.ComponentModel;
@@ -26,7 +25,7 @@ namespace AutoCommand.Views
         private class Row : INotifyPropertyChanged
         {
             public string Target, Kind, Key, Ip, AppPath, Class, Description;
-            public int Rules, EnabledRules;
+            public int Rules, EnabledRules, Duplicates;
             public DateTime? Created;
             private int _hits;
             public int Hits
@@ -37,6 +36,7 @@ namespace AutoCommand.Views
             public bool IsRisky => Class.Contains("Microsoft") || Class.Contains("Akamai") ||
                                    Class.Contains("Gcore") || Class.Contains("Windows component");
             public string RulesSummary => EnabledRules == Rules ? Rules.ToString() : $"{EnabledRules}/{Rules} on";
+            public string DupsDisplay => Duplicates > 0 ? $"+{Duplicates}" : "·";
             public string CreatedDisplay => Created?.ToString("yyyy-MM-dd HH:mm") ?? "legacy";
             public string HitsDisplay => Hits > 0 ? Hits.ToString() : "·";
             public string OwnerDisplay { get; set; } = "";
@@ -83,8 +83,8 @@ namespace AutoCommand.Views
                 if (legacy > 0)
                 {
                     StatusText.Text = $"Migrating {legacy} legacy firewall rule(s) to the current naming scheme…";
-                    var r = await FirewallService.Instance.ConsolidateLegacyIpBlocksAsync();
-                    _migrationNote = $"Auto-migrated {r.migratedOutbound} legacy rule(s) ({r.removedInbound} redundant inbound rules removed) across {r.targets} target(s). ";
+                    var (targets, removedInbound, migratedOutbound) = await FirewallService.Instance.ConsolidateLegacyIpBlocksAsync();
+                    _migrationNote = $"Auto-migrated {migratedOutbound} legacy rule(s) ({removedInbound} redundant inbound rules removed) across {targets} target(s). ";
                 }
                 await ReloadAsync();
             };
@@ -114,8 +114,8 @@ namespace AutoCommand.Views
                 _rows.Add(new Row
                 {
                     Target = t.Target, Kind = t.Kind, Key = t.Key, Ip = t.Ip, AppPath = t.AppPath,
-                    Class = t.Class, Rules = t.Rules, EnabledRules = t.EnabledRules, Hits = h,
-                    Description = t.Description, Created = t.Created, OwnerDisplay = owner,
+                    Class = t.Class, Rules = t.Rules, EnabledRules = t.EnabledRules, Duplicates = t.DuplicateRules,
+                    Hits = h, Description = t.Description, Created = t.Created, OwnerDisplay = owner,
                 });
             }
 
@@ -175,6 +175,9 @@ namespace AutoCommand.Views
                     ? ""
                     : " · firewall drop-logging off (optional second hit source; the live feed works without it)");
             ConsolidateBtn.IsEnabled = _rows.Any(r => r.Rules > 2 && r.Kind == "ip");
+            int dups = _rows.Sum(r => r.Duplicates);
+            DedupBtn.IsEnabled = dups > 0;
+            DedupBtn.Content = dups > 0 ? $"🧹 Clean duplicates ({dups})" : "🧹 Clean duplicates";
             UnblockMsBtn.IsEnabled = risky > 0;
             EnableLogBtn.Visibility = FirewallService.FirewallDropLoggingOn()
                 ? Visibility.Collapsed : Visibility.Visible;
@@ -235,7 +238,11 @@ namespace AutoCommand.Views
             var sel = RulesGrid.SelectedItems.Cast<Row>().ToList();
             if (sel.Count == 0) { MessageBox.Show("Select one or more rows first.", "Unblock"); return; }
             if (MessageBox.Show($"Permanently remove the block rules for {sel.Count} target(s)?\n" +
-                string.Join("\n", sel.Select(r => $"  · {r.Target} ({r.Class}, {r.Rules} rules)")),
+                string.Join("\n", sel.Select(r => $"  · {r.Target} ({r.Class}, {r.Rules} rules)")) +
+                (sel.Any(r => r.Kind != "ip")
+                    ? "\n\nApp targets lift every path the executable is blocked from (coverage siblings),\n" +
+                      "or a surviving path would re-block it on its next run."
+                    : ""),
                 "Confirm unblock", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
 
             int removed = 0;
@@ -267,6 +274,31 @@ namespace AutoCommand.Views
             await ReloadAsync();
         }
 
+        private async void DedupBtn_Click(object sender, RoutedEventArgs e)
+        {
+            int dups = _rows.Sum(r => r.Duplicates);
+            if (dups == 0) return;
+            if (MessageBox.Show($"Retire {dups} exact-duplicate rule(s)?\n\n" +
+                    "One rule per identity is kept with its provenance. Blocking is unchanged and\n" +
+                    "continuous — each retiree is renamed to a quarantine name before removal, so\n" +
+                    "the by-name delete can never take the keeper with it. Recorded in the block\n" +
+                    "history log.",
+                    "Clean duplicates", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+
+            DedupBtn.IsEnabled = false;
+            try
+            {
+                var (cleaned, retired, error) = await FirewallService.Instance.RemoveDuplicateBlockRulesAsync();
+                BlocksStore.LogFleet("dedup-retired",
+                    $"{retired} duplicate rule(s) retired across {cleaned} target(s)", "rules-tab");
+                StatusText.Text = error == null
+                    ? $"Removed {retired} duplicate rule(s) across {cleaned} target(s)."
+                    : $"Removed {retired} duplicate rule(s); some failed: {error}";
+            }
+            finally { DedupBtn.IsEnabled = true; }
+            await ReloadAsync();
+        }
+
         private async void ConsolidateBtn_Click(object sender, RoutedEventArgs e)
         {
             if (MessageBox.Show(
@@ -276,6 +308,8 @@ namespace AutoCommand.Views
                     "Consolidate legacy", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
 
             var (targets, removedIn, migratedOut) = await FirewallService.Instance.ConsolidateLegacyIpBlocksAsync();
+            BlocksStore.LogFleet("consolidated",
+                $"{targets} target(s): {removedIn} inbound deleted, {migratedOut} migrated to v2 naming", "manage-all");
             StatusText.Text = $"Consolidated {targets} target(s): {removedIn} redundant inbound rule(s) deleted, {migratedOut} migrated to v2 naming.";
             await ReloadAsync();
         }
@@ -284,7 +318,9 @@ namespace AutoCommand.Views
         {
             if (MessageBox.Show("Re-enable ALL AutoCommand block rules? (Undoes 'Restore Internet'.)",
                     "Re-enable", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
-            var res = await FirewallService.Instance.SetAllAutoCommandBlocksEnabledAsync(true);
+            var res = await FirewallService.Instance.SetAllBlocksEnabledAsync(true);
+            BlocksStore.LogFleet("fleet-enabled",
+                $"{res.Changed}/{res.Matched} rule(s) re-enabled", "manage-all");
             StatusText.Text = $"Re-enabled AutoCommand blocks ({res.Changed} rule(s) changed).";
             await ReloadAsync();
         }
@@ -305,7 +341,10 @@ namespace AutoCommand.Views
             if (MessageBox.Show(preview.ToString(), "Restore except Microsoft/Windows ⚠",
                     MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
 
-            var res = await FirewallService.Instance.SetAllAutoCommandBlocksEnabledAsync(true, skipRisky: true);
+            var res = await FirewallService.Instance.SetAllBlocksEnabledAsync(true, skipRisky: true);
+            BlocksStore.LogFleet("fleet-enabled",
+                $"{res.Changed} rule(s) restored, {res.SkippedRisky} risky rule(s) kept disabled",
+                "restore-except-risky");
             StatusText.Text = $"Restored {res.Changed} rule(s); kept {res.SkippedRisky} risky rule(s) disabled.";
             await ReloadAsync();
         }
