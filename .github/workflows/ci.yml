@@ -53,7 +53,8 @@ jobs:
             'OneSettingsCadenceSelfTest',
             'ContainSelfTest',
             'ProxyInstallSelfTest',
-            'BridgeSelfTest'
+            'BridgeSelfTest',
+            'PyTraceSelfTest'
           )
           foreach ($s in $suites) {
             Write-Host "== $s =="

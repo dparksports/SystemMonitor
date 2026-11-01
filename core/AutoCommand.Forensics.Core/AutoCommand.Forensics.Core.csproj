@@ -46,6 +46,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The python audit-hook payload, embedded next to its reader —
+         PyTraceInstallerService.ReadPayloadText reads it from THIS assembly
+         (LogicalName keeps the ii resource name), closing ii's cross-assembly
+         seam where the resource lived in the app exe. -->
+    <EmbeddedResource Include="PyTraceHook.py" LogicalName="AutoCommand.Assets.PyTraceHook.py" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\Engines\Engines.Watch\Engines.Watch.fsproj" />
   </ItemGroup>
 

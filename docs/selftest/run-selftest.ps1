@@ -1,15 +1,18 @@
-# Python Spawns tab — offline self-test (no elevation, no internet).
+# Python instrumentation — offline self-test (no elevation, no internet).
 #
 # Verifies the three engine pieces that can be exercised headlessly:
-#   1. TCP reassembly (synthetic packets: out-of-order, duplicates, overlaps)
-#   2. The audit-hook payload end-to-end (stack capture + SSLKEYLOGFILE)
-#   3. TLS decryption of a REAL TLS session (1.3 by default, 1.2 with -Tls12):
-#      python client -> relay (records both byte streams) -> python TLS server,
-#      all on loopback, with the client writing the NSS keylog via the hook.
+#   1. The offline PyTraceSelfTest suite (payload embed, installer round-trip,
+#      env detection, scan, reader tail — strict, also gates in CI)
+#   2. The audit-hook payload end-to-end (stack capture + SSLKEYLOGFILE):
+#      the REAL shipped payload runs inside a real python that spawns a child
+#      and makes a TLS request
+#   3. TLS decryption of a REAL captured session (1.3 by default, 1.2 with
+#      -Tls12): python client -> relay (records both byte streams) -> python
+#      TLS server, all on loopback, client writing the NSS keylog via the hook
 #
 # Needs on PATH: python (3.8+), openssl, dotnet (SDK 10).
 #
-#   cd autocommand1004\docs\selftest
+#   cd autocommand-iii\docs\selftest
 #   .\run-selftest.ps1              # TLS 1.3
 #   .\run-selftest.ps1 -Tls12       # force the TLS 1.2 path
 param([switch]$Tls12)
@@ -18,12 +21,13 @@ $ErrorActionPreference = "Stop"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $appDir = Resolve-Path (Join-Path $here "..\..")
 $harnessDir = Join-Path $appDir "PyTraceSelfTest"
+$payloadPath = Join-Path $appDir "core\AutoCommand.Forensics.Core\PyTraceHook.py"
 
 $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("pytrace-selftest-" + [guid]::NewGuid().ToString("N").Substring(0, 8))
 New-Item -ItemType Directory -Path "$tmp\hook" -Force | Out-Null
 
 # The REAL shipped payload is what gets tested — copy it in as the module.
-Copy-Item (Join-Path $appDir "Assets\PyTraceHook.py") "$tmp\hook\PyTraceHook_ac.py"
+Copy-Item $payloadPath "$tmp\hook\PyTraceHook_ac.py"
 
 & openssl req -x509 -newkey rsa:2048 -nodes -keyout "$tmp\key.pem" -out "$tmp\cert.pem" -days 1 `
     -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost" 2>$null
@@ -48,8 +52,8 @@ Start-Sleep -Seconds 1
 
 $fail = 0
 
-Write-Host "`n=== 1. TCP reassembly (synthetic) ===" -ForegroundColor Cyan
-& dotnet run --project $harnessDir -- reassemble
+Write-Host "`n=== 1. Offline suite (payload embed, installer, envs, scan, reader) ===" -ForegroundColor Cyan
+& dotnet run --project $harnessDir
 if ($LASTEXITCODE -ne 0) { $fail = 1 }
 
 Write-Host "`n=== 2. Audit-hook payload (trace + keylog written?) ===" -ForegroundColor Cyan

@@ -34,19 +34,20 @@ How AutoCommand delivers what the [README](../README.md) promises: the technolog
 ### Traffic Peek ("Peer into this connection")
 
 A subject-scoped inspection window from the Process Monitor context menu, powered by a
-`FlowDossierService` in `Engines.Watch`:
+`FlowPeekService` in `Engines.Watch`:
 
 | Concern | Technology |
 |---|---|
-| Capture lifetime | The shared `TcpStreamCaptureService` (raw socket, SIO_RCVALL) runs **only while a peek window is open** — the dossier is the sole `AddRef`/`Release` holder, so idle AutoCommand captures nothing; nothing is persisted (flow persistence stays off) |
-| Flow finalization | The dossier shortens the capture's idle sweep to 10 s while open (restored on close), so long-lived conversations surface without waiting for them to close; RST/FIN-closed flows appear immediately |
+| Capture lifetime | The shared `TcpStreamCaptureService` (raw socket, SIO_RCVALL) runs **only while a peek window is open** — the peek is the sole `AddRef`/`Release` holder, so idle AutoCommand captures nothing; nothing is persisted (flow persistence stays off) |
+| Flow finalization | The peek shortens the capture's idle sweep to 10 s while open (restored on close), so long-lived conversations surface without waiting for them to close; RST/FIN-closed flows appear immediately |
 | Scopes | Three subjects, one engine: **remote IP** (`RemoteIpScope` — "this connection"), **program instance** (`ProgramScope` — PID-anchored via EID 3, with image-equality fallback that is refused for shared hosts), and **service name** (`ServiceScope` — each connecting PID's hosted services are resolved over WMI with a 30 s TTL, so a pinned service keeps being tracked across restarts where a PID pin would go stale) |
 | PID attribution | Its own `SysmonConnectWatcherService` (Sysmon EID 3) feeds `TagFlow` — first-writer-wins, so a future Transmissions pipeline doing the same is harmless; Sysmon absent degrades to a note, never a failure. Program/service scopes say so in the status strip: without Sysmon they stay empty |
 | Track this service | Right-click a svchost row → **Track this service** opens a service-scoped peek: it follows whichever svchost instance hosts the pinned service next (DiagTrack, CryptSvc…), with no user action on respawn — the scope is the NAME, not the PID |
 | Launch under watch | **🚀 Launch under watch…** (`TransmissionKeyService`, recreated from autocommand-ii) starts one program with `SSLKEYLOGFILE` set in *its* environment only and opens a program-scoped peek for the new PID — its flows decrypt as they finalize. The system-wide capture (HKCU\Environment + broadcast) ships in the same service |
 | TLS metadata | Always extracted from the ClientHello (SNI, ALPN, cipher, TLS version) — keys or no keys |
-| Plaintext | Only when session keys exist in the keylog (`%LOCALAPPDATA%\AutoCommand\pytrace\sslkeys.log` — opt-out flag file honored: the dossier never recreates a keylog the user disabled). **schannel services (wuauserv, BITS, DoSvc) never log keys** — their rows stay metadata-only and the window shows the decryptor's verbatim reason instead of pretending |
+| Plaintext | Only when session keys exist in the keylog (`%LOCALAPPDATA%\AutoCommand\pytrace\sslkeys.log` — opt-out flag file honored: the peek never recreates a keylog the user disabled). **schannel services (wuauserv, BITS, DoSvc) never log keys** — their rows stay metadata-only and the window shows the decryptor's verbatim reason instead of pretending |
 | Coverage note | On every "encrypted (no keys)" row the window shows which apps honor SSLKEYLOGFILE and states plainly that schannel components never will — the honest coverage answer, not a gap |
+| Python instrumentation | **🐍 Instrument…** (any peek window) opens the per-environment opt-in dialog: the audit hook (`PyTraceHook_ac.py` + `.pth`, embedded in `AutoCommand.Forensics.Core` and read from that same assembly) lands in discovered environments' site-packages. Instrumented pythons report spawn call stacks (`trace-<pid>.jsonl`) and TLS session keys — a program-scoped peek of a python process shows the "Python audit trace" section for exactly that pid |
 | Service activity | The Windows Update / BITS / Delivery Optimization operational channels read for the flows' time window — the plaintext "what did this service actually do" that TLS metadata cannot show; missing channels (DO on some SKUs) contribute nothing |
 | Scope guard | Only flows belonging to the subject are processed; one window per subject ("ip:x" · "pid:N" · "svc:name" — a second Peer on the same subject focuses the existing window) |
 | Where data goes | Nowhere. Capture, decryption and event reads are local; the only network I/O is the connection being observed itself |

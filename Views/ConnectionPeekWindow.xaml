@@ -120,6 +120,15 @@
                                      Background="{DynamicResource SurfaceAltBrush}" BorderThickness="0"/>
                         </Expander>
                     </StackPanel>
+                    <!-- Python audit trace — instrumented program-scoped subjects -->
+                    <StackPanel x:Name="PythonTraceSection" Visibility="Collapsed" Margin="0,12,0,0">
+                        <TextBlock Text="PYTHON AUDIT TRACE (this process)" Foreground="{DynamicResource TextSecondaryBrush}"
+                                   FontSize="11" FontWeight="SemiBold" Margin="0,0,0,4"
+                                   ToolTip="Call stacks recorded inside the process when a spawn API fired — requires the environment to be instrumented (🐍 Instrument… button)."/>
+                        <TextBox x:Name="PythonTraceBox" IsReadOnly="True" FontFamily="Consolas" FontSize="11"
+                                 TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxHeight="200"
+                                 Background="{DynamicResource SurfaceAltBrush}" BorderThickness="0"/>
+                    </StackPanel>
                 </StackPanel>
             </ScrollViewer>
         </Grid>
@@ -157,6 +166,9 @@
             <Button Content="🚀 Launch under watch…" Style="{StaticResource PrimaryButton}" Padding="10,2"
                     Click="LaunchUnderWatchBtn_Click" Margin="0,0,8,0"
                     ToolTip="Start a program with SSLKEYLOGFILE set in its environment only — its TLS traffic decrypts here as it connects"/>
+            <Button Content="🐍 Instrument…" Style="{StaticResource PrimaryButton}" Padding="10,2"
+                    Click="InstrumentBtn_Click" Margin="0,0,8,0"
+                    ToolTip="Opt-in per python environment: install the audit hook that reports spawn stacks and TLS session keys"/>
             <Button Content="📋 Copy report" Style="{StaticResource PrimaryButton}" Padding="10,2" Click="CopyBtn_Click" Margin="0,0,8,0"/>
             <Button x:Name="KeylogChip" Style="{StaticResource PrimaryButton}" Padding="10,2" Click="KeylogChip_Click" Margin="0,0,8,0"/>
             <TextBlock Text="Captured and processed on this machine only — nothing is transmitted. Plaintext appears only for apps that log session keys; Windows services never do."

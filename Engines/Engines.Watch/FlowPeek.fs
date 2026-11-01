@@ -1,5 +1,5 @@
 // Traffic Peek engine: the Process Monitor's "Peer into this connection"
-// action. While one peek window is open, a FlowDossierService holds the
+// action. While one peek window is open, a FlowPeekService holds the
 // shared TcpStreamCaptureService via AddRef/Release (it runs for nobody
 // else today), filters every finalized TCP flow to the peered subject,
 // runs it through the TLS decryptor, and hands the result to the view.
@@ -90,7 +90,7 @@ module internal ServiceDirectory =
 
 /// Short status for the flows list — the pipeline's vocabulary, with
 /// "not TLS" for flows that carried no handshake at all.
-module private DossierStatus =
+module private PeekStatus =
     let Short(decrypt: TlsDecryptResult) : string =
         let mutable s =
             if decrypt.Success then "decrypted"
@@ -160,7 +160,7 @@ module private Peek =
 /// directly (the TransmissionRecord pattern — engine types own their
 /// row presentation).
 /// </summary>
-type FlowDossierEntry(flow: TcpFlowRecord, decrypt: TlsDecryptResult, scope: PeekScope) =
+type PeekEntry(flow: TcpFlowRecord, decrypt: TlsDecryptResult, scope: PeekScope) =
 
     // Which side of the conversation is the peered endpoint, decided once.
     // IP scope picks whichever endpoint carries the peered IP; program and
@@ -174,7 +174,7 @@ type FlowDossierEntry(flow: TcpFlowRecord, decrypt: TlsDecryptResult, scope: Pee
         | RemoteIpScope ip -> flow.ClientEndpoint <> null && flow.ClientEndpoint.StartsWith(ip + ":", StringComparison.OrdinalIgnoreCase)
         | ProgramScope _ | ServiceScope _ -> false
 
-    member _.Status: string = DossierStatus.Short decrypt
+    member _.Status: string = PeekStatus.Short decrypt
 
     member _.Flow: TcpFlowRecord = flow
     member _.Decrypt: TlsDecryptResult = decrypt
@@ -192,8 +192,8 @@ type FlowDossierEntry(flow: TcpFlowRecord, decrypt: TlsDecryptResult, scope: Pee
         let t = if flow.EndedUtc = DateTime() then DateTime.UtcNow else flow.EndedUtc
         t.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture)
 
-    member _.UpDisplay = FlowDossierEntry.FormatBytes flow.ClientBytes
-    member _.DownDisplay = FlowDossierEntry.FormatBytes flow.ServerBytes
+    member _.UpDisplay = PeekEntry.FormatBytes flow.ClientBytes
+    member _.DownDisplay = PeekEntry.FormatBytes flow.ServerBytes
 
     member _.SniDisplay =
         if String.IsNullOrEmpty decrypt.Sni then "(no SNI)" else decrypt.Sni
@@ -314,7 +314,7 @@ module ServiceLogProbe =
 /// on a private worker thread. Stop() undoes all of it; a window closing
 /// must always pair the two.
 /// </summary>
-type FlowDossierService private (scope: PeekScope) as this =
+type FlowPeekService private (scope: PeekScope) as this =
 
     let capture = TcpStreamCaptureService.Shared
     let keylog = TlsKeylogService()
@@ -327,7 +327,7 @@ type FlowDossierService private (scope: PeekScope) as this =
     let mutable entries = 0L
     let savedIdleTimeout = capture.IdleTimeout
 
-    let onEntry = DelegateEvent<Action<FlowDossierEntry>>()
+    let onEntry = DelegateEvent<Action<PeekEntry>>()
     let onError = DelegateEvent<Action<string>>()
 
     // Stable delegate so Stop() removes exactly what Start() added.
@@ -335,16 +335,16 @@ type FlowDossierService private (scope: PeekScope) as this =
 
     // Peek windows can overlap; only the first shortens the sweep and the
     // last departure restores it.
-    static let mutable activeDossiers = 0
+    static let mutable activePeeks = 0
 
     // C#-friendly construction — no DU syntax leaks into the views/tests.
-    static member ForIp(ip: string) = FlowDossierService(RemoteIpScope ip)
-    static member ForProgram(pid: int, image: string) = FlowDossierService(ProgramScope(pid, image))
-    static member ForService(service: string) = FlowDossierService(ServiceScope service)
-    static member OfScope(scope: PeekScope) = FlowDossierService scope
+    static member ForIp(ip: string) = FlowPeekService(RemoteIpScope ip)
+    static member ForProgram(pid: int, image: string) = FlowPeekService(ProgramScope(pid, image))
+    static member ForService(service: string) = FlowPeekService(ServiceScope service)
+    static member OfScope(scope: PeekScope) = FlowPeekService scope
 
-    /// How many dossiers hold the capture right now (self-test seam).
-    static member ActiveCount = activeDossiers
+    /// How many peeks hold the capture right now (self-test seam).
+    static member ActiveCount = activePeeks
 
     member _.ScopeDisplay: string = Peek.Display scope
 
@@ -370,7 +370,7 @@ type FlowDossierService private (scope: PeekScope) as this =
             if TlsKeylogService.KeylogEnabled then
                 try TlsKeylogService.EnsureHygiene() with _ -> ()
 
-            if Interlocked.Increment(&activeDossiers) = 1 then
+            if Interlocked.Increment(&activePeeks) = 1 then
                 capture.IdleTimeout <- TimeSpan.FromSeconds 10.0
 
             connectWatcher <- new SysmonConnectWatcherService()
@@ -382,7 +382,7 @@ type FlowDossierService private (scope: PeekScope) as this =
             capture.AddRef() // balanced by Stop() — the capture runs while the peek does
 
             worker <- new Thread(ThreadStart(fun () -> this.ProcessQueue()),
-                                 IsBackground = true, Name = "FlowDossier")
+                                 IsBackground = true, Name = "FlowPeek")
             worker.Start()
 
     member _.Stop() =
@@ -393,7 +393,7 @@ type FlowDossierService private (scope: PeekScope) as this =
             connectWatcher <- Unchecked.defaultof<_>
             capture.Release()
 
-            if Interlocked.Decrement(&activeDossiers) = 0 then
+            if Interlocked.Decrement(&activePeeks) = 0 then
                 capture.IdleTimeout <- savedIdleTimeout
 
             queue.CompleteAdding()
@@ -415,7 +415,7 @@ type FlowDossierService private (scope: PeekScope) as this =
         try
             for flow in queue.GetConsumingEnumerable cts.Token do
                 try this.Process flow
-                with _ -> () // one flow's failure never stops the dossier
+                with _ -> () // one flow's failure never stops the peek
         with
         | :? OperationCanceledException -> ()
         | _ -> () // shutdown race
@@ -423,4 +423,4 @@ type FlowDossierService private (scope: PeekScope) as this =
     member private this.Process(flow: TcpFlowRecord) =
         keylog.Refresh()
         let result = TlsDecryptor.Decrypt(flow, keylog)
-        onEntry.Trigger [| box (FlowDossierEntry(flow, result, scope)) |]
+        onEntry.Trigger [| box (PeekEntry(flow, result, scope)) |]

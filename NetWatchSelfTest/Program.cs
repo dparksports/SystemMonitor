@@ -1,7 +1,7 @@
 // NetWatch self-test — TcpConnectionTable (dual-family kernel enumeration,
 // incl. a LIVE held [::1] connection) + SysmonArchiveService (watermark
 // dedupe, day-file rotation, search, prune, corrupt-line tolerance) +
-// FlowDossier (Traffic Peek: synthetic-packet capture → TLS-metadata-only
+// FlowPeek (Traffic Peek: synthetic-packet capture → TLS-metadata-only
 // honesty, remote-IP scoping, pid tagging, refcount lifecycle). Archive and
 // keylog persistence run against temp dirs; nothing touches the real
 // %LOCALAPPDATA% archive, keylog or the live Sysmon channel.
@@ -195,7 +195,7 @@ Check("idle batch honors the batch size (all candidates fit)",
       dns.RunIdlePassForTest(() => TimeSpan.FromMinutes(10)) == 1);
 
 // ─────────────────────────────────────────────────────────────────────
-// 6. FlowDossier — the Traffic Peek engine, offline: synthetic IPv4/TCP
+// 6. FlowPeek — the Traffic Peek engine, offline: synthetic IPv4/TCP
 //    packets fed straight into the shared capture's self-test seam. The
 //    peered IP is a TEST-NET address (never routed) so real machine
 //    traffic can never pollute the assertions; the keylog lives in a
@@ -207,18 +207,18 @@ AutoCommand.Engines.Watch.WatchConfig.Configure(new AutoCommand.Engines.Core.App
     Microsoft.FSharp.Collections.ListModule.OfSeq(Array.Empty<string>()), 47821, "netwatch-selftest"));
 
 const string PeerIp = "198.51.100.10"; // TEST-NET-2 — never routed, never real traffic
-var dossier = AutoCommand.Engines.Watch.FlowDossierService.ForIp(PeerIp);
-var collected = new List<AutoCommand.Engines.Watch.FlowDossierEntry>();
-var dossierNotes = new List<string>();
+var peek = AutoCommand.Engines.Watch.FlowPeekService.ForIp(PeerIp);
+var collected = new List<AutoCommand.Engines.Watch.PeekEntry>();
+var peekNotes = new List<string>();
 object entryGate = new object();
-dossier.OnEntry += e => { lock (entryGate) collected.Add(e); };
-dossier.OnError += m => { lock (entryGate) dossierNotes.Add(m); };
+peek.OnEntry += e => { lock (entryGate) collected.Add(e); };
+peek.OnError += m => { lock (entryGate) peekNotes.Add(m); };
 
-dossier.Start();
-Check("dossier start arms the shared capture", AutoCommand.Engines.Watch.TcpStreamCaptureService.Shared.IsRunning);
-Check("dossier shortens the idle sweep to 10 s",
+peek.Start();
+Check("peek start arms the shared capture", AutoCommand.Engines.Watch.TcpStreamCaptureService.Shared.IsRunning);
+Check("peek shortens the idle sweep to 10 s",
       AutoCommand.Engines.Watch.TcpStreamCaptureService.Shared.IdleTimeout == TimeSpan.FromSeconds(10));
-Check("dossier registers as the active peer", AutoCommand.Engines.Watch.FlowDossierService.ActiveCount == 1);
+Check("peek registers as the active peer", AutoCommand.Engines.Watch.FlowPeekService.ActiveCount == 1);
 
 // Flow A — TLS ClientHello to the peered IP:443, closed by RST (the
 // reassembler finalizes a reset flow immediately — no sweep wait).
@@ -227,7 +227,7 @@ var cap = AutoCommand.Engines.Watch.TcpStreamCaptureService.Shared;
 Feed(cap, Tcp4("192.0.2.10", 51234, PeerIp, 443, 1, 0x18, hello));
 Feed(cap, Tcp4("192.0.2.10", 51234, PeerIp, 443, 1 + (uint)hello.Length, 0x04, Array.Empty<byte>()));
 
-// Flow B — plain HTTP to the same IP (the dossier keeps non-TLS flows on
+// Flow B — plain HTTP to the same IP (the peek keeps non-TLS flows on
 // purpose; the honest verdict is the point).
 byte[] req = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: fe3cr.delivery.mp.microsoft.com\r\n\r\n");
 Feed(cap, Tcp4("192.0.2.10", 51236, PeerIp, 80, 1, 0x18, req));
@@ -239,7 +239,7 @@ Feed(cap, Tcp4("192.0.2.10", 51238, "203.0.113.7", 80, 1, 0x18, noise));
 Feed(cap, Tcp4("192.0.2.10", 51238, "203.0.113.7", 80, 1 + (uint)noise.Length, 0x04, Array.Empty<byte>()));
 
 Check("peered flows arrive and the foreign IP stays out", WaitForEntries(collected, entryGate, 2, 15000),
-      $"collected={collected.Count} notes={string.Join(" | ", dossierNotes.Take(2))}");
+      $"collected={collected.Count} notes={string.Join(" | ", peekNotes.Take(2))}");
 Check("exactly the two peered flows arrived", collected.Count == 2, collected.Count.ToString());
 
 var tlsEntry = collected.FirstOrDefault(e => e.Status == "encrypted (no keys)");
@@ -266,7 +266,7 @@ Feed(cap, Tcp4("192.0.2.10", 51240, PeerIp, 443, 1, 0x18, hello));
 Check("TagFlow tags the live flow",
       cap.TagFlow("192.0.2.10", 51240, PeerIp, 443, 4242, @"C:\Windows\System32\svchost.exe"));
 Feed(cap, Tcp4("192.0.2.10", 51240, PeerIp, 443, 1 + (uint)hello.Length, 0x04, Array.Empty<byte>()));
-Check("tagged pid/image ride the dossier entry", WaitForEntries(collected, entryGate, 3, 15000) &&
+Check("tagged pid/image ride the peek entry", WaitForEntries(collected, entryGate, 3, 15000) &&
       collected[^1].ProcessDisplay.Contains("svchost.exe") && collected[^1].ProcessDisplay.Contains("4242"),
       collected[^1].ProcessDisplay);
 
@@ -276,18 +276,18 @@ var probe = AutoCommand.Engines.Watch.ServiceLogProbe.QueryEvents(
     DateTime.UtcNow.AddMinutes(-5), DateTime.UtcNow);
 Check("service event probe is bounded and quiet", probe.Count <= 60, probe.Count.ToString());
 
-dossier.Stop();
-Check("dossier stop releases the capture",
+peek.Stop();
+Check("peek stop releases the capture",
       !AutoCommand.Engines.Watch.TcpStreamCaptureService.Shared.IsRunning &&
-      AutoCommand.Engines.Watch.FlowDossierService.ActiveCount == 0);
+      AutoCommand.Engines.Watch.FlowPeekService.ActiveCount == 0);
 Check("idle sweep restored to the 60 s default",
       AutoCommand.Engines.Watch.TcpStreamCaptureService.Shared.IdleTimeout == TimeSpan.FromSeconds(60));
 
 // A window close/reopen cycle must re-arm cleanly (one peek per IP, reused).
-var dossier2 = AutoCommand.Engines.Watch.FlowDossierService.ForIp(PeerIp);
-dossier2.Start();
+var peek2 = AutoCommand.Engines.Watch.FlowPeekService.ForIp(PeerIp);
+peek2.Start();
 bool reArmed = AutoCommand.Engines.Watch.TcpStreamCaptureService.Shared.IsRunning;
-dossier2.Stop();
+peek2.Stop();
 Check("close/reopen re-arms and re-releases the capture", reArmed &&
       !AutoCommand.Engines.Watch.TcpStreamCaptureService.Shared.IsRunning);
 
@@ -298,10 +298,10 @@ Check("close/reopen re-arms and re-releases the capture", reArmed &&
 //     the match is the PID's hosted-services answer, and shared hosts
 //     are never image-matched.
 // ─────────────────────────────────────────────────────────────────────
-var progDossier = AutoCommand.Engines.Watch.FlowDossierService.ForProgram(4242, @"C:\Program Files\MyApp\myapp.exe");
-var progCollected = new List<AutoCommand.Engines.Watch.FlowDossierEntry>();
-progDossier.OnEntry += e => { lock (entryGate) progCollected.Add(e); };
-progDossier.Start();
+var progPeek = AutoCommand.Engines.Watch.FlowPeekService.ForProgram(4242, @"C:\Program Files\MyApp\myapp.exe");
+var progCollected = new List<AutoCommand.Engines.Watch.PeekEntry>();
+progPeek.OnEntry += e => { lock (entryGate) progCollected.Add(e); };
+progPeek.Start();
 
 // PID match: a flow tagged 4242 belongs to the program scope
 Feed(cap, Tcp4("192.0.2.10", 51242, "203.0.113.9", 443, 1, 0x18, hello));
@@ -318,10 +318,10 @@ Check("program scope: pid match + image fallback arrive", WaitForEntries(progCol
 
 // Shared-host guard: a program scope on svchost must match ONLY its exact
 // pid — a sibling svchost tenant's flow (pid 8888) is never image-matched.
-var svchostDossier = AutoCommand.Engines.Watch.FlowDossierService.ForProgram(777, @"C:\Windows\System32\svchost.exe");
-var sharedCollected = new List<AutoCommand.Engines.Watch.FlowDossierEntry>();
-svchostDossier.OnEntry += e => { lock (entryGate) sharedCollected.Add(e); };
-svchostDossier.Start();
+var svchostPeek = AutoCommand.Engines.Watch.FlowPeekService.ForProgram(777, @"C:\Windows\System32\svchost.exe");
+var sharedCollected = new List<AutoCommand.Engines.Watch.PeekEntry>();
+svchostPeek.OnEntry += e => { lock (entryGate) sharedCollected.Add(e); };
+svchostPeek.Start();
 Feed(cap, Tcp4("192.0.2.10", 51246, "203.0.113.9", 443, 1, 0x18, hello));
 cap.TagFlow("192.0.2.10", 51246, "203.0.113.9", 443, 8888, @"C:\Windows\System32\svchost.exe");
 Feed(cap, Tcp4("192.0.2.10", 51246, "203.0.113.9", 443, 1 + (uint)hello.Length, 0x04, Array.Empty<byte>()));
@@ -333,10 +333,10 @@ Check("shared-host guard: svchost scope matches only its exact pid",
 // services (overridden here so the test never touches real SCM state).
 AutoCommand.Engines.Watch.ServiceDirectory.Override(5999, new[] { "DiagTrack" });
 AutoCommand.Engines.Watch.ServiceDirectory.Override(6000, new[] { "DoSvc" });
-var diagDossier = AutoCommand.Engines.Watch.FlowDossierService.ForService("DiagTrack");
-var diagCollected = new List<AutoCommand.Engines.Watch.FlowDossierEntry>();
-diagDossier.OnEntry += e => { lock (entryGate) diagCollected.Add(e); };
-diagDossier.Start();
+var diagPeek = AutoCommand.Engines.Watch.FlowPeekService.ForService("DiagTrack");
+var diagCollected = new List<AutoCommand.Engines.Watch.PeekEntry>();
+diagPeek.OnEntry += e => { lock (entryGate) diagCollected.Add(e); };
+diagPeek.Start();
 
 Feed(cap, Tcp4("192.0.2.10", 51248, "203.0.113.9", 443, 1, 0x18, hello));
 cap.TagFlow("192.0.2.10", 51248, "203.0.113.9", 443, 5999, @"C:\Windows\System32\svchost.exe");
@@ -351,13 +351,13 @@ Check("service scope: pinned service follows its instance, sibling stays out",
       WaitForEntries(diagCollected, entryGate, 1, 15000) && diagCollected.Count == 1,
       diagCollected.Count.ToString());
 
-progDossier.Stop();
-svchostDossier.Stop();
-diagDossier.Stop();
-Check("scoped dossiers all release the capture",
+progPeek.Stop();
+svchostPeek.Stop();
+diagPeek.Stop();
+Check("scoped peeks all release the capture",
       !AutoCommand.Engines.Watch.TcpStreamCaptureService.Shared.IsRunning &&
-      AutoCommand.Engines.Watch.FlowDossierService.ActiveCount == 0,
-      AutoCommand.Engines.Watch.FlowDossierService.ActiveCount.ToString());
+      AutoCommand.Engines.Watch.FlowPeekService.ActiveCount == 0,
+      AutoCommand.Engines.Watch.FlowPeekService.ActiveCount.ToString());
 
 try { Directory.Delete(peerRoot, true); } catch { }
 
@@ -428,7 +428,7 @@ static byte[] BuildClientHello(string sni)
     return b.ToArray();
 }
 
-static bool WaitForEntries(List<AutoCommand.Engines.Watch.FlowDossierEntry> collected, object gate, int count, int timeoutMs)
+static bool WaitForEntries(List<AutoCommand.Engines.Watch.PeekEntry> collected, object gate, int count, int timeoutMs)
 {
     var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
     while (DateTime.UtcNow < deadline)

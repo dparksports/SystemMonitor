@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using AutoCommand.Forensics.Core;
 
 namespace AutoCommand.Views
 {
@@ -17,7 +18,7 @@ namespace AutoCommand.Views
     /// via Sysmon EID 3), or a svchost-hosted service by name ("DiagTrack" —
     /// the only anchor that survives service restarts, so a tracked service
     /// keeps being followed no matter which instance pops up). While open it
-    /// holds the shared TCP stream capture (FlowDossierService AddRef/Release),
+    /// holds the shared TCP stream capture (FlowPeekService AddRef/Release),
     /// shows every finalized flow to the subject with the TLS decryptor's
     /// honest verdict, and reads the Windows Update / BITS / Delivery
     /// Optimization event channels for the same time window — the plaintext
@@ -33,13 +34,15 @@ namespace AutoCommand.Views
         private readonly AutoCommand.Engines.Watch.PeekScope _scope;
         private readonly string _subject;
         private readonly string _processName;
+        private readonly string _image;      // program scope: the subject's image path
+        private bool _showPythonTrace;
         private readonly int _pid;
         private readonly string _hostedServices;
         private readonly string _hostname;
         private readonly DateTime _openedUtc = DateTime.UtcNow;
 
-        private FlowDossierService _dossier;
-        private readonly ObservableCollection<FlowDossierEntry> _flows = new();
+        private FlowPeekService _peekService;
+        private readonly ObservableCollection<PeekEntry> _flows = new();
         private readonly ObservableCollection<ServiceEventLine> _events = new();
         private readonly DispatcherTimer _statusTimer;
         private DateTime _lastEventRefreshUtc = DateTime.MinValue;
@@ -58,7 +61,17 @@ namespace AutoCommand.Views
                    string.IsNullOrEmpty(image) ? $"PID {pid}" : System.IO.Path.GetFileName(image),
                    processName, pid, hostedServices, hostname)
         {
+            _image = image;
+            _showPythonTrace = pid > 0 && IsPythonImage(_image);
+            if (_showPythonTrace)
+            {
+                PythonTraceSection.Visibility = Visibility.Visible;
+                PythonTraceBox.Text = "Not instrumented yet — stacks appear once the environment runs the audit hook (🐍 Instrument… button).";
+            }
         }
+
+        private static bool IsPythonImage(string image) =>
+            !string.IsNullOrEmpty(image) && image.Contains("python", StringComparison.OrdinalIgnoreCase);
 
         /// <summary>Track one svchost-hosted service by name — survives restarts.</summary>
         public ConnectionPeekWindow(AutoCommand.Engines.Watch.PeekScope scope, string subject,
@@ -98,28 +111,80 @@ namespace AutoCommand.Views
 
         private void StartPeek()
         {
-            _dossier = FlowDossierService.OfScope(_scope);
-            _dossier.OnEntry += entry =>
+            _peekService = FlowPeekService.OfScope(_scope);
+            _peekService.OnEntry += entry =>
                 Dispatcher.BeginInvoke(new Action(() => AddFlow(entry)));
             // Non-fatal by contract (Sysmon absent → no PID attribution);
             // shown as a note, never a stop.
-            _dossier.OnError += msg =>
+            _peekService.OnError += msg =>
                 Dispatcher.BeginInvoke(new Action(() =>
                     SetWarning("attribution: " + msg)));
-            _dossier.Start();
+            _peekService.Start();
             _ = RefreshEventsAsync();
             UpdateStatusStrip();
+
+            if (_showPythonTrace) StartPythonTrace();
+        }
+
+        // ── python audit trace (instrumented program scopes) ────────────
+
+        private PyTraceReaderService _pyTraceReader;
+
+        private void StartPythonTrace()
+        {
+            try
+            {
+                _pyTraceReader = new PyTraceReaderService();
+                _pyTraceReader.OnError += msg =>
+                    Dispatcher.BeginInvoke(new Action(() => SetWarning("python trace: " + msg)));
+                _pyTraceReader.OnRecord += _ =>
+                    Dispatcher.BeginInvoke(new Action(RenderPythonTrace));
+                _pyTraceReader.Start(); // loads existing trace-<pid>.jsonl, then tails
+                RenderPythonTrace();
+            }
+            catch (Exception ex)
+            {
+                SetWarning("python trace unavailable: " + ex.Message);
+            }
+        }
+
+        private void RenderPythonTrace()
+        {
+            var records = _pyTraceReader?.GetForPid(_pid) ?? Array.Empty<PyTraceRecord>();
+            if (records.Count == 0)
+            {
+                PythonTraceBox.Text = "No spawn recorded yet for this pid — the section fills when the " +
+                                      "instrumented python spawns something (or runs, if the hook just landed).";
+                return;
+            }
+            var sb = new StringBuilder();
+            foreach (var record in records)
+            {
+                sb.Append("── ").Append(record.Header).AppendLine(" ──");
+                sb.AppendLine(record.Stack);
+                sb.AppendLine();
+            }
+            PythonTraceBox.Text = sb.ToString().TrimEnd();
+        }
+
+        private void InstrumentBtn_Click(object sender, RoutedEventArgs e)
+        {
+            new PythonInstrumentDialog { Owner = Window.GetWindow(this) }.ShowDialog();
+            if (_showPythonTrace)
+                RenderPythonTrace(); // instrumentation may have landed while the dialog was open
         }
 
         private void StopPeek()
         {
-            try { _dossier?.Stop(); } catch { /* the capture outliving us is fine */ }
-            _dossier = null;
+            try { _peekService?.Stop(); } catch { /* the capture outliving us is fine */ }
+            _peekService = null;
+            try { _pyTraceReader?.Stop(); } catch { }
+            _pyTraceReader = null;
         }
 
         // ── flows ────────────────────────────────────────────────────────
 
-        private void AddFlow(FlowDossierEntry entry)
+        private void AddFlow(PeekEntry entry)
         {
             _flows.Insert(0, entry);
             while (_flows.Count > MaxFlowsShown)
@@ -134,10 +199,10 @@ namespace AutoCommand.Views
 
         private void FlowList_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
-            RenderDetail(FlowList.SelectedItem as FlowDossierEntry);
+            RenderDetail(FlowList.SelectedItem as PeekEntry);
         }
 
-        private void RenderDetail(FlowDossierEntry entry)
+        private void RenderDetail(PeekEntry entry)
         {
             if (entry == null)
             {
@@ -250,7 +315,7 @@ namespace AutoCommand.Views
 
         private void UpdateStatusStrip()
         {
-            if (_dossier == null)
+            if (_peekService == null)
             {
                 CaptureStatusText.Text = "Capture stopped.";
                 return;
@@ -260,7 +325,7 @@ namespace AutoCommand.Views
                 ? ""
                 : " · flows are attributed via Sysmon EID 3 — without Sysmon this peek stays empty";
             CaptureStatusText.Text =
-                $"Capture running · {_dossier.EntryCount} peered flow(s) shown · " +
+                $"Capture running · {_peekService.EntryCount} peered flow(s) shown · " +
                 $"{capture.OutboundPackets} out / {capture.InboundPackets} in packets this session" +
                 attribution +
                 " · flows appear when a conversation closes (or ~10 s after it goes quiet).";
