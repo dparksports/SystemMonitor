@@ -1,4 +1,11 @@
 using System;
+using AutoCommand.Agent.Core;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
+using AutoCommand.Sitedoctor.Core;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -217,6 +224,93 @@ namespace AutoCommand.Views
                 btn.Click += ClientRegisterBtn_Click;
                 AgentClientsPanel.Children.Add(btn);
             }
+
+            // Migration self-heal: registrations left over from a previous
+            // install (the classic → AutoCommand II move, or any folder move)
+            // point at an older versioned proxy — and a cleaned tools dir
+            // leaves them broken outright. Detect here, offer one explicit
+            // refresh; nothing is rewritten silently.
+            try
+            {
+                var stale = McpClientCatalog.FindStaleRegistrations(
+                    McpClientCatalog.ResolveAndInstallProxy().ProxyPath);
+                if (stale.Count > 0) AgentClientsPanel.Children.Insert(0, StaleBanner(stale));
+            }
+            catch { /* the scan is advisory — never block the tab */ }
+        }
+
+        /// <summary>One-line offer above the Register buttons: N stale
+        /// registrations + the button that repairs them via the same
+        /// resolve → preflight → Register path as a manual click.</summary>
+        private UIElement StaleBanner(List<McpClientCatalog.StaleMcpRegistration> stale)
+        {
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8) };
+            row.Children.Add(new TextBlock
+            {
+                Text = stale.Count == 1
+                    ? "1 assistant still points at an older or missing AutoCommand proxy — refresh it to keep AI access working from this install."
+                    : stale.Count + " assistants still point at an older or missing AutoCommand proxy — refresh them to keep AI access working from this install.",
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 8, 0),
+                MaxWidth = 520,
+                TextWrapping = TextWrapping.Wrap,
+            });
+            var refresh = new Button
+            {
+                Content = "Refresh registration" + (stale.Count == 1 ? "" : "s"),
+                Padding = new Thickness(10, 2, 10, 2),
+            };
+            refresh.Click += (_, _) => RefreshStaleRegistrations(stale);
+            row.Children.Add(refresh);
+            return row;
+        }
+
+        private void RefreshStaleRegistrations(List<McpClientCatalog.StaleMcpRegistration> stale)
+        {
+            var (proxy, installNote) = McpClientCatalog.ResolveAndInstallProxy();
+            if (proxy == null)
+            {
+                MessageBox.Show(
+                    "AutoCommand.AgentProxy.exe was not found next to the app.\n" +
+                    "Reinstall AutoCommand (or rebuild from source) and try again.\n\n" + installNote,
+                    "Be My Guest", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            // same rule as a manual register: never point a client config at
+            // a proxy that has not just proven it can start and speak MCP
+            var (preOk, preMsg) = McpClientCatalog.PreflightProxy(proxy);
+            if (!preOk)
+            {
+                MessageBox.Show(
+                    "The proxy is installed but failed its startup preflight — nothing was refreshed:\n\n" + preMsg,
+                    "Be My Guest", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            int ok = 0;
+            var failures = new List<string>();
+            foreach (var s in stale)
+            {
+                var (rOk, message) = McpClientCatalog.Register(s.Client, proxy);
+                if (rOk) ok++;
+                else failures.Add(s.Client.DisplayName + ":\n" + message);
+            }
+            MessageBox.Show(
+                failures.Count == 0
+                    ? "Refreshed " + ok + " registration" + (ok == 1 ? "" : "s") +
+                      " to this install's proxy (v" + AppVersion() + ").\n\n" +
+                      "Assistant sessions pick it up on their next connect — no other step needed."
+                    : "Refreshed " + ok + ", failed " + failures.Count + ":\n\n" + string.Join("\n\n", failures),
+                "Be My Guest", MessageBoxButton.OK,
+                failures.Count == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
+            PopulateClientButtons(); // re-render — the banner should now be gone
+        }
+
+        private static string AppVersion()
+        {
+            try { return System.Diagnostics.FileVersionInfo.GetVersionInfo(Environment.ProcessPath).ProductVersion ?? "0"; }
+            catch { return "0"; }
         }
 
         private void ClientRegisterBtn_Click(object sender, RoutedEventArgs e)

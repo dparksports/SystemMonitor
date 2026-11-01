@@ -1,4 +1,10 @@
 using System;
+using AutoCommand.Agent.Core;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
+using AutoCommand.Sitedoctor.Core;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -8,6 +14,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Threading;
+using AutoCommand.Helpers;
 using AutoCommand.Services;
 
 namespace AutoCommand.Views
@@ -54,13 +61,20 @@ namespace AutoCommand.Views
         public BlackHoleView()
         {
             InitializeComponent();
+            // subscribe once here, not in Loaded — Loaded re-fires on every
+            // tab re-entry and used to stack one more RefreshAll per tick
+            // per visit
+            _refresh.Tick += (_, _) => RefreshAll();
+            // RefreshAll reads service-side snapshots (proof store, sinkhole
+            // state) and change events still fire it while hidden — the 5 s
+            // poll may pause with the tab
+            RefreshLoop.GateVisibility(this, () => _refresh);
         }
 
         private void UserControl_Loaded(object sender, RoutedEventArgs e)
         {
             TelemetryProofService.Instance.Changed += OnProofChanged;
             SinkholeService.Instance.StatusChanged += OnProofChanged;
-            _refresh.Tick += (_, _) => RefreshAll();
             _refresh.Start();
             RefreshAll();
         }

@@ -1,4 +1,10 @@
 using System;
+using AutoCommand.Agent.Core;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
+using AutoCommand.Sitedoctor.Core;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -388,7 +394,7 @@ namespace AutoCommand.Services
                 {
                     string oneDriveExe = System.IO.Path.Combine(item.InstallLocation, "OneDrive.exe");
                     if (System.IO.File.Exists(oneDriveExe))
-                        await Task.Run(() => Helpers.ProcessRunner.Run(oneDriveExe, "/shutdown"))
+                        await Task.Run(() => ProcessRunner.Run(oneDriveExe, "/shutdown"))
                                  .WaitAsync(TimeSpan.FromSeconds(10));
                 }
                 catch { }
@@ -397,13 +403,13 @@ namespace AutoCommand.Services
                 string uninstaller = LocateOneDriveUninstaller(item.InstallLocation);
                 if (uninstaller != null)
                 {
-                    var (_, _, exitCode) = await Helpers.ProcessRunner.RunWithDetailsAsync(uninstaller, "/uninstall");
+                    var (_, _, exitCode) = await ProcessRunner.RunWithDetailsAsync(uninstaller, "/uninstall");
                     success = exitCode == 0;
                 }
 
                 if (!success)
                 {
-                    var (_, _, wingetCode) = await Helpers.ProcessRunner.RunWithDetailsAsync(
+                    var (_, _, wingetCode) = await ProcessRunner.RunWithDetailsAsync(
                         "winget", "uninstall --id Microsoft.OneDrive --silent --disable-interactivity");
                     success = wingetCode == 0;
                 }

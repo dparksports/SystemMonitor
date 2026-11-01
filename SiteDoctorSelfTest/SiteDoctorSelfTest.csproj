@@ -1,9 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Self-test for the "Why is this site slow?" pipeline: compiles the
-       app's sources directly, so what runs here is byte-identical to what
-       ships in AutoCommand. Excluded from the app build (AutoCommand.csproj
-       Compile Remove, like NetWatchSelfTest).
+  <!-- Self-test for the "Why is this site slow?" pipeline. Phase 5 of the
+       AutoCommand II extraction (REWRITE.md): the engines live in
+       core\AutoCommand.Sitedoctor.Core (fingerprint/verdict/dependency)
+       with TransmissionRecord from the Intercept core — this harness
+       references the library and runs the shipped assemblies.
 
        Offline sections drive the fingerprint engine with synthetic archive
        records and the verdict rules with synthetic probe reports. The one
@@ -20,13 +21,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\Models\TransmissionRecord.cs" />
-    <Compile Include="..\Services\SiteFingerprintService.cs" />
-    <Compile Include="..\Services\SiteProbeService.cs" />
-    <Compile Include="..\Services\SiteVerdictService.cs" />
-    <!-- The pure core only — the live half (DependencyBlockService.Live.cs)
-         drags the feed/archive services and is exercised by the app itself. -->
-    <Compile Include="..\Services\DependencyBlockService.cs" />
+    <ProjectReference Include="..\core\AutoCommand.Sitedoctor.Core\AutoCommand.Sitedoctor.Core.csproj" />
   </ItemGroup>
 
 </Project>

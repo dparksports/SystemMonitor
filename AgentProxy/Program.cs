@@ -34,9 +34,23 @@ const string OfflineToolsJson = """
   { "name": "tail_sysmon", "description": "Recent Sysmon/Operational events (needs an active session)." },
   { "name": "trace_analyze", "description": "svchost trace capture + pattern analysis (needs an active session)." },
   { "name": "classify_ip", "description": "Destination-range classification, block-warning text and blocked-list status (needs an active session)." },
+  { "name": "lookup_ip", "description": "Resolve one IP: hostname, range classification, org/geo with its cache state (ip-api throttled + RDAP fallback), blocked-list status; force=true re-asks urgently (needs an active session)." },
+  { "name": "list_dns_queries", "description": "The DNS Queries feed: who resolved which hostname, how often, beacon regularity, resolved addresses with classification and blocked status (needs an active session)." },
   { "name": "list_blocks", "description": "Inventory of every AutoCommand firewall block with recent hit counts (needs an active session)." },
   { "name": "list_recent_block_hits", "description": "Live process-attributed feed of connects hitting firewall blocks — the 'who is being blocked' view (needs an active session)." },
-  { "name": "check_host", "description": "'Why can't I reach this site?' — resolve, check blocked-list membership per address, plain-English verdict (needs an active session)." }
+  { "name": "verify_block_containment", "description": "Prove blocked processes are silent, not just trying: block attempts joined against live sockets and archived transmissions since block creation (needs an active session)." },
+  { "name": "check_host", "description": "'Why can't I reach this site?' — resolve, check blocked-list membership per address, plain-English verdict (needs an active session)." },
+  { "name": "investigate_process", "description": "The whole 'why is this transmitting?' playbook for one PID in a single call — provenance, traffic profile, block-hit check, plain-English verdict (needs an active session)." },
+  { "name": "diagnose_site", "description": "The Site Doctor pipeline for one hostname: fingerprint, dependency-block pass, live probes, verdict (needs an active session)." },
+  { "name": "run_trace", "description": "Ad-hoc trace of any process or svchost service over the last N hours — the Traces-tab metrics (needs an active session)." },
+  { "name": "get_transmissions", "description": "Recent recorded TLS transmissions — process, destination, SNI, byte counts; metadata only (needs an active session)." },
+  { "name": "get_phonehome_cards", "description": "Curated cards per well-known Windows talker — connects/hr vs the normal band, destinations, beacon regularity (needs an active session)." },
+  { "name": "list_trace_projects", "description": "The Traces tab's user-defined tracing projects (needs an active session)." },
+  { "name": "get_trace_project", "description": "One trace project's definition plus its measured snapshot (needs an active session)." },
+  { "name": "block_ip", "description": "Firewall-block a destination IP — a mutating action: only while a session runs with mutations enabled, and always confirmed in the app (needs an active session)." },
+  { "name": "unblock_ip", "description": "Remove a destination-IP firewall block — a mutating action, confirmed in the app (needs an active session)." },
+  { "name": "kill_process", "description": "Kill a process by PID — a mutating action, confirmed in the app (needs an active session)." },
+  { "name": "disable_task", "description": "Disable a scheduled task — a mutating action, confirmed in the app (needs an active session)." }
 ]
 """;
 

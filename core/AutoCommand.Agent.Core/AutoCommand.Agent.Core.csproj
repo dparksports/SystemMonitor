@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The Agent core: the Be My Guest AI-access face — the MCP listener
+       bridge, the read-only-by-default tool registry over the other cores'
+       engines, and the MCP client registration (one-click registration for
+       Claude Desktop, ZCode, Cursor, ...). Extracted from the WPF exe in
+       AutoCommand II phase 6 (REWRITE.md); namespaces unchanged.
+
+       The UI seam is inverted through Sdk\IAgentInteraction: the bridge
+       asks per-action confirmation through it; the WPF shell installs
+       WpfAgentInteraction (the AgentConfirmWindow dialog) at startup.
+       Headless hosts install nothing — mutating asks are denied with the
+       plain-language note, exactly as they always were with no UI present.
+       ProxyInstallSelfTest consumes the shipped assembly. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <AssemblyName>AutoCommand.Agent.Core</AssemblyName>
+    <RootNamespace>AutoCommand.Agent.Core</RootNamespace>
+    <Company>AutoCommand</Company>
+    <Product>AutoCommand.Agent.Core</Product>
+    <Description>Agent engines behind AutoCommand: the MCP AI-access bridge with consent-gated mutating tools, the tool registry over every core, and MCP client registration.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- White-box access for the install harness: it drives the internal
+         ResolveAndInstallProxy overload (version, tools dir, sources) that
+         a source-copy build could see — same pattern as Forensics ->
+         BitsTraceSelfTest. -->
+    <InternalsVisibleTo Include="ProxyInstallSelfTest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The confirmation seam contract -->
+    <ProjectReference Include="..\..\Sdk\AutoCommand.Sdk.csproj" />
+    <!-- The registry's tools wrap every other core's engines -->
+    <ProjectReference Include="..\AutoCommand.NetWatch.Core\AutoCommand.NetWatch.Core.csproj" />
+    <ProjectReference Include="..\AutoCommand.Intercept.Core\AutoCommand.Intercept.Core.csproj" />
+    <ProjectReference Include="..\AutoCommand.Contain.Core\AutoCommand.Contain.Core.csproj" />
+    <ProjectReference Include="..\AutoCommand.Forensics.Core\AutoCommand.Forensics.Core.csproj" />
+    <ProjectReference Include="..\AutoCommand.Sitedoctor.Core\AutoCommand.Sitedoctor.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Vendored identity engine behind the Contain core's svchost tools -->
+    <ProjectReference Include="..\..\svchost-watch\SvchostAnalyzer.Core\SvchostAnalyzer.Core.csproj" />
+    <!-- Event channels (Sysmon tail tools) -->
+    <PackageReference Include="System.Diagnostics.EventLog" Version="10.0.0-preview.4.25258.110" />
+  </ItemGroup>
+
+</Project>

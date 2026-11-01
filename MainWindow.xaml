@@ -64,6 +64,15 @@
                 </TabItem.Header>
                 <views:TracesView x:Name="TracesTab"/>
             </TabItem>
+            <TabItem x:Name="DnsNavItem">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="🌐" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="DNS Queries" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <views:DnsView x:Name="DnsTab"/>
+            </TabItem>
             <TabItem x:Name="BitsNavItem">
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
@@ -189,6 +198,15 @@
                     </StackPanel>
                 </TabItem.Header>
                 <views:SysmonStatusView x:Name="SysmonTab"/>
+            </TabItem>
+            <TabItem x:Name="InvestigateNavItem">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="🔬" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Investigate" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <views:InvestigateView x:Name="InvestigateTab"/>
             </TabItem>
             <TabItem>
                 <TabItem.Header>

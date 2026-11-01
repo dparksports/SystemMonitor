@@ -125,6 +125,7 @@
                                                             <ColumnDefinition Width="150"/>
                                                             <ColumnDefinition Width="110"/>
                                                             <ColumnDefinition Width="170"/>
+                                                            <ColumnDefinition Width="120"/>
                                                             <ColumnDefinition Width="*"/>
                                                         </Grid.ColumnDefinitions>
                                                         <TextBlock Grid.Column="0" Text="{Binding StatusGlyph}" FontSize="12" VerticalAlignment="Center"
@@ -144,7 +145,10 @@
                                                         <TextBlock Grid.Column="5" Text="{Binding LastTraffic}" FontSize="10"
                                                                    Foreground="{Binding LastTrafficBrush}" VerticalAlignment="Center"
                                                                    ToolTip="{Binding LastTrafficToolTip}"/>
-                                                        <StackPanel Grid.Column="6" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                        <TextBlock Grid.Column="6" Text="{Binding Containment}" FontSize="10" FontWeight="SemiBold"
+                                                                   Foreground="{Binding ContainmentBrush}" VerticalAlignment="Center"
+                                                                   ToolTip="{Binding ContainmentToolTip}"/>
+                                                        <StackPanel Grid.Column="7" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                                             <Button Content="{Binding RowActionLabel}" Click="RowToggle_Click" Tag="{Binding}"
                                                                     Padding="8,2" FontSize="10" Margin="0,0,6,0"
                                                                    />

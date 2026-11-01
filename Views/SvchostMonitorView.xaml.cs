@@ -1,4 +1,10 @@
 using System;
+using AutoCommand.Agent.Core;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
+using AutoCommand.Sitedoctor.Core;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -113,8 +119,11 @@ namespace AutoCommand.Views
                 liveShaping.IsLiveSorting = true;
                 // TX-only filter membership is live too: rows slide in when
                 // their grace period lapses with zero Rx, and drop out the
-                // moment a reply packet lands.
+                // moment a reply packet lands. ProtocolDisplay is live as
+                // well: a row gains UDP (and with the protocol lens on) the
+                // moment the first UDP event lands against its IP.
                 liveShaping.LiveFilteringProperties.Add(nameof(SvchostMonitorItem.IsTxOnly));
+                liveShaping.LiveFilteringProperties.Add(nameof(SvchostMonitorItem.ProtocolDisplay));
                 liveShaping.IsLiveFiltering = true;
             }
             if (CollectionViewSource.GetDefaultView(_uiCollection) is ListCollectionView view)
@@ -164,6 +173,10 @@ namespace AutoCommand.Views
             _blockStateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
             _blockStateTimer.Tick += (s, args) => _ = RefreshBlockStateFromFirewallAsync();
             _blockStateTimer.Start();
+            // firewall-inventory snapshot read — pause the 60 s poll while
+            // this tab is hidden; rows pick their block marks up on the
+            // first tick after the tab is shown again
+            RefreshLoop.GateVisibility(this, () => _blockStateTimer);
 
             _toastTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(6.5) };
             _toastTimer.Tick += (s, args) => HideToast();
@@ -332,13 +345,26 @@ namespace AutoCommand.Views
         {
             // Assigning Filter refreshes the view; with live filtering on
             // IsTxOnly, membership keeps itself current afterwards.
-            CollectionViewSource.GetDefaultView(_uiCollection).Filter =
-                TxOnlyCheck.IsChecked == true ? TxOnlyPredicate : null;
+            CollectionViewSource.GetDefaultView(_uiCollection).Filter = RowsFilterPredicate;
             UpdateTxOnlyCheckLabel();
         }
 
-        private static bool TxOnlyPredicate(object o) =>
-            o is SvchostMonitorItem m && m.IsTxOnly;
+        /// <summary>The one view filter: the TX-only lens AND the transport
+        /// lens (both optional — a row must satisfy every active lens).</summary>
+        private string _protocolFilter;   // null = all transports
+
+        private bool RowsFilterPredicate(object o) =>
+            o is SvchostMonitorItem m &&
+            (TxOnlyCheck.IsChecked != true || m.IsTxOnly) &&
+            (string.IsNullOrEmpty(_protocolFilter) ||
+             (m.ProtocolDisplay ?? "").Contains(_protocolFilter, StringComparison.OrdinalIgnoreCase));
+
+        private void ProtoCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            _protocolFilter = (ProtoCombo.SelectedItem as ComboBoxItem)?.Tag as string;
+            if (_uiCollection == null) return; // toolbar built before the collection
+            CollectionViewSource.GetDefaultView(_uiCollection).Filter = RowsFilterPredicate;
+        }
 
         /// <summary>
         /// Keeps the TX-only count in the checkbox label so users can see how
@@ -498,7 +524,7 @@ namespace AutoCommand.Views
             int pid = item.ProcessId;
             try
             {
-                var id = await Task.Run(() => Services.SvchostIdentityService.Resolve(pid));
+                var id = await Task.Run(() => SvchostIdentityService.Resolve(pid));
                 // The row may have been re-attributed while the WMI query ran —
                 // the identity belongs to the old tenant, not the new one.
                 if (item.ProcessId != pid) { item.AbandonIdentity(); return; }
@@ -575,6 +601,32 @@ namespace AutoCommand.Views
                 IgnoreProcess(item.ProcessName);
         }
 
+        // ── DNS resolve-state support (tooltips live on the Host column) ──
+
+        private void ResolveNowMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (SvchostGrid.SelectedItem is not SvchostMonitorItem item) return;
+            MonitorStatusText.Text = DnsResolutionService.Instance.ResolveNow(item.RemoteIp)
+                ? "Urgent re-lookup queued for " + item.RemoteIp +
+                  " — the row updates itself when the answer lands."
+                : item.RemoteIp + " already resolves — nothing to retry.";
+        }
+
+        private void RetryDnsBtn_Click(object sender, RoutedEventArgs e)
+        {
+            var unresolved = _uiCollection
+                .Where(i => !i.IsResolved && !string.IsNullOrEmpty(i.RemoteIp))
+                .Select(i => i.RemoteIp)
+                .Distinct()
+                .ToList();
+            DnsResolutionService.Instance.RetryUnresolved(unresolved);
+            foreach (var item in _uiCollection.Where(i => !i.IsResolved))
+                _dnsService.EnqueueForResolution(item);
+            MonitorStatusText.Text = unresolved.Count > 0
+                ? "Re-queued " + unresolved.Count + " unresolved lookup(s) — cached 'no answer' results were forgotten; polite pacing applies."
+                : "Nothing to retry — every row on this view is resolved.";
+        }
+
         private void RowMenu_Opened(object sender, RoutedEventArgs e)
         {
             var sel = SvchostGrid.SelectedItem as SvchostMonitorItem;
@@ -584,6 +636,11 @@ namespace AutoCommand.Views
             TracePidMenuItem.Header = traceable
                 ? $"🔎 Trace PID {sel.ProcessId} — how was it spawned?"
                 : "🔎 Trace: how was this PID spawned?";
+
+            ResolveNowMenuItem.IsEnabled = sel != null &&
+                System.Net.IPAddress.TryParse(sel.RemoteIp, out _) && !sel.IsResolved;
+            ResolveNowMenuItem.Visibility = ResolveNowMenuItem.IsEnabled
+                ? Visibility.Visible : Visibility.Collapsed;
 
             bool revealable = sel != null && sel.ProcessId > 0;
             RevealNameMenuItem.IsEnabled = revealable;
@@ -595,9 +652,12 @@ namespace AutoCommand.Views
                 ? $"🚫 Ignore process '{sel.ProcessName}'"
                 : "🚫 Ignore process (no row selected)";
 
-            // Block items tell the current state: flip to Unblock when a
-            // block exists, and explain (disabled) when it is only paused —
-            // re-blocking a paused target would silently not block anything.
+            // Block items tell the current state: flip to Unblock whenever a
+            // block exists — removal matches rule NAMES, so it works on
+            // paused rules too. A paused block also grows a '▶ Re-enable'
+            // sibling right below: resuming must go through
+            // SetTargetsEnabledAsync, because AddIpBlockAsync on an existing
+            // rule just refreshes provenance and would silently not re-block.
             bool validIp = sel != null && System.Net.IPAddress.TryParse(sel.RemoteIp, out _);
             if (validIp && sel.IpBlockState == BlockRuleState.Active)
             {
@@ -606,8 +666,8 @@ namespace AutoCommand.Views
             }
             else if (validIp && sel.IpBlockState == BlockRuleState.Paused)
             {
-                BlockIpMenuItem.IsEnabled = false;
-                BlockIpMenuItem.Header = $"⏸ IP block for {sel.RemoteIp} is paused — re-enable from 'Blocked' → Manage all";
+                BlockIpMenuItem.IsEnabled = true;
+                BlockIpMenuItem.Header = $"✅ Unblock remote IP {sel.RemoteIp} — remove the paused block";
             }
             else
             {
@@ -616,6 +676,10 @@ namespace AutoCommand.Views
                     ? $"⛔ Block remote IP {sel.RemoteIp} in Firewall"
                     : "⛔ Block Remote IP in Firewall";
             }
+            bool ipPaused = validIp && sel.IpBlockState == BlockRuleState.Paused;
+            ResumeIpBlockMenuItem.Visibility = ipPaused ? Visibility.Visible : Visibility.Collapsed;
+            if (ipPaused)
+                ResumeIpBlockMenuItem.Header = $"▶ Re-enable block for {sel.RemoteIp} — traffic to it stops again";
 
             bool blockableProcess = sel != null && sel.ProcessId > 0;
             if (blockableProcess && sel.ProcessBlockState == BlockRuleState.Active)
@@ -625,8 +689,8 @@ namespace AutoCommand.Views
             }
             else if (blockableProcess && sel.ProcessBlockState == BlockRuleState.Paused)
             {
-                BlockProcessMenuItem.IsEnabled = false;
-                BlockProcessMenuItem.Header = "⏸ Process block is paused — re-enable from 'Blocked' → Manage all";
+                BlockProcessMenuItem.IsEnabled = true;
+                BlockProcessMenuItem.Header = $"✅ Unblock process '{sel.ProcessName}' — remove the paused block";
             }
             else
             {
@@ -635,6 +699,10 @@ namespace AutoCommand.Views
                     ? $"⛔ Block process '{sel.ProcessName}' in Firewall"
                     : "⛔ Block Process in Firewall";
             }
+            bool procPaused = blockableProcess && sel.ProcessBlockState == BlockRuleState.Paused;
+            ResumeProcessBlockMenuItem.Visibility = procPaused ? Visibility.Visible : Visibility.Collapsed;
+            if (procPaused)
+                ResumeProcessBlockMenuItem.Header = $"▶ Re-enable block for '{sel.ProcessName}' — its traffic stops again";
 
             bool killable = sel != null && sel.ProcessId > 0;
             KillProcessMenuItem.IsEnabled = killable;
@@ -900,15 +968,12 @@ namespace AutoCommand.Views
             }
 
             // The menu flips to "Unblock" once a block exists — the same
-            // item removes it again.
-            if (item.IpBlockState == BlockRuleState.Active)
+            // item removes it again, paused or not (removal matches rule
+            // names, not their enabled state).
+            if (item.IpBlockState == BlockRuleState.Active ||
+                item.IpBlockState == BlockRuleState.Paused)
             {
                 await ConfirmAndRemoveBlockAsync("ip", ip);
-                return;
-            }
-            if (item.IpBlockState == BlockRuleState.Paused)
-            {
-                ShowToast($"⏸ The block for {ip} is paused (traffic flows). Re-enable it from 'Blocked' → Manage all.");
                 return;
             }
 
@@ -990,14 +1055,12 @@ namespace AutoCommand.Views
                 return;
             }
 
-            if (item.ProcessBlockState == BlockRuleState.Active)
+            // Active or paused — the same item removes the rules (removal
+            // matches rule names, not their enabled state).
+            if (item.ProcessBlockState == BlockRuleState.Active ||
+                item.ProcessBlockState == BlockRuleState.Paused)
             {
                 await ConfirmAndRemoveBlockAsync("proc", path);
-                return;
-            }
-            if (item.ProcessBlockState == BlockRuleState.Paused)
-            {
-                ShowToast($"⏸ The block for {path} is paused (traffic flows). Re-enable it from 'Blocked' → Manage all.");
                 return;
             }
 
@@ -1081,6 +1144,77 @@ namespace AutoCommand.Views
         /// check-off). MessageBox cannot host the checkbox, hence the dialog;
         /// a checked box persists the per-class suppression immediately.
         /// </summary>
+        // ── Re-enable (resume) a paused block from the row ────────────────
+        //
+        // The mirror of unblocking a paused target: pause leaves the rules
+        // in place but disabled, so resuming is an enable-flip through
+        // SetTargetsEnabledAsync — never AddIpBlockAsync, which on an
+        // existing rule only refreshes provenance and would silently not
+        // re-block.
+
+        private async void ResumeIpBlock_Click(object sender, RoutedEventArgs e)
+        {
+            if (SvchostGrid.SelectedItem is not SvchostMonitorItem item) return;
+            string ip = item.RemoteIp;
+            if (!System.Net.IPAddress.TryParse(ip, out _)) return;
+
+            if (MessageBox.Show(
+                    $"Re-enable the firewall block for {ip}?\n\nIts paused rules turn back on and traffic to it stops again.",
+                    "Re-enable block", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+
+            try
+            {
+                var (matched, changed) = await FirewallService.Instance
+                    .SetTargetsEnabledAsync(new[] { ("ip", ip) }, true);
+                BlocksStore.SetStatus("ip", ip, "on", "monitor");
+                BlocksStore.AppendEvent("resumed", "ip", ip, $"{changed}/{matched} rules", "monitor");
+                _ = RefreshBlockStateFromFirewallAsync();
+                ShowToast(changed > 0
+                    ? $"▶ Block for {ip} re-enabled — {changed} rule(s) back on, traffic to it stops."
+                    : $"No rules found for {ip} — the block was already removed.");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to re-enable block: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async void ResumeProcessBlock_Click(object sender, RoutedEventArgs e)
+        {
+            if (SvchostGrid.SelectedItem is not SvchostMonitorItem item) return;
+
+            // Same identity recovery as blocking: the rules outlive the
+            // process, and SetTargetsEnabledAsync matches the exe name, so
+            // any recorded path of the target resumes the whole fleet.
+            var target = await ResolveBlockTargetAsync(item);
+            string path = target.Path;
+            if (string.IsNullOrEmpty(path))
+            {
+                ShowToast("Cannot re-enable: the process exited and its path could not be recovered. Use 'Blocked' → Manage all.");
+                return;
+            }
+
+            if (MessageBox.Show(
+                    $"Re-enable the firewall block for\n{path}?\n\nIts paused rules turn back on and the process's traffic stops again.",
+                    "Re-enable block", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+
+            try
+            {
+                var (matched, changed) = await FirewallService.Instance
+                    .SetTargetsEnabledAsync(new[] { ("proc", path) }, true);
+                BlocksStore.SetStatus("proc", path, "on", "monitor");
+                BlocksStore.AppendEvent("resumed", "proc", path, $"{changed}/{matched} rules", "monitor");
+                _ = RefreshBlockStateFromFirewallAsync();
+                ShowToast(changed > 0
+                    ? $"▶ Block for {path} re-enabled — {changed} rule(s) back on, its traffic stops."
+                    : $"No rules found for {path} — the block was already removed.");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to re-enable block: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private bool ConfirmBlockWithDialog(string headline, string warning, string detail,
                                             string suppressKey, string suppressLabel)
         {
@@ -1134,7 +1268,7 @@ namespace AutoCommand.Views
         /// <summary>Asks once, then removes the block (rules + monitor record) and toasts the outcome.</summary>
         private async Task ConfirmAndRemoveBlockAsync(string kind, string key)
         {
-            if (MessageBox.Show($"Remove the firewall block for\n{key}?\n\nIts rules are deleted and traffic resumes immediately.",
+            if (MessageBox.Show($"Remove the firewall block for\n{key}?\n\nIts rules are deleted. Traffic resumes immediately if the block was\nactive; a paused block (traffic already flowing) is just cleaned up.",
                 "Confirm Unblock", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
             await RemoveBlockCoreAsync(kind, key);
         }
@@ -1152,7 +1286,7 @@ namespace AutoCommand.Views
                 RefreshBlockedUi();
                 _ = RefreshBlockStateFromFirewallAsync();
                 ShowToast(removed > 0
-                        ? $"✅ Unblocked {key} — {removed} firewall rule(s) removed, traffic resumes."
+                        ? $"✅ Unblocked {key} — {removed} firewall rule(s) removed; traffic can flow now."
                         : $"No matching firewall rules found for {key} (already removed?).");
             }
             catch (Exception ex)

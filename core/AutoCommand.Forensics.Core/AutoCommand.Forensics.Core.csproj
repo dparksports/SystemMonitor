@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The Forensics core: everything that answers "who launched this, what
+       is this program, what has it been doing" — process provenance (PID
+       inquiry), task attribution for taskhostw spawns, the image spawn
+       watcher, the svchost/timeline trace metrics behind Phone Home and
+       Traces, the BITS transfer watcher with its reason catalog and
+       firewall context, and the Python instrumentation pair (installer +
+       reader). Plus its helpers (AuthenticodeVerifier, MotwUnblocker) and
+       models (BitsJobItem/Stat, SpawnItem, PyTraceRecord). Extracted from
+       the WPF exe in AutoCommand II phase 4 (REWRITE.md) — namespaces
+       unchanged; TaskAttributionSelfTest, BitsTraceSelfTest and
+       PyTraceSelfTest now consume the shipped assembly. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <AssemblyName>AutoCommand.Forensics.Core</AssemblyName>
+    <RootNamespace>AutoCommand.Forensics.Core</RootNamespace>
+    <Company>AutoCommand</Company>
+    <Product>AutoCommand.Forensics.Core</Product>
+    <Description>Forensics engines behind AutoCommand: PID provenance, task attribution and scheduling, spawn watching, trace metrics, BITS watcher with reason catalog, and Python instrumentation.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The top of the core layering: Forensics -> Contain -> Intercept ->
+         NetWatch. TraceMetricsService alone touches all three (catalog +
+         svchost identity, transmissions archive, sysmon archive + TCP
+         table + classification); the others touch one or two. -->
+    <ProjectReference Include="..\AutoCommand.Contain.Core\AutoCommand.Contain.Core.csproj" />
+    <ProjectReference Include="..\AutoCommand.Intercept.Core\AutoCommand.Intercept.Core.csproj" />
+    <ProjectReference Include="..\AutoCommand.NetWatch.Core\AutoCommand.NetWatch.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- White-box access for the BITS harness: it drives the internal
+         parser/apply seam (ParseMessage/ParseRecord/Apply/EnrichmentEnabled)
+         that a source-copy build could see; InternalsVisibleTo keeps that
+         access without making test-only members public API. -->
+    <InternalsVisibleTo Include="BitsTraceSelfTest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- WMI + event channels: provenance reads Sysmon via both; the BITS
+         watcher and spawn watcher follow live event channels. -->
+    <PackageReference Include="System.Management" Version="10.0.0-preview.4.25258.110" />
+    <PackageReference Include="System.Diagnostics.EventLog" Version="10.0.0-preview.4.25258.110" />
+  </ItemGroup>
+
+</Project>

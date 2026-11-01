@@ -6,10 +6,13 @@
 //   tls <client.bin> <server.bin> <keylog-dir>   real captured TLS streams → plaintext
 
 using System.Net;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
 using System.Threading;
 using System.Text;
 using AutoCommand.Models;
-using AutoCommand.Services;
 
 namespace PyTraceSelfTest
 {
@@ -28,8 +31,7 @@ namespace PyTraceSelfTest
                 Console.WriteLine("sweep12 <client.bin> <server.bin> <keylog-dir>");
                 return 2;
             }
-            TlsKeylogService.DirOverride = args[3];
-            var keylog = new TlsKeylogService();
+            var keylog = new TlsKeylogService(args[3]);
             keylog.Refresh();
 
             byte[] client = File.ReadAllBytes(args[1]);
@@ -234,7 +236,7 @@ namespace PyTraceSelfTest
                 $"{{ Set-Content -Path ($f + ':Zone.Identifier') -Value '[ZoneTransfer]`r`nZoneId=3' }}");
             Console.WriteLine("marks created");
 
-            var result = AutoCommand.Helpers.MotwUnblocker.UnblockFolder(app);
+            var result = MotwUnblocker.UnblockFolder(app);
             Console.WriteLine(result.Summary);
 
             string check = RunPowerShell(
@@ -270,8 +272,8 @@ namespace PyTraceSelfTest
 
         private static int Discover(string[] args)
         {
-            if (args.Length > 1) TlsKeylogService.DirOverride = args[1];
-            var installer = new PyTraceInstallerService();
+            var keylogDir = args.Length > 1 ? args[1] : null;
+            var installer = new PyTraceInstallerService(keylogDir);
 
             Console.WriteLine("=== Tier 1: registry / PATH / Store / conda / uv / pyenv-win / scoop / choco ===");
             var tier1 = installer.DiscoverEnvironments();
@@ -411,8 +413,7 @@ namespace PyTraceSelfTest
                 return 2;
             }
 
-            TlsKeylogService.DirOverride = args[3];
-            var keylog = new TlsKeylogService();
+            var keylog = new TlsKeylogService(args[3]);
             keylog.Refresh();
             Console.WriteLine($"keylog sessions: {keylog.SessionCount}");
 

@@ -5,6 +5,13 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 
+using AutoCommand.Agent.Core;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
+using AutoCommand.Sitedoctor.Core;
+
 namespace AutoCommand.Helpers
 {
     /// <summary>
@@ -77,7 +84,7 @@ namespace AutoCommand.Helpers
                             string rawGroup = rule.Grouping ?? "";
                             string resolved = string.IsNullOrEmpty(rawGroup)
                                 ? ""
-                                : Services.FirewallService.ResolveGroupName(rawGroup);
+                                : FirewallService.ResolveGroupName(rawGroup);
                             if (string.Equals(resolved, group, StringComparison.OrdinalIgnoreCase)
                                 || string.Equals(rawGroup, group, StringComparison.OrdinalIgnoreCase))
                             {

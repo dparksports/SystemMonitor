@@ -24,11 +24,36 @@ How AutoCommand delivers what the [README](../README.md) promises: the technolog
 |---|---|
 | Connection events | Sysmon — `EventLogWatcher` over the `Microsoft-Windows-Sysmon/Operational` channel; the installer configures the manifest via `wevtutil` and can repair inconsistent installs |
 | Packet counters | Raw-socket sniffer — `IOControlCode.ReceiveAll` (SIO_RCVALL) on raw IP sockets, one IPv4 plus a best-effort IPv6 socket; no WinPcap/Npcap dependency |
-| Name resolution | Background reverse-DNS service with a persistent JSON cache |
+| Name resolution | Background reverse-DNS + org-label service — see **DNS & org resolution** below |
 | Task attribution | taskhostw instance GUID on the command line correlated with Task Scheduler history (the channel is enabled once if off); COM-handler tasks get their ClassId resolved through `HKCR\CLSID\{…}\InprocServer32` to the handler DLL, flagged when unregistered |
 | Live ordering | WPF `ICollectionView` live sorting on the row's `LastSeen` timestamp; stale rows detected off a UI timer |
 | TX-only filter | Off-by-default view lens: `ICollectionView.Filter` + live filtering over a time-gated `IsTxOnly` flag (sent bytes > 0, received = 0, row ≥ 30 s old — the grace keeps mid-handshake rows from flashing, since rows seed at 0/0 and Rx only lands when a reply crosses the sniffer); the checkbox label carries the live count while the lens is off; a view lens only — ingestion, the CSV export and the AI-audit context all read the unfiltered source |
 | Row lifecycle | `LastSeen` seeded from the Sysmon event's UTC time (one-shot connections still get a real timestamp); the UI timer marks rows "— exited" once their PID is gone, and a later Sysmon event re-attributes the row to a new PID on the same remote IP |
+
+### DNS & org resolution (the Host column)
+
+| Concern | Technology |
+|---|---|
+| Hostnames | Reverse DNS with a persistent cache (24 h TTL); Sysmon-provided names are seeded directly |
+| Org/geo labels | Cached **per /24 prefix** (14 d positive, 24 h negative) so one answer covers a whole rotating fleet block. Source cascade, cheapest first: in-app range classifier → non-routable ranges (answered, no lookup at all) → prefix cache → ip-api.com (throttled at the free tier's 45 req/min, backoff doubling to 5 min on 429/timeouts and resetting on success) → **RDAP registry fallback** (the same IANA-bootstrap-routed engine the Blocked tab uses — its own cache, its own pacing, zero cost to the ip-api budget) |
+| Transient failures | Cache nothing — a wrong "unresolved" must not outlive the outage; once the backoff window clears, a later pass retries |
+| Why an IP shows no name | Every Host cell carries the reason in its tooltip: local-by-design, resolving (with queue depth), throttled (with a retry estimate), negative-cached (with the retry time), or resolved (with when) |
+| User control | Right-click → **Resolve now** (user-initiated: skips the inter-call spacing for that one lookup; cooldowns still apply), **⟳ Retry unresolved DNS** (forgets negative answers and raw-IP placeholders, resets the backoff, re-queues the view's unresolved rows at normal pacing), and the **idle reconciler** (see next row) |
+| Idle reconciliation | Every placeholder answer is already persisted in the hostname cache, so "all unresolved IPs" falls out of it oldest-first. When the Sysmon feed has been quiet for 5 minutes (traffic idle — re-checked every minute), batches of 8 addresses are re-asked through the normal paced pipeline; 2-minute cooldown between batches; 5 attempts per address per session, then left until the entries age out (24 h). Fresh negative answers are never re-asked early. Wired to the watcher's `QuietFor` in the app; never runs in headless faces |
+| Cache files | `C:\ProgramData\AutoCommand\dns_cache.json`, `geo_prefix_cache.json`, `dns_forward_cache.json` — machine-wide, so they survive install-folder moves (a legacy beside-the-exe cache is copied once on first run) |
+| AI access | `lookup_ip` on the bridge reports the same cascade and state; `force: true` is the urgent path |
+
+### DNS queries + UDP transports (the 🌐 tab and the Proto column)
+
+| Concern | Technology |
+|---|---|
+| Query feed | `DnsQueryFeedService` — own `EventLogWatcher` over `*[System[(EventID=22)]]` (the app's Sysmon config captures DNS queries; this service is their only consumer). 24 h ring persisted to `%LOCALAPPDATA%\AutoCommand\dns\dns-queries.jsonl`, so yesterday's lookups stay explainable |
+| Two facets | **Per domain** — who asks, how often, first/last seen, resolved addresses with classification and blocked status, and beacon regularity (inter-query gap CV: lower = the machine asks on a metronome; beacons look like that, scheduled updaters too). **Per process** — everything a program resolves, busiest first |
+| DoH honesty | DNS-over-HTTPS produces no EID 22 events. A query FOR a known encrypted resolver (Cloudflare, Google, Quad9, NextDNS…) is flagged 🔒 — it marks the moment a process switches to DNS this feed cannot see |
+| Monitor seeding | Resolved addresses name already-tracked monitor rows via `SeedFromSysmon` (targeted: the cache never fills with never-connected domains) |
+| UDP transports | Rows track **every transport seen** against their remote address (`Proto` column: TCP / UDP / TCP+UDP) plus a transport lens (All/TCP/UDP) over the same view filter as the TX-only lens. The raw-IP sniffer is transport-agnostic by construction — UDP datagrams to tracked addresses were always counted |
+| MCP | `list_dns_queries` (minutes / domain facet / contains / max) reports the same aggregates; offline stub included |
+| Limits | Loopback traffic never crosses the NIC (invisible to the sniffer and to EID 3's usefulness); QUIC shows as UDP/443 volumes without content — same metadata-only stance as the transmissions archive |
 
 ### Sysmon Audit
 | Concern | Technology |
@@ -155,7 +180,7 @@ Process Monitor, where it can be blocked like any other destination.
 | `<app>\check_interval.txt` | Security Enforcer cadence |
 | `<app>\update_freeze.json` + `freeze_backups\` | Frozen self-updaters and their ACL snapshots |
 | `<app>\telemetry_state.json` | Snapshots of the settings changed by telemetry opt-outs |
-| `<app>\dns_forward_cache.json` | Forward-DNS cache (hostname → IPs) for the BITS tab's "where do they connect"; 60 min TTL, 10 min negative TTL |
+| `C:\ProgramData\AutoCommand\dns_cache.json` + `geo_prefix_cache.json` + `dns_forward_cache.json` | Hostname, org-prefix and forward-DNS caches (machine-wide; a legacy beside-the-exe copy is migrated on first run). Forward cache: 60 min TTL, 10 min negative TTL |
 | `%LOCALAPPDATA%\AutoCommand\pytrace\` | Python Spawns tab state — see below |
 | `%LOCALAPPDATA%\AutoCommand\bits\` | BITS Transfers tab state — see below |
 
@@ -195,6 +220,14 @@ Read-only `diagnose_site` on the agent bridge runs the same pipeline (~30 s, DNS
 Related capture-honesty fix in the same work: `TcpStreamCaptureService` now requests `SIO_RCVALL_IPLEVEL` first (both directions at the IP layer, no NIC promiscuous dependency) with `RCVALL_ON` fallback, tallies inbound vs outbound packets per session, and the Transmissions tab shows a banner when the session is one-way — a 0 in Down then reads "not observed", not "nothing came back".
 
 The app collects **no usage telemetry** — nothing in it sends data anywhere on its own. (Usage analytics via Firebase/GA4 have been removed; the "Telemetry Opt-Out" section above is the Windows-telemetry hardening feature, unrelated.)
+
+### Process Investigation (🔬 tab + `investigate_process` tool)
+
+One composite read-only investigation per run — the whole "why is this transmitting?" playbook in a single call, joining facts the individual surfaces already record rather than collecting anything new:
+
+* **`ProcessInvestigationService`** (Forensics core) — orchestrates `ProcessProvenanceService` (PID inquiry incl. the PID-reuse guard; enabled when a PID is given, best-effort on a live instance when a name is given), `TraceMetricsService` (the Traces-card traffic profile: frequency, destinations with classification, beacon regularity, recorded TLS volume, live connections), and the block-hit feed's **in-memory cache** (`Aggregates` — deliberately never the live Sysmon join, which is the slow path). Verdicts describe the numbers without claiming a baseline: Quiet → Internal-only → Outbound attempts, none completed → Actively blocked → Mixed, in priority order, each with evidence lines. Default window 6 h (cap 24) — the full-day archive scan is the slow path.
+* **`InvestigateView`** (🔬 tab, SYSTEM group, opt-in via Settings → Advanced investigation) — Site-Doctor-shaped: subject box (name or PID), lookback picker, colored verdict banner, monospace report with Copy and Save (markdown under `%LOCALAPPDATA%\AutoCommand\reports\`).
+* **`investigate_process`** on the agent bridge runs the same service and returns the structured JSON plus the identical `report_text`.
 
 ## MCP server (AgentProxy)
 

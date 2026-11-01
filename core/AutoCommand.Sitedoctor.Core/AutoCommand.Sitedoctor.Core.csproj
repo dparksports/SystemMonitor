@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The Site Doctor core: the "why is this site slow?" pipeline —
+       passive fingerprinting from the recorded-transmissions archive, the
+       dual-shape TLS probe engine, the plain-English verdict rules, the
+       dependency-block pass (were the page's other hosts silently blocked
+       during recorded visits?), and the service outage map. Extracted from
+       the WPF exe in AutoCommand II phase 5 (REWRITE.md) — namespaces
+       unchanged; SiteDoctorSelfTest consumes the shipped assembly.
+
+       The Live half (DependencyBlockService.Live.cs) moved WITH the rest:
+       its old blockers dissolved in earlier phases — the transmissions
+       archive lives in Intercept and the block-hit feed in Contain. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <AssemblyName>AutoCommand.Sitedoctor.Core</AssemblyName>
+    <RootNamespace>AutoCommand.Sitedoctor.Core</RootNamespace>
+    <Company>AutoCommand</Company>
+    <Product>AutoCommand.Sitedoctor.Core</Product>
+    <Description>Site-doctor engines behind AutoCommand: transmission-archive fingerprinting, dual-shape TLS probes, plain-English verdicts, dependency-block diagnosis, and the service outage map.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- White-box access for the harness: its live loopback section drives
+         the internal per-edge probe (ProbeEdgeAsync) directly — the same
+         pattern as Forensics -> BitsTraceSelfTest. -->
+    <InternalsVisibleTo Include="SiteDoctorSelfTest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Sitedoctor -> Contain -> Intercept -> NetWatch: fingerprints read
+         TransmissionRecord (Intercept); the live dependency pass joins the
+         block-hit feed and the blocks ledger (Contain). -->
+    <ProjectReference Include="..\AutoCommand.Contain.Core\AutoCommand.Contain.Core.csproj" />
+  </ItemGroup>
+
+</Project>

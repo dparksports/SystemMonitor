@@ -1,4 +1,10 @@
 using System;
+using AutoCommand.Agent.Core;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
+using AutoCommand.Sitedoctor.Core;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -7,6 +13,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using AutoCommand.Helpers;
 using AutoCommand.Models;
 using AutoCommand.Services;
 
@@ -34,6 +41,9 @@ namespace AutoCommand.Views
             Loaded += (_, _) => Start();
             _timer.Tick += (_, _) => RefreshSelected();
             _timer.Start();
+            // recompute is a pure archive read — pause the 60 s poll while
+            // this tab is hidden instead of ticking all session
+            RefreshLoop.GateVisibility(this, () => _timer);
         }
 
         private void Start()

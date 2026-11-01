@@ -4,13 +4,13 @@
 // Archive persistence runs against a temp dir; nothing touches the real
 // %LOCALAPPDATA% archive or the live Sysmon channel.
 using System;
+using AutoCommand.NetWatch.Core;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
-using AutoCommand.Services;
 
 int failures = 0;
 void Check(string name, bool pass, string evidence = "")
@@ -146,6 +146,46 @@ Check("state.json survives prune as the only file",
     Directory.GetFiles(tempRoot)[0].EndsWith("state.json"));
 
 try { Directory.Delete(tempRoot, true); } catch { }
+
+// ─────────────────────────────────────────────────────────────────────
+// 4. DnsResolutionService — the resolve-state surface (this process's
+//    instance has empty caches, so every state below is deterministic;
+//    no network, the worker is never started)
+// ─────────────────────────────────────────────────────────────────────
+var dns = DnsResolutionService.Instance;
+Check("local address state explains itself",
+      dns.DescribeResolveState("192.168.1.5")?.Contains("local or non-routable") == true,
+      dns.DescribeResolveState("192.168.1.5"));
+Check("non-IP state is null", dns.DescribeResolveState("not-an-ip") == null);
+Check("unresolved routable address reports queued-on-next-pass",
+      dns.DescribeResolveState("203.0.113.7")?.Contains("not resolved yet") == true,
+      dns.DescribeResolveState("203.0.113.7"));
+Check("ResolveNow refuses addresses nothing can answer", !dns.ResolveNow("10.0.0.1"));
+Check("ResolveNow queues an urgent lookup", dns.ResolveNow("203.0.113.7"));
+Check("queued address reports resolving",
+      dns.DescribeResolveState("203.0.113.7")?.StartsWith("resolving") == true,
+      dns.DescribeResolveState("203.0.113.7"));
+Check("RetryUnresolved re-queues the given address", dns.RetryUnresolved(new[] { "203.0.113.7" }) == 1);
+
+// ─────────────────────────────────────────────────────────────────────
+// 5. Idle reconciliation — candidate collection + batch pick (no
+//    network; the worker is never started, so queued items just sit)
+// ─────────────────────────────────────────────────────────────────────
+dns.SeedFromSysmon("203.0.113.9", "203.0.113.9");   // raw-IP placeholder → candidate
+dns.SeedFromSysmon("198.51.100.4", "example.test"); // real name → NOT a candidate
+Check("UnresolvedIps lists placeholders only",
+      dns.UnresolvedIps.Contains("203.0.113.9") && !dns.UnresolvedIps.Contains("198.51.100.4"),
+      string.Join(",", dns.UnresolvedIps));
+Check("idle pass refuses while traffic is busy",
+      dns.RunIdlePassForTest(() => TimeSpan.FromSeconds(10)) == 0);
+int took = dns.RunIdlePassForTest(() => TimeSpan.FromMinutes(10));
+Check("idle pass queues the candidate when idle", took == 1, took.ToString());
+Check("queued-by-idle address reports resolving",
+      dns.DescribeResolveState("203.0.113.9")?.StartsWith("resolving") == true,
+      dns.DescribeResolveState("203.0.113.9"));
+dns.SeedFromSysmon("203.0.113.8", "203.0.113.8");   // second placeholder
+Check("idle batch honors the batch size (all candidates fit)",
+      dns.RunIdlePassForTest(() => TimeSpan.FromMinutes(10)) == 1);
 
 Console.WriteLine(failures == 0 ? "\nALL CHECKS PASSED" : $"\n{failures} CHECK(S) FAILED");
 return failures == 0 ? 0 : 1;

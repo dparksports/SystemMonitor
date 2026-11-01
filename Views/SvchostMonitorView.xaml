@@ -23,9 +23,18 @@
                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,-12,0,0"/>
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal">
+                <ComboBox x:Name="ProtoCombo" Width="110" FontSize="11" Margin="0,0,8,0" VerticalAlignment="Center"
+                          SelectionChanged="ProtoCombo_SelectionChanged" SelectedIndex="0"
+                          ToolTip="Filter rows by transport. Rows are keyed by remote address and may carry both transports (shown in the Proto column)">
+                    <ComboBoxItem Content="All transports" Tag=""/>
+                    <ComboBoxItem Content="TCP" Tag="TCP"/>
+                    <ComboBoxItem Content="UDP" Tag="UDP"/>
+                </ComboBox>
                 <Button x:Name="SetupSysmonBtn" Content="🛠 Setup Sysmon" Style="{StaticResource PrimaryButton}" Click="SetupSysmonBtn_Click" Margin="0,0,8,0" Visibility="Collapsed"/>
                 <Button x:Name="ToggleMonitorBtn" Content="Start Monitor" Style="{StaticResource PrimaryButton}" Click="ToggleMonitorBtn_Click" Margin="0,0,8,0"/>
-                <Button x:Name="SaveCsvBtn" Content="Force Save CSV" Style="{StaticResource PrimaryButton}" Click="SaveCsvBtn_Click"/>
+                <Button x:Name="SaveCsvBtn" Content="Force Save CSV" Style="{StaticResource PrimaryButton}" Click="SaveCsvBtn_Click" Margin="0,0,8,0"/>
+                <Button x:Name="RetryDnsBtn" Content="⟳ Retry unresolved DNS" Style="{StaticResource PrimaryButton}" Click="RetryDnsBtn_Click"
+                        ToolTip="Forget cached 'no answer' results and re-queue every unresolved hostname/org lookup on this view (polite pacing applies)"/>
             </StackPanel>
         </Grid>
 
@@ -150,11 +159,14 @@
                 <ContextMenu Opened="RowMenu_Opened">
                     <MenuItem x:Name="TracePidMenuItem" Header="🔎 Trace: how was this PID spawned?" Click="TracePidMenuItem_Click"/>
                     <MenuItem x:Name="RevealNameMenuItem" Header="🏷 Reveal real process name (Sysmon record)" Click="RevealNameMenuItem_Click"/>
+                    <MenuItem x:Name="ResolveNowMenuItem" Header="🔄 Resolve now (re-ask hostname/org)" Click="ResolveNowMenuItem_Click"/>
                     <Separator/>
                     <MenuItem x:Name="IgnoreRowMenuItem" Header="🚫 Ignore this process" Click="IgnoreRowMenuItem_Click"/>
                     <Separator/>
-                    <MenuItem x:Name="BlockIpMenuItem" Header="⛔ Block Remote IP in Firewall" Click="BlockRemoteIP_Click"/>
-                    <MenuItem x:Name="BlockProcessMenuItem" Header="⛔ Block Process in Firewall" Click="BlockProcess_Click"/>
+                <MenuItem x:Name="BlockIpMenuItem" Header="⛔ Block Remote IP in Firewall" Click="BlockRemoteIP_Click"/>
+                <MenuItem x:Name="ResumeIpBlockMenuItem" Header="▶ Re-enable IP block" Click="ResumeIpBlock_Click" Visibility="Collapsed"/>
+                <MenuItem x:Name="BlockProcessMenuItem" Header="⛔ Block Process in Firewall" Click="BlockProcess_Click"/>
+                <MenuItem x:Name="ResumeProcessBlockMenuItem" Header="▶ Re-enable process block" Click="ResumeProcessBlock_Click" Visibility="Collapsed"/>
                     <MenuItem x:Name="KillProcessMenuItem" Header="💀 Kill process" Click="KillProcess_Click"/>
                     <MenuItem x:Name="TaskDetailsMenuItem" Header="📋 Scheduled task details" Click="TaskDetails_Click"/>
                     <MenuItem x:Name="DisableTaskMenuItem" Header="⏸ Disable this scheduled task" Click="DisableTask_Click"/>
@@ -231,7 +243,9 @@
                 <DataGridTemplateColumn Header="Host" Width="220">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding HostnameDisplay}">
+                            <TextBlock Text="{Binding HostnameDisplay}"
+                                       ToolTipService.ToolTip="{Binding ResolveStateText}"
+                                       ToolTipService.InitialShowDelay="200">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
@@ -245,6 +259,15 @@
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Proto" Width="86">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding ProtocolDisplay}" FontSize="11" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       ToolTip="Transports seen against this remote address — rows are keyed by IP, so one row may carry both TCP and UDP"/>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>

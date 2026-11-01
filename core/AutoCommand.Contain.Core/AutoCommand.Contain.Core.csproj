@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The Contain core: the stopping side of AutoCommand — the firewall
+       engine (blocks, coverage, profiles, the undo ledger that is
+       BlocksStore, hit attribution and the live block-hit feed), the
+       telemetry opt-out rule engine with hosts pins, the sinkhole listener
+       that turns denied pins into receipts, the Defender monitoring and
+       preference engines, and update freeze. Extracted from the WPF exe in
+       AutoCommand II phase 3 (REWRITE.md), test-first: ContainSelfTest
+       proved the offline halves (store round-trip, catalog evaluation,
+       rule-name builders) BEFORE the move — this is the app's safety path
+       (blocks, undo, 🚑 Restore Internet), so it carries the strictest
+       verification of the clusters so far.
+
+       SvchostIdentityService and ServiceCatalog live here pragmatically:
+       their consumers (BlockAttributionService, BlocksStore) are in this
+       cluster and they are leaves. Namespaces unchanged, as ever. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <AssemblyName>AutoCommand.Contain.Core</AssemblyName>
+    <RootNamespace>AutoCommand.Contain.Core</RootNamespace>
+    <Company>AutoCommand</Company>
+    <Product>AutoCommand.Contain.Core</Product>
+    <Description>Contain engines behind AutoCommand: firewall blocking with the blocks-store undo ledger, app-block path coverage, telemetry opt-out rules with hosts pins, the loopback sinkhole receipts listener, Defender monitoring/preferences, and update freeze.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- IpClassifier/ProcessRunner/SysmonArchive (NetWatch) and
+         TlsSni/SysmonConnectWatcher (Intercept) — layering:
+         Contain → Intercept → NetWatch -->
+    <ProjectReference Include="..\AutoCommand.Intercept.Core\AutoCommand.Intercept.Core.csproj" />
+    <!-- Vendored identity engine — SvchostIdentityService decodes instances
+         and BlockAttributionService tags blocks with service identity -->
+    <ProjectReference Include="..\..\svchost-watch\SvchostAnalyzer.Core\SvchostAnalyzer.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- WMI for svchost identity / sinkhole / Defender monitoring, and
+         EventLogReader for the Defender activity feed -->
+    <PackageReference Include="System.Management" Version="10.0.0-preview.4.25258.110" />
+    <PackageReference Include="System.Diagnostics.EventLog" Version="10.0.0-preview.4.25258.110" />
+  </ItemGroup>
+
+</Project>

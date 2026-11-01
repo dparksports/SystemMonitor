@@ -1,4 +1,10 @@
 using System.Collections.ObjectModel;
+using AutoCommand.Agent.Core;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
+using AutoCommand.Sitedoctor.Core;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -100,7 +106,7 @@ namespace AutoCommand.Views
                 string owner = "";
                 if (t.Kind == "ip")
                 {
-                    var cached = Services.RdapService.Instance.Cached(t.Ip);
+                    var cached = RdapService.Instance.Cached(t.Ip);
                     if (cached != null)
                         owner = cached.IsNegative ? "lookup failed" :
                                 $"{cached.Netname} · {(cached.Org ?? "?")} [{cached.Country}]";
@@ -204,7 +210,7 @@ namespace AutoCommand.Views
                 foreach (var r in targets)
                 {
                     var sw = System.Diagnostics.Stopwatch.StartNew();
-                    var entry = await Services.RdapService.Instance.LookupAsync(r.Ip, urgent: true);
+                    var entry = await RdapService.Instance.LookupAsync(r.Ip, urgent: true);
                     sw.Stop();
                     if (sw.ElapsedMilliseconds < 50) cached++;
                     if (entry.IsNegative) failed++;
@@ -216,7 +222,7 @@ namespace AutoCommand.Views
                     ms += (int)sw.ElapsedMilliseconds;
                 }
                 StatusText.Text = $"RDAP: {ok} verified, {failed} failed · {cached} served from cache · " +
-                                  $"total {ms} ms · cache: {Services.RdapService.Instance.EntryCount} block(s) in {Services.RdapService.Instance.CachePath}";
+                                  $"total {ms} ms · cache: {RdapService.Instance.EntryCount} block(s) in {RdapService.Instance.CachePath}";
             }
             finally { RdapBtn.IsEnabled = true; }
             await ReloadAsync();

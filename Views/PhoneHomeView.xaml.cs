@@ -1,5 +1,12 @@
 using System;
+using AutoCommand.Agent.Core;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
+using AutoCommand.Sitedoctor.Core;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -7,7 +14,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
-using System.Windows.Threading;
+using AutoCommand.Helpers;
 using AutoCommand.Services;
 
 namespace AutoCommand.Views
@@ -56,52 +63,49 @@ namespace AutoCommand.Views
     /// </summary>
     public partial class PhoneHomeView : UserControl
     {
-        private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(60) };
-        private bool _refreshing;
+        private readonly ObservableCollection<TraceMetricsService.TraceCardVM> _rows = new();
+        private readonly RefreshLoop _loop;
 
         public PhoneHomeView()
         {
             InitializeComponent();
-            Loaded += (_, _) => { Refresh(); };
-            _timer.Tick += (_, _) => Refresh();
-            _timer.Start();
+            RowList.ItemsSource = _rows;
+            // 60 s cadence, ticking only while this tab is visible, one
+            // immediate pass on every (re)show — RefreshLoop owns the timer,
+            // the reentrancy guard and the thread hop
+            _loop = RefreshLoop.Start(this, TimeSpan.FromSeconds(60), BuildRows, ApplyRows,
+                onBegin: () => StatusText.Text = "Reading the archive…");
         }
 
-        private void Refresh()
+        private List<TraceMetricsService.TraceCardVM> BuildRows()
         {
-            if (_refreshing) return;
-            _refreshing = true;
-            StatusText.Text = "Reading the archive…";
-            Task.Run(() =>
+            var vms = new List<TraceMetricsService.TraceCardVM>();
+            foreach (var key in ServiceCatalog.CuratedPhoneHomeKeys)
             {
-                var vms = new List<TraceMetricsService.TraceCardVM>();
-                foreach (var key in ServiceCatalog.CuratedPhoneHomeKeys)
+                try
                 {
-                    try
-                    {
-                        var snap = TraceMetricsService.Compute(TraceMetricsService.Match.ForService(key));
-                        var vm = TraceMetricsService.BuildCardVM(snap);
-                        vm.CanQuiet = key == "diagtrack" && !DiagTrackPin.IsActive();
-                        vm.IsQuieted = key == "diagtrack" && DiagTrackPin.IsActive();
-                        if (vm.IsQuieted)
-                            vm.ReceiptsLine = DiagTrackPin.ReceiptsLine();
-                        vms.Add(vm);
-                    }
-                    catch { /* one bad card must not take the tab down */ }
+                    var snap = TraceMetricsService.Compute(TraceMetricsService.Match.ForService(key));
+                    var vm = TraceMetricsService.BuildCardVM(snap);
+                    vm.CanQuiet = key == "diagtrack" && !DiagTrackPin.IsActive();
+                    vm.IsQuieted = key == "diagtrack" && DiagTrackPin.IsActive();
+                    if (vm.IsQuieted)
+                        vm.ReceiptsLine = DiagTrackPin.ReceiptsLine();
+                    vms.Add(vm);
                 }
-                vms.Sort((a, b) => b.ConnectsPerHour.CompareTo(a.ConnectsPerHour));
-                Dispatcher.BeginInvoke(() =>
-                {
-                    // keep the user's selection stable across refreshes —
-                    // same service, same row, even as sorting reorders them
-                    var selectedKey = (RowList.SelectedItem as TraceMetricsService.TraceCardVM)?.ServiceKey;
-                    RowList.ItemsSource = vms;
-                    var restore = vms.FirstOrDefault(v => v.ServiceKey == selectedKey) ?? vms.FirstOrDefault();
-                    if (restore != null) RowList.SelectedItem = restore;
-                    StatusText.Text = $"Updated {DateTime.Now:HH:mm:ss} · rows sorted by measured connects/hr · refresh 60 s";
-                    _refreshing = false;
-                });
-            });
+                catch { /* one bad card must not take the tab down */ }
+            }
+            vms.Sort((a, b) => b.ConnectsPerHour.CompareTo(a.ConnectsPerHour));
+            return vms;
+        }
+
+        private void ApplyRows(List<TraceMetricsService.TraceCardVM> vms)
+        {
+            // keyed in-place sync: a card that renders identically keeps its
+            // row and its selection through reordering; changed cards are
+            // replaced in place instead of regenerating the whole list
+            ListSync.SyncByKey(_rows, vms, v => v.ServiceKey ?? "", RowList);
+            if (RowList.SelectedItem == null && _rows.Count > 0) RowList.SelectedItem = _rows[0];
+            StatusText.Text = $"Updated {DateTime.Now:HH:mm:ss} · rows sorted by measured connects/hr · refresh 60 s";
         }
 
         // ── suppression ──────────────────────────────────────────────────
@@ -123,7 +127,7 @@ namespace AutoCommand.Views
             var (ok, message) = DiagTrackPin.Apply();
             MessageBox.Show(message, ok ? "Quiet DiagTrack" : "Quiet DiagTrack",
                 MessageBoxButton.OK, ok ? MessageBoxImage.Information : MessageBoxImage.Warning);
-            Refresh();
+            _loop.Trigger();
         }
 
         private void UndoQuietBtn_Click(object sender, RoutedEventArgs e)
@@ -137,7 +141,7 @@ namespace AutoCommand.Views
             var (ok, message) = DiagTrackPin.Remove();
             MessageBox.Show(message, "Undo quiet",
                 MessageBoxButton.OK, ok ? MessageBoxImage.Information : MessageBoxImage.Warning);
-            Refresh();
+            _loop.Trigger();
         }
 
         private async void BlockBtn_Click(object sender, RoutedEventArgs e)
@@ -201,7 +205,7 @@ namespace AutoCommand.Views
                 created > 0 ? $"Blocked {created} destination(s) for {vm.Title}. Undo from the Blocks tab."
                             : "Rules already existed for all listed destinations — nothing new created.",
                 "Block destinations", MessageBoxButton.OK, MessageBoxImage.Information);
-            Refresh();
+            _loop.Trigger();
         }
 
         /// <summary>Blocks one destination IP of the selected service — the
@@ -255,7 +259,7 @@ namespace AutoCommand.Views
                 MessageBox.Show("Block failed: " + ex.Message, "Block destination",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
-            Refresh();
+            _loop.Trigger();
         }
     }
 

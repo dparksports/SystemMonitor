@@ -4,6 +4,13 @@ using System.Text;
 using System.Windows;
 using AutoCommand.Models;
 
+using AutoCommand.Agent.Core;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
+using AutoCommand.Sitedoctor.Core;
+
 namespace AutoCommand.Views
 {
     /// <summary>

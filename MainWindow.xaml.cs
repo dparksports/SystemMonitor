@@ -1,4 +1,10 @@
 using System;
+using AutoCommand.Agent.Core;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
+using AutoCommand.Sitedoctor.Core;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
@@ -36,7 +42,7 @@ namespace AutoCommand
             // Layer-3 crash safety: if a previous run died mid-intercept, the
             // journal on disk still describes the hooks it installed — undo
             // them (proxy, firewall rule, CA) before anything else runs.
-            Services.InterceptSystemHooks.RecoverAfterCrash();
+            InterceptSystemHooks.RecoverAfterCrash();
 
             InitializeEnforcer();
 
@@ -44,8 +50,8 @@ namespace AutoCommand
             // shared by the Python Spawns and Traffic Patterns tabs; the
             // aggregator runs whenever either captures and persists its
             // (process → destination → bytes) history across sessions.
-            Services.TrafficAggregationService.Shared.Attach(Services.TcpStreamCaptureService.Shared);
-            Services.TrafficAggregationService.Shared.Start();
+            TrafficAggregationService.Shared.Attach(TcpStreamCaptureService.Shared);
+            TrafficAggregationService.Shared.Start();
         }
 
         private void InitializeEnforcer()
@@ -111,7 +117,8 @@ namespace AutoCommand
             t == SpawnsNavItem || t == BitsNavItem || t == TrafficNavItem ||
             t == TracesNavItem ||
             t == BlackHoleNavItem || t == DefenderNavItem ||
-            t == PrivacyNavItem || t == OneSettingsNavItem || t == SysmonNavItem;
+            t == PrivacyNavItem || t == OneSettingsNavItem || t == SysmonNavItem ||
+            t == InvestigateNavItem;
 
         /// <summary>
         /// Shows or hides the advanced-investigation tabs. Also called
@@ -132,15 +139,16 @@ namespace AutoCommand
             PrivacyNavItem.Visibility = v;
             OneSettingsNavItem.Visibility = v;
             SysmonNavItem.Visibility = v;
+            InvestigateNavItem.Visibility = v;
 
             WatchHeaderText.ToolTip = enabled
                 ? "Feeds that show what this machine is running and where it connects."
                 : "Feeds that show what this machine is running and where it connects.\n" +
                   "Spawns, Traces, BITS Transfers and Traffic Patterns are hidden — Settings → Advanced investigation shows them.";
             SystemHeaderText.ToolTip = enabled
-                ? "AI access, privacy, Windows telemetry, Sysmon health and app settings."
+                ? "AI access, privacy, Windows telemetry, Sysmon health, the process Investigate tab and app settings."
                 : "AI access and app settings.\n" +
-                  "Data & Privacy, OneSettings and Sysmon Audit are hidden — Settings → Advanced investigation shows them.";
+                  "Data & Privacy, OneSettings, Sysmon Audit and Investigate are hidden — Settings → Advanced investigation shows them.";
 
             if (!enabled && IsAdvancedTab(MainTabControl.SelectedItem as System.Windows.Controls.TabItem))
                 MainTabControl.SelectedItem = ProcessMonitorNavItem;
@@ -243,17 +251,17 @@ namespace AutoCommand
             // aggregator, then persist that final state. (Content Unloaded
             // events fire after OnClosed, so tab-level Release may follow —
             // Stop is idempotent.)
-            Services.TcpStreamCaptureService.Shared.Stop();
-            Services.TrafficAggregationService.Shared.Shutdown();
+            TcpStreamCaptureService.Shared.Stop();
+            TrafficAggregationService.Shared.Shutdown();
             // Transmissions pipeline drains what the capture flush finalized
             // (up to its 3s budget), then releases its capture reference.
-            Services.TransmissionsPipelineService.Shared.Stop();
+            TransmissionsPipelineService.Shared.Stop();
 
             // Layer 3 must never outlive the app: stop restores the system
             // proxy, removes the QUIC block rule and untrusts the CA.
-            Services.InterceptProxyService.Shared.StopSession("app exit");
+            InterceptProxyService.Shared.StopSession("app exit");
 
-            Services.TlsKeylogService.CleanupAtExit(); // drop the rotated TLS keylog leftover
+            TlsKeylogService.CleanupAtExit(); // drop the rotated TLS keylog leftover
             base.OnClosed(e);
         }
 
@@ -278,7 +286,7 @@ namespace AutoCommand
             RestoreInternetBtn.IsEnabled = false;
             try
             {
-                var result = await Services.FirewallService.Instance
+                var result = await FirewallService.Instance
                     .SetAllAutoCommandBlocksEnabledAsync(false);
 
                 // A stale DNS cache keeps sites dead even after the block is

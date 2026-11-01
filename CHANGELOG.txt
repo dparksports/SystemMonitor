@@ -1,30 +1,657 @@
-AutoCommand - release history (the original repo, archived)
+AutoCommand II - release history
 All per-release notes consolidated here, newest first.
-The current project lives at github.com/dparksports/autocommand-iii - download the latest build there.
 
 ================================================================================
-  2026.10.25.4  -  released 2026-10-25
+  2026.10.29.2  -  released 2026-10-28
 ================================================================================
 
-# AutoCommand v2026.10.25.4
+# AutoCommand v2026.10.29.2 — paused blocks, manageable from the row
 
-## RDAP attribution that respects the registries
+A small release with one job: a block you paused no longer strands you
+in the Process Monitor.
 
-IP owner lookups were quietly hammering rdap.org — roughly one query every three minutes, 500+ connections a day — and getting throttled for it (the 403s were landing in the cache as failures). Four things were wrong at once, and all four are fixed:
+## What changed
 
-**Queries now go straight to the authoritative registry.** The IANA bootstrap registry (RFC 9224) is fetched once a day and cached beside the block cache, so an IP resolves to its registry locally — ARIN, APNIC, RIPE — and the query goes there directly. rdap.org, the shared redirector everyone rate-limits, is now only a fallback when bootstrap resolution fails.
+Right-clicking a row whose IP or process block is **paused** (⏸) used to
+show a disabled menu item pointing elsewhere. Now the row menu does the
+whole job in place:
 
-**The cache can't be defeated anymore.** Failed lookups are negative-cached per /24 (IPv4) or /48 (IPv6) prefix instead of per exact IP — Windows telemetry rotates through sibling IPs, and each sibling was a fresh miss, a fresh rdap.org hit, a fresh throttle. A cached positive block always outranks a covering negative. And a server answer of `max-age=0` no longer evaporates a block entry on contact; TTLs are clamped to 1-30 days.
+- **✅ Unblock … — remove the paused block**: deletes the rules for good,
+  same confirm dialog as an active block. Removal matches rule *names*,
+  not their enabled state, so a paused block is exactly as removable as
+  a live one — it just also stops pretending "traffic resumes" when it
+  was already flowing (the confirm and the toast now say which case
+  you're in).
+- **▶ Re-enable block … — traffic stops again** (new item, appears only
+  when a block is paused): flips the paused rules back on through the
+  same enable path the Blocks tab uses, with the same bookkeeping
+  (status + history event). The block action itself could not do this
+  job — re-blocking an existing rule only refreshes its provenance and
+  would silently not block anything — which is why the item exists
+  instead of the old disabled hint.
 
-**The client is polite by construction.** A global pacer spaces request starts at least 10 seconds apart with a bounded queue; a 429/503 puts that host on a cooldown honoring `Retry-After`; and requests now carry a User-Agent identifying AutoCommand (registries, ARIN especially, reject anonymous clients — that was the 403s). Private and reserved ranges (10.x, 169.254.x, link-local IPv6…) are answered locally with no network at all — those were spending real queries.
+Process blocks use the same identity recovery as blocking (row → live
+module → Sysmon archive), and re-enabling from any recorded path resumes
+the whole rule fleet for that exe name — sibling path rules included,
+matching how pause and unblock already behave.
 
-**The Blocked tab's "RDAP-verify" button stays snappy** — user-initiated lookups skip the inter-request pacing while still obeying cooldowns and queue limits.
+Everything else is untouched: active-block unblocking, the Blocked
+popup, Manage all, and the 🚑 Restore Internet button work exactly as
+before.
 
-Net effect: rdap.org drops to effectively zero, new address blocks are answered by the right registry in one query, and the whole block (not one IP) is cached from that single answer — verified live against ARIN and APNIC, where one Microsoft lookup now covers their entire 20.180.0.0/12 telemetry range for a week.
+## Verification
+
+App builds clean in Debug and Release (0 errors); the change is confined
+to the Process Monitor view (XAML menu items + three handlers).
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. Blue "protected your PC" screen: **More info -> Run anyway**. If the zip
+   will not open or the exe will not start, run `unblock-autocommand.ps1`.
+
+Deleting the folder uninstalls it completely. Apache 2.0.
 
 
 ================================================================================
-  2026.10.25.3  -  released 2026-10-25
+  2026.10.29.1  -  released 2026-10-27
+================================================================================
+
+# AutoCommand v2026.10.29.1 — DNS queries and UDP, visible at last
+
+Two windows open that were dark since the beginning: **what this machine
+resolves** and **everything that is not TCP**.
+
+## 🌐 DNS Queries (new tab, WATCH group)
+
+The app's Sysmon config has captured DNS query events since the first
+install — this release is the first thing that actually reads them.
+
+- **By domain**: who asks for each hostname, how often, what addresses came
+  back (range-classified, blocked-list checked), and **beacon regularity** —
+  a domain asked on a metronome gets flagged with its gap variation
+  (beacons look like that; scheduled updaters do too).
+- **By process**: everything a program resolves — a browser tab and a
+  background talker are instantly distinguishable.
+- **DoH honesty, built in**: queries to known encrypted resolvers
+  (Cloudflare, Google, Quad9, NextDNS…) are flagged 🔒 — that's the moment
+  a process switches to DNS no local observer can see. No false confidence.
+- Resolved addresses name the Process Monitor rows they belong to.
+
+## UDP joins the Process Monitor
+
+Rows track **every transport seen** against their remote address — a new
+**Proto** column shows TCP, UDP, or TCP+UDP — plus a transport lens
+(All / TCP / UDP) beside the TX-only lens. A UDP talker can no longer hide
+behind a TCP-first label, and pure-UDP endpoints now get rows of their own.
+The packet counters already counted UDP datagrams (the raw-IP sniffer is
+transport-agnostic by construction); now the labels tell the truth.
+
+## For AI assistants
+
+New read-only **`list_dns_queries`** tool: the same two facets, window and
+contains filters, per-address classification and blocked status, gap_cv
+regularity — with the DoH blindness note carried in the response.
+
+## Verification
+
+New **DnsFeedSelfTest** suite (20 checks: aggregation, facets, regularity
+math, encrypted-resolver flags, result-address parsing, persistence
+lifecycle, window/contains filters) added to the CI strict gate; all nine
+offline suites green; app, AgentProxy and AgentHost build clean in Debug
+and Release.
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. Blue "protected your PC" screen: **More info -> Run anyway**. If the zip
+   will not open or the exe will not start, run `unblock-autocommand.ps1`.
+
+Deleting the folder uninstalls it completely. Apache 2.0.
+
+
+================================================================================
+  2026.10.29  -  released 2026-10-27
+================================================================================
+
+# AutoCommand v2026.10.29 — engineering-hygiene release
+
+Nothing in this release changes what you see or click; it is the
+post-cutover technical-debt register worked through to zero, verified by
+the same gates as every release.
+
+## What changed under the hood
+
+- **Namespaces now match the architecture.** Each engine library owns its
+  namespace (`AutoCommand.NetWatch.Core`, `.Intercept`, `.Contain`,
+  `.Forensics`, `.Sitedoctor`, `.Agent`) instead of every engine sharing
+  the old app-wide `AutoCommand.Services`. Also surfaced and fixed: two
+  libraries had been compiling against a *transitive* NetWatch reference
+  — they now carry the explicit reference the design always intended.
+- **The DNS service reads in halves.** The geo/org engine (prefix cache,
+  throttled ip-api client with backoff, RDAP fallback) moved to its own
+  file; the hostname pipeline and the idle reconciler stay in the main
+  one. Zero behavior change.
+- **The last settable globals are gone.** A dead DNS/pytrace directory
+  override with no users was removed, and the trace-projects store now
+  follows the injectable-instance pattern the blocks ledger established —
+  its "set the directory before first use" ordering trap no longer exists.
+- **The offline tool list cannot drift.** The stub list an AI client sees
+  when no session is running now carries all 22 tools, and a new
+  self-test fails the build if it ever drifts from the tool registry.
+- **Line endings normalized** (repository-wide LF policy declared), the
+  delivered plan and the closed porting ledger moved to `docs/history/`,
+  and a **CI workflow** now builds and runs the offline suites on every
+  push — same house pattern as the release workflow.
+
+## Verification
+
+All eight offline suites green against the shipped assemblies; app,
+AgentProxy and AgentHost build clean in Debug and Release.
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. Blue "protected your PC" screen: **More info -> Run anyway**. If the zip
+   will not open or the exe will not start, run `unblock-autocommand.ps1`.
+
+Deleting the folder uninstalls it completely. Apache 2.0.
+
+
+================================================================================
+  2026.10.28.2  -  released 2026-10-27
+================================================================================
+
+# AutoCommand v2026.10.28.2 — the unresolved-IP backlog drains itself when you're idle
+
+## What's new
+
+Follows v2026.10.28.1 (every Host cell explains itself; Resolve now /
+Retry unresolved; RDAP fallback; machine-wide caches). This release closes
+the loop: the addresses that *stay* unresolved — because the machine was
+too busy to spend the lookup budget on them — now get resolved
+automatically, later, when it costs nothing:
+
+- **Idle reconciliation.** Every placeholder answer is already persisted
+  in the hostname cache, so "all unresolved IPs" is simply read back,
+  oldest first. When the Sysmon feed has been quiet for **5 minutes**
+  (traffic idle — checked every minute), batches of **8 addresses** are
+  re-asked through the normal paced pipeline: normal spacing, normal
+  backoff, never the urgent path. Two minutes cooldown between batches;
+  after **5 attempts** an address rests until its cache entry ages out
+  naturally (24 h) — permanently unanswerable addresses don't churn
+  forever.
+- The moment traffic resumes, the reconciler stands down: batches are
+  only sent while the machine stays quiet.
+- Nothing new to configure or see — a Host cell tooltip that said
+  "throttled — next attempt in ~2 min" now eventually says "resolved",
+  on its own, while you weren't using the network.
+
+## Verification
+
+NetWatchSelfTest extended with five idle-reconciliation checks (candidate
+collection, busy-refusal, idle batch, queue state, batch size) — all
+passing; all eight offline suites green against the shipped assemblies;
+app, AgentProxy and AgentHost build clean in Debug and Release.
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. Blue "protected your PC" screen: **More info -> Run anyway**. If the zip
+   will not open or the exe will not start, run `unblock-autocommand.ps1`.
+
+Deleting the folder uninstalls it completely. Apache 2.0.
+
+
+================================================================================
+  2026.10.28.1  -  released 2026-10-27
+================================================================================
+
+# AutoCommand v2026.10.28.1 — unresolved IPs, explained and fixable
+
+## Why some IPs never resolved, and what changed
+
+The Host column's name/org lookups are rate-budgeted by design — one
+ip-api.com answer per /24 block, throttled at the free tier, with backoff
+after throttling — and that budget meant some rows sat blank with no
+explanation. Three changes fix that, without loosening the throttling:
+
+- **Every Host cell now explains itself.** Hover it: *resolving — queued
+  (N waiting)*, *throttled — next attempt in ~2 min*, *no owner data —
+  negative-cached, retries after 14:00*, *local address — no lookup
+  exists*, or *resolved (when)*. The blank is gone.
+- **You can act.** Right-click a row → **Resolve now** re-asks that one
+  address urgently (it skips the queue spacing; the provider's cooldowns
+  still apply). The new **⟳ Retry unresolved DNS** button forgets every
+  cached "no answer" result and re-queues the view's unresolved rows at
+  normal polite pacing.
+- **More IPs resolve at all.** When ip-api has no answer — or is
+  throttled — the lookup now falls back to the **RDAP registries** (the
+  same authoritative-registry engine the Blocked tab uses: IANA-routed,
+  own cache, own pacing). Org labels that come from RDAP are marked
+  "· RDAP" in the row.
+
+## The caches moved (so they stop resetting themselves)
+
+The hostname, org-prefix and forward-DNS caches now live machine-wide in
+`C:\ProgramData\AutoCommand` beside the RDAP cache, instead of beside the
+exe — so unzipping a new build or moving the folder no longer starts every
+lookup from cold. An existing beside-the-exe cache is copied over once on
+first run.
+
+## For AI assistants
+
+New read-only **`lookup_ip`** tool: hostname, classification, org/geo
+*with its cache state* ("negative-cached, retries after 14:00"), and
+blocked-list status in one call — `force: true` is the user-initiated
+urgent path.
+
+## Verification
+
+NetWatchSelfTest extended with seven resolve-state checks (all passing);
+all eight offline suites green against the shipped assemblies; app,
+AgentProxy and AgentHost build clean in Debug and Release.
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. Blue "protected your PC" screen: **More info -> Run anyway**. If the zip
+   will not open or the exe will not start, run `unblock-autocommand.ps1`.
+
+Deleting the folder uninstalls it completely. Apache 2.0.
+
+
+================================================================================
+  2026.10.28  -  released 2026-10-27
+================================================================================
+
+# AutoCommand v2026.10.28 — the cutover: AutoCommand II is now AutoCommand
+
+## The move, in plain words
+
+On Oct 25 the app's development moved into a rewrite tree called **AutoCommand
+II** (`dparksports/autocommand-ii`) while the original repo kept shipping.
+As of today the original repo is frozen at v2026.10.25.4 and **this tree is
+the one AutoCommand**: releases, issues and discussions happen here. Nothing
+was lost in the move — every user-facing fix the original shipped (including
+the RDAP registry-respect work in v2026.10.25.4) is in this build, verified
+line-for-line.
+
+## What carries over when you upgrade
+
+Everything, with no action from you. Your blocks, the undo ledger (the
+🚑 Restore Internet button), your preferences, traces and the DNS/RDAP caches
+all live outside the program folder (`%LOCALAPPDATA%\AutoCommand` and
+`C:\ProgramData\AutoCommand`) — unzipping a new folder anywhere and running
+it picks them up. **New in this release:** the first run from a changed
+folder says exactly that in one dialog, once, so you never have to wonder
+whether an update reset anything.
+
+## What's new since the original's last release (v2026.10.25.4)
+
+- **Block containment proof.** Every row on the Blocks tab now shows whether
+  a block is actually holding — leak / stale-flow / contained / quiet, with
+  the evidence in its tooltip — and AI assistants can ask the same question
+  (`verify_block_containment`) and get the same facts.
+- **The Investigate tab.** One click (or one `investigate_process` call from
+  an assistant) answers "why is this transmitting?" — who started it, where
+  it connects, how regularly it beacons — as a plain-English verdict with
+  the raw numbers one click away.
+- **Be My Guest registrations self-heal.** Moved to a new install folder and
+  an assistant's registration points at the old one? The Be My Guest tab
+  detects it and offers a one-click refresh — nothing is rewritten without
+  your click, same backup-and-verify rules as every registration before.
+- **AgentHost, the headless face.** `AgentHost\AutoCommand.AgentHost.exe` in
+  the zip runs an AI-access session from a terminal without booting the app.
+  It needs the .NET 10 runtime (the main app doesn't — it ships
+  self-contained), and it ships with a README that says so right next to the
+  exe. It can never change anything: no confirmation dialog exists there, so
+  mutating tools are permanently denied.
+
+## For the curious: where the code went
+
+The rewrite's structural work moved every engine out of the WPF exe into six
+class libraries (NetWatch, Intercept, Contain, Forensics, Sitedoctor, Agent)
+with zero WPF references — same namespaces, same behavior, one engine many
+faces. Every offline self-test suite now runs the shipped assemblies rather
+than source copies, which is why the verification line below is stronger
+than it used to be.
+
+## Verification
+
+All eight offline self-test suites pass against the shipped assemblies
+(NetWatch, BITS, PyTrace reassemble, SiteDoctor, TaskAttribution,
+ProxyInstall — now including six migration-scan checks — OneSettingsCadence
+at 52 checks, Contain at 48). App, AgentProxy and AgentHost build clean in
+Debug and Release.
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. Blue "protected your PC" screen: **More info -> Run anyway**. If the zip
+   will not open or the exe will not start, run `unblock-autocommand.ps1`.
+
+Deleting the folder uninstalls it completely. Apache 2.0.
+
+
+================================================================================
+  2026.10.27.9  -  released 2026-10-27
+================================================================================
+
+# AutoCommand II v2026.10.27.9 — containment hardening: the review follow-ups
+
+Small engineering-iteration release: three fixes from the code review of
+the containment feature (v2026.10.27.7), nothing user-visible removed.
+
+## What changed
+
+- **`BlockContainmentReader.Take` fails fast instead of hanging.** The
+  gatherer blocks (inventory fetch, full process scan, archive read), and
+  a direct UI-thread call would deadlock silently. It now throws a clear
+  message if called on a UI thread — UI callers use Task.Run (the Blocks
+  tab already does).
+- **The quiet rule is engine-owned.** "Which blocks are quiet" moved into
+  the verifier (`QuietTargets`) so the AI bridge tool and any future
+  consumer apply exactly one rule; the tool's inline copy is gone.
+  Disabled (paused) rules are never listed as quiet — nothing to verify.
+- **The known limits are documented where they live**: the attempt-side
+  pid-reuse conflation (can only overcount attempts; can never fabricate
+  a leak) is now stated in the engine header rather than living only in a
+  review.
+
+## Verification
+
+Contain suite now at 48 offline checks, all passing (three new: quiet
+excludes hit IPs, quiet excludes app-blocked sibling paths, paused rules
+never listed). All seven offline suites pass against the shipped
+assemblies; app, AgentProxy and AgentHost build clean in Debug and
+Release.
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. Blue "protected your PC" screen: **More info -> Run anyway**. If the zip
+   will not open or the exe will not start, run `unblock-autocommand.ps1`.
+
+Deleting the folder uninstalls it completely. Apache 2.0.
+
+
+================================================================================
+  2026.10.27.8  -  released 2026-10-27
+================================================================================
+
+# AutoCommand II v2026.10.27.8 — investigate_process: one answer to "why is this transmitting?"
+
+Every investigation of a chatty process used to be ten tool calls in an
+order only an expert knows: snapshot, Sysmon tail, transmissions check,
+PID inquiry, 24-hour trace, classify each destination, rule out blocks.
+This release collapses that playbook into one read-only call — on the
+Investigate tab, or from any AI assistant over the bridge.
+
+## What is new in this build
+
+- **`ProcessInvestigationService`** (Forensics core) — joins facts the app
+  already records rather than collecting anything new:
+  - **PID provenance** (`ProcessProvenanceService`, incl. the PID-reuse
+    guard: a recycled PID is flagged, never accused). Enabled when a PID
+    is given; best-effort on a live instance when only a name is given.
+  - **Traffic profile** (`TraceMetricsService`): frequency, destinations
+    with classification, beacon regularity, recorded TLS volume, live
+    sockets.
+  - **Block hits** from the feed's in-memory cache — deliberately never
+    the live Sysmon join, which is the slow path that could exceed an
+    interactive call budget.
+  - Verdicts describe the numbers without claiming a baseline, in
+    priority order: **Actively blocked** → **Quiet** → **Internal-only**
+    → **Outbound attempts, none completed** → **Mixed** — each with
+    evidence lines. A one-way external profile (SYNs and ClientHellos
+    with zero recorded TLS) reads as "attempts", not exfiltration.
+- **🔬 Investigate tab** (SYSTEM group, opt-in via Settings → Advanced
+  investigation): subject box (name or PID), 6/12/24 h lookback, colored
+  verdict banner, monospace report, Copy and Save (markdown under
+  `%LOCALAPPDATA%\AutoCommand\reports\`).
+- **`investigate_process`** (AI bridge tool): the same service over MCP —
+  structured JSON (`provenance`, `traffic`, `block_hits`, `verdict`,
+  `evidence`) plus the identical `report_text`. Hours default 6, cap 24;
+  the full-day archive scan is the slow path.
+- `hours` now types as integer in tool input schemas (this also fixes
+  `run_trace`'s schema, which previously declared it a string).
+
+## Verification
+
+Self-tested headless against live archives on the dev machine: the 24 h
+`Reolink.exe` run reproduces the known camera-client profile — LAN
+discovery broadcasts (UDP 2018/2000 at an 11 s cadence, CV 0.03),
+unanswered cloud-relay attempts on port 9999, zero recorded TLS — in
+~0.45 s, and a PID run on explorer.exe exercises the provenance half.
+App, AgentProxy and AgentHost build clean in Release.
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. Blue "protected your PC" screen: **More info -> Run anyway**. If the zip
+   will not open or the exe will not start, run `unblock-autocommand.ps1`.
+
+Deleting the folder uninstalls it completely. Apache 2.0.
+
+
+================================================================================
+  2026.10.27.7  -  released 2026-10-27
+================================================================================
+
+# AutoCommand II v2026.10.27.7 — verify_block_containment: proof that blocks are silent
+
+Blocking a process or IP has always shown you the attempts (the live
+who-is-being-blocked feed). What it could not show was whether anything
+was actually getting THROUGH. This release closes that loop.
+
+## What is new in this build
+
+- **`verify_block_containment`** (AI bridge tool): one call that proves a
+  blocked process is silent, not just still trying. A block hit is a
+  connect ATTEMPT — the kernel drops it and nothing logs the outcome — so
+  no single source proves silence. This tool joins three: Sysmon-attributed
+  attempts, the live kernel socket table, and the TLS-transmissions archive
+  since the block was created. Per process instance it returns a verdict:
+  - **contained** — attempts only; the block is dropping everything.
+  - **stale-flow** — a socket whose owning process predates the block:
+    firewall rules never sever flows that were already established, so it
+    may still be alive. Sever or restart.
+  - **leak** — a socket established after the block, or archived bytes to
+    a blocked destination since the block. Escalate.
+  Blocks nobody is hitting are listed as quiet. The honest limits are in
+  the output: the archive only holds TLS flows over 10 KB, so
+  sub-threshold/UDP/DNS traffic needs `trace_analyze`.
+- The verdict logic is a pure engine (`BlockContainmentVerifier` in the
+  Contain core) with the same identity rules the monitor enforces — a
+  reused pid is flagged, never accused. 15 new offline self-test checks
+  cover every verdict and guard (43 total in the Contain suite, all pass).
+
+## Verification
+
+All offline self-test suites build and pass against the exact libraries
+shipped in this zip. App, AgentProxy and AgentHost build clean in
+Release.
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. Blue "protected your PC" screen: **More info -> Run anyway**. If the zip
+   will not open or the exe will not start, run `unblock-autocommand.ps1`.
+
+Deleting the folder uninstalls it completely. Apache 2.0.
+
+
+================================================================================
+  2026.10.27.6  -  released 2026-10-27
+================================================================================
+
+# AutoCommand II v2026.10.27.6 — phase 6: the agent core, the contracts, and the headless host
+
+The rewrite's structural work is complete. Same app, same behavior — but
+the last engine family (the Be My Guest AI-access stack) now lives in its
+own library, and the app's confirmation seam is a formal contract.
+
+## What is new in this build
+
+- **AgentHost**: a headless face for AI-access sessions. Scripts and
+  unattended runs can now host an MCP session without the WPF application
+  starting at all (zip: AgentHost\AutoCommand.AgentHost.exe; run
+  `AutoCommand.AgentHost [seconds]` — it answers questions only, and every
+  mutating tool is denied by design; it also refuses to run alongside the
+  interactive app, by the same single-instance rule).
+- The per-action confirmation guarantee ("nothing is touched without your
+  yes") is now an explicit contract — Sdk/IAgentInteraction — implemented
+  by the app's dialog. Behavior identical; the guarantee is now structural.
+
+## Verification
+
+All seven offline self-test suites build and pass against the exact
+libraries shipped in this zip. The last source-copying harness is retired —
+every suite tests the shipped assemblies. App builds clean in Debug and
+Release.
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. Blue "protected your PC" screen: **More info -> Run anyway**. If the zip
+   will not open or the exe will not start, run `unblock-autocommand.ps1`.
+
+Deleting the folder uninstalls it completely. Apache 2.0.
+
+
+================================================================================
+  2026.10.27.5  -  released 2026-10-27
+================================================================================
+
+# AutoCommand II v2026.10.27.5 — phase 5: the site-doctor core
+
+Same app, same behavior. The "Why is this site slow?" pipeline — passive
+fingerprinting from recorded traffic, the dual-shape TLS probes, the
+plain-English verdict rules, the dependency-block diagnosis, and the
+service outage map — is now its own tested library
+(AutoCommand.Sitedoctor.Core), the fifth and final engine cluster extracted
+from the UI executable ahead of the agent work.
+
+## Verification
+
+All six offline self-test suites build and pass against the exact libraries
+shipped in this zip. The app builds clean in Debug and Release.
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. Blue "protected your PC" screen: **More info -> Run anyway**. If the zip
+   will not open or the exe will not start, run `unblock-autocommand.ps1`.
+
+Deleting the folder uninstalls it completely. Apache 2.0.
+
+
+================================================================================
+  2026.10.27.4  -  released 2026-10-27
+================================================================================
+
+# AutoCommand II v2026.10.27.4 — phase 4: the Forensics core
+
+Same app, same behavior — one more engine family moved out of the UI
+executable into its own tested library.
+
+## What moved
+
+Everything that answers "who launched this, what is this program, what has
+it been doing": process provenance (the PID Inquiry engine), task
+attribution for scheduled-task spawns, the image spawn watcher, the trace
+metrics behind Phone Home and Traces, the BITS transfer watcher with its
+reason catalog, and the Python instrumentation pair — 17 files, now in
+`AutoCommand.Forensics.Core`, the top layer of the core stack
+(Forensics → Contain → Intercept → NetWatch).
+
+## Verification
+
+- All six offline self-test suites build and pass against the exact
+  libraries shipped in this zip. This phase retired the last three
+  source-copying harnesses: every suite now tests the shipped assemblies
+  themselves.
+- The Python spawn row model lost its last two UI-framework properties
+  (they became plain strings the UI converts) — one more guarantee the
+  engines can never drag Windows UI code into a future headless host.
+- App builds clean in Debug and Release.
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. Blue "protected your PC" screen: **More info -> Run anyway** (open
+   source; talks to no one). If the zip will not open or the exe will not
+   start, run the `unblock-autocommand.ps1` asset once.
+
+Deleting the folder uninstalls it completely. Apache 2.0. The original
+repository (dparksports/autocommand-windows) keeps shipping until this
+one replaces it. Remaining rewrite work: the site-doctor core, then the
+agent core + headless host (phase 6, the payoff).
+
+
+================================================================================
+  2026.10.27.3  -  released 2026-10-27
+================================================================================
+
+# AutoCommand II v2026.10.27.3 — the phase 3 build, first with a shippable zip
+
+This is the same AutoCommand you know — same windows, same behavior, same
+"see what your PC is really doing" — rebuilt on a restructured foundation:
+the engines (the parts that watch, capture, classify, and stop) now live in
+separate core libraries instead of being compiled into the UI executable.
+For you, nothing changes in how you use the app. For the project, it means
+every engine is now tested as the exact library that ships, the blocking
+and undo path carries its own offline proof suite, and the codebase is
+ready to grow new faces (a headless AI-access host is next).
+
+## What is inside
+
+- **Watch**: process monitor, phone home, spawns, traces, BITS transfers,
+  traffic patterns, recorded transmissions — all powered by the extracted
+  NetWatch and Intercept cores.
+- **Contain**: firewall blocks with one-click undo and the Restore Internet
+  panic button, telemetry opt-outs with proof, the sinkhole receipts
+  listener, Defender tools — the Contain core, extracted **test-first**:
+  a new 28-check offline suite proved the blocks store, the opt-out rule
+  engine, and the firewall rule builders before a single file moved, and
+  again against the shipped library after.
+- **System**: AI access (Be My Guest), privacy, settings — unchanged.
+
+## Verification behind this build
+
+All five offline self-test suites (NetWatch, BITS trace, Python trace,
+site doctor, contain) build and pass against the exact libraries in this
+zip. The app builds clean in Debug and Release.
+
+## Install — identical to AutoCommand
+
+1. Unzip anywhere.
+2. Right-click `AutoCommand.exe` -> **Run as administrator**.
+3. If Windows shows the blue "protected your PC" screen: **More info ->
+   Run anyway** (the app is not from a big company; it is open source and
+   talks to no one). If the zip will not open or the exe will not start at
+   all, run the `unblock-autocommand.ps1` asset below once.
+
+Deleting the folder still uninstalls it completely. Apache 2.0. The
+original repository (dparksports/autocommand-windows) keeps shipping its
+own releases until this one replaces it.
+
+
+================================================================================
+  2026.10.25.3
 ================================================================================
 
 # AutoCommand v2026.10.25.3
@@ -46,7 +673,7 @@ Also in this release: the bridge feed now records `session_stopped` (making toni
 
 
 ================================================================================
-  2026.10.25.2  -  released 2026-10-25
+  2026.10.25.2
 ================================================================================
 
 # AutoCommand v2026.10.25.2
@@ -82,7 +709,7 @@ machine.
 
 
 ================================================================================
-  2026.10.25.1  -  released 2026-10-25
+  2026.10.25.1
 ================================================================================
 
 # AutoCommand v2026.10.25.1
@@ -110,7 +737,7 @@ Not included (available if the throttle ever still binds): batching queued looku
 
 
 ================================================================================
-  2026.10.25  -  released 2026-10-25
+  2026.10.25
 ================================================================================
 
 # AutoCommand v2026.10.25
@@ -138,7 +765,7 @@ New tab: project-based tracing. A project is a file under `%LOCALAPPDATA%\AutoCo
 
 
 ================================================================================
-  2026.10.22  -  released 2026-10-22
+  2026.10.22
 ================================================================================
 
 # AutoCommand v2026.10.22
@@ -165,7 +792,7 @@ New section 5b replays the login-failure shape end to end over synthetic fixture
 
 
 ================================================================================
-  2026.10.21.1  -  released 2026-10-21
+  2026.10.21.1
 ================================================================================
 
 # v2026.10.21.1 — Your sites, your browsers, one-click unblock
@@ -205,7 +832,7 @@ No more "open wf.msc and hope you find it" runarounds.
 
 
 ================================================================================
-  2026.10.21  -  released 2026-10-21
+  2026.10.21
 ================================================================================
 
 # v2026.10.21 — Why is this site slow?
@@ -287,7 +914,7 @@ other Google page worked) was invisible exactly when users needed it.
 
 
 ================================================================================
-  2026.10.20.6  -  released 2026-10-20
+  2026.10.20.6
 ================================================================================
 
 # AutoCommand v2026.10.20.6
@@ -345,7 +972,7 @@ proxy. No driver, no SAC exceptions, works everywhere.
 
 
 ================================================================================
-  2026.10.20.4  -  released 2026-10-20
+  2026.10.20.4
 ================================================================================
 
 # AutoCommand v2026.10.20.4
@@ -403,7 +1030,7 @@ remediation loop: detection now comes to you, and the fix is one click.
 
 
 ================================================================================
-  2026.10.20.2  -  released 2026-10-20
+  2026.10.20.2
 ================================================================================
 
 # AutoCommand v2026.10.20.2
@@ -463,7 +1090,7 @@ counts.
 
 
 ================================================================================
-  2026.10.19.2  -  released 2026-10-19
+  2026.10.19.2
 ================================================================================
 
 # AutoCommand v2026.10.19.2
@@ -502,7 +1129,7 @@ README and TECHNICAL_NOTES document the lens in the same terms.
 
 
 ================================================================================
-  2026.10.19.1  -  released 2026-10-19
+  2026.10.19.1
 ================================================================================
 
 # AutoCommand v2026.10.19.1
@@ -553,7 +1180,7 @@ holds no evidence.
 
 
 ================================================================================
-  2026.10.19  -  released 2026-10-19
+  2026.10.19
 ================================================================================
 
 # AutoCommand v2026.10.19
@@ -625,7 +1252,7 @@ so "Windows Update broken" finds it anyway.
 
 
 ================================================================================
-  2026.10.18.2  -  released 2026-10-18
+  2026.10.18.2
 ================================================================================
 
 # AutoCommand v2026.10.18.2
@@ -684,7 +1311,7 @@ self-tests still cover them.
 
 
 ================================================================================
-  2026.10.18.1  -  released 2026-10-18
+  2026.10.18.1
 ================================================================================
 
 # AutoCommand v2026.10.18.1
@@ -736,7 +1363,7 @@ and the offline self-tests still cover them.
 
 
 ================================================================================
-  2026.10.18  -  released 2026-10-18
+  2026.10.18
 ================================================================================
 
 # AutoCommand v2026.10.18
@@ -815,7 +1442,7 @@ The engines are untouched; the offline self-tests still cover them.
 
 
 ================================================================================
-  2026.10.17.3  -  released 2026-10-17
+  2026.10.17.3
 ================================================================================
 
 # AutoCommand v2026.10.17.3
@@ -884,7 +1511,7 @@ them.
 
 
 ================================================================================
-  2026.10.17.2  -  released 2026-10-17
+  2026.10.17.2
 ================================================================================
 
 # AutoCommand v2026.10.17.2
@@ -990,7 +1617,7 @@ The two v2026.10.17.1 infographics carry the new version chip.
 
 
 ================================================================================
-  2026.10.17.1  -  released 2026-10-17
+  2026.10.17.1
 ================================================================================
 
 # AutoCommand v2026.10.17.1
@@ -1065,7 +1692,7 @@ Generator: `Assets/generate_infographics_oss.py` (house matplotlib style).
 
 
 ================================================================================
-  2026.10.17  -  released 2026-10-16
+  2026.10.17
 ================================================================================
 
 # AutoCommand v2026.10.17
@@ -1159,7 +1786,7 @@ via the elevation the app already runs with).
 
 
 ================================================================================
-  2026.10.16.2  -  released 2026-10-15
+  2026.10.16.2
 ================================================================================
 
 # AutoCommand v2026.10.16.2
@@ -1181,7 +1808,7 @@ Second same-day follow-up to v2026.10.16. The Process Monitor gets the structura
 
 
 ================================================================================
-  2026.10.16.1  -  released 2026-10-15
+  2026.10.16.1
 ================================================================================
 
 # AutoCommand v2026.10.16.1
@@ -1198,7 +1825,7 @@ Same-day follow-up to v2026.10.16. One focused fix: the Svchost Trace tab could 
 
 
 ================================================================================
-  2026.10.16  -  released 2026-10-15
+  2026.10.16
 ================================================================================
 
 # AutoCommand v2026.10.16
@@ -1236,7 +1863,7 @@ AI access (the Be My Guest tab) reliability release: the MCP server now starts i
 
 
 ================================================================================
-  2026.10.15.1  -  released 2026-10-14
+  2026.10.15.1
 ================================================================================
 
 # AutoCommand v2026.10.15.1
@@ -1257,7 +1884,7 @@ Same-day follow-up to v2026.10.15. One new capability and one real bug fix aroun
 
 
 ================================================================================
-  2026.10.15  -  released 2026-10-14
+  2026.10.15
 ================================================================================
 
 # AutoCommand v2026.10.15
@@ -1295,7 +1922,7 @@ The count goes live, AI access becomes a first-class tab, and the README is rebu
 
 
 ================================================================================
-  2026.10.14.1  -  released 2026-10-14
+  2026.10.14.1
 ================================================================================
 
 # AutoCommand v2026.10.14.1
@@ -1319,7 +1946,7 @@ Same-day follow-up to v2026.10.14. Identical feature set plus the two changes be
 
 
 ================================================================================
-  2026.10.14  -  released 2026-10-14
+  2026.10.14
 ================================================================================
 
 # AutoCommand v2026.10.14

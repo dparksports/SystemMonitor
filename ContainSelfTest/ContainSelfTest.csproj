@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Self-test for the Contain engines — the blocking/safety path
+       (firewall rule builders, the blocks store, telemetry rule catalog and
+       evaluation). Built TEST-FIRST, before the phase 3 extraction, and it
+       proved all 28 checks at the source; after the move it references
+       core\AutoCommand.Contain.Core and runs the shipped assembly (the
+       phase 1/2 pattern — stronger than byte-identical source copies).
+       Everything is synthetic/offline: temp dirs for the blocks store, a
+       synthetic rules catalog, pure rule-name builders. The live halves
+       (netsh, COM policy, Defender, update freeze) are exercised by the app
+       itself. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>ContainSelfTest</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\core\AutoCommand.Contain.Core\AutoCommand.Contain.Core.csproj" />
+  </ItemGroup>
+
+</Project>

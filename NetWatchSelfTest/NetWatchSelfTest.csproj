@@ -1,11 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!-- Self-test for the dual-family connection table and the Sysmon
-       archive engine: compiles the sources from the app project directly,
-       so what runs here is byte-identical to what ships in AutoCommand.
-       Excluded from the app build (AutoCommand.csproj Compile Remove, like
-       BitsTraceSelfTest). Archive persistence is redirected to a temp dir;
-       the TCP-table section does ONE live thing — holds an IPv6 loopback
+       archive engine. Phase 1 of the AutoCommand II extraction
+       (REWRITE.md): the engines live in core\AutoCommand.NetWatch.Core and
+       this harness references the library — what runs here is the shipped
+       assembly itself, stronger than the old byte-identical source copy
+       (an include list could drift from what ships; a project reference
+       cannot). Archive persistence is redirected to a temp dir; the
+       TCP-table section does ONE live thing — holds an IPv6 loopback
        connection open and asserts the dual-family enumeration actually
        sees it (the v2026.10.17.1 gap, proven fixed at the source). -->
   <PropertyGroup>
@@ -17,15 +19,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\Services\TcpConnectionTable.cs" />
-    <Compile Include="..\Services\SysmonArchiveService.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <!-- SysmonArchiveService uses EventLogReader/EventLogWatcher; on the
-         desktop app these arrive with the WPF SDK — the console test needs
-         the same framework reference explicitly. -->
-    <FrameworkReference Include="Microsoft.WindowsDesktop.App" />
+    <ProjectReference Include="..\core\AutoCommand.NetWatch.Core\AutoCommand.NetWatch.Core.csproj" />
   </ItemGroup>
 
 </Project>

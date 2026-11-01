@@ -1,4 +1,10 @@
 using System;
+using AutoCommand.Agent.Core;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
+using AutoCommand.Sitedoctor.Core;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -151,54 +157,13 @@ namespace AutoCommand.Views
             if (_report == null) return;
             try
             {
-                Clipboard.SetText(BuildReportText(_report));
+                Clipboard.SetText(ProcessProvenanceService.BuildReportText(_report));
                 StatusText.Text = "Report copied to clipboard.";
             }
             catch (Exception ex)
             {
                 StatusText.Text = "Copy failed: " + ex.Message;
             }
-        }
-
-        /// <summary>The full report text — shared with the AI-access bridge's run_pid_inquiry tool.</summary>
-        public static string BuildReportText(ProvenanceReport r)
-        {
-            var sb = new StringBuilder();
-            sb.AppendLine($"PID INQUIRY — {r.Pid} · {r.Name}");
-            sb.AppendLine($"Verdict: {r.Verdict} — {r.VerdictDetail}");
-            sb.AppendLine($"Identity: image {r.ExePath ?? "?"} · started {r.Created:yyyy-MM-dd HH:mm:ss} · " +
-                          $"owner {r.Owner ?? "?"} · {(r.Alive ? "running" : "not running")}");
-            if (!string.IsNullOrEmpty(r.CommandLine))
-                sb.AppendLine("Command line: " + r.CommandLine);
-            if (r.Recycled && !string.IsNullOrEmpty(r.CurrentOwnerSummary))
-            {
-                sb.AppendLine();
-                sb.AppendLine("⚠ PID RECYCLED — the subject above has EXITED. The PID now belongs to:");
-                sb.AppendLine("      " + r.CurrentOwnerSummary);
-                sb.AppendLine("      (unrelated process — everything below describes the exited subject)");
-            }
-            sb.AppendLine();
-            sb.AppendLine("SPAWN CHAIN (child → root):");
-            foreach (var link in r.Chain)
-            {
-                sb.AppendLine($"  PID {link.Pid} · {link.Name} · {link.Created:yyyy-MM-dd HH:mm:ss} · " +
-                              $"{link.Owner ?? "?"}{(link.Verified ? "" : "   [UNVERIFIED]")}");
-                if (!string.IsNullOrEmpty(link.CommandLine)) sb.AppendLine("      cmd: " + link.CommandLine);
-                if (!string.IsNullOrEmpty(link.Note)) sb.AppendLine("      note: " + link.Note);
-            }
-            sb.AppendLine();
-            sb.AppendLine("EVIDENCE:");
-            foreach (var ev in r.Evidence)
-                sb.AppendLine($"  [{ev.Source}] {ev.Detail.Replace("\r\n      ", "\r\n       ")}");
-            if (r.Warnings.Count > 0)
-            {
-                sb.AppendLine();
-                sb.AppendLine("WARNINGS:");
-                foreach (string w in r.Warnings) sb.AppendLine("  " + w);
-            }
-            sb.AppendLine();
-            sb.AppendLine($"Generated {DateTime.Now:yyyy-MM-dd HH:mm:ss} by AutoCommand Process Monitor (read-only inquiry)");
-            return sb.ToString();
         }
 
         /// <summary>Display row for one ancestry hop.</summary>

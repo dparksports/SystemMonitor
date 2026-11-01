@@ -78,6 +78,17 @@ if (-not $DryRun) {
     $newProxyText = $proxyText -replace "(?m)^(\s*<Version>)[\d.]+(</Version>\s*)$", "`${1}$Version`${2}"
     if ($newProxyText -eq $proxyText) { Die 'failed to rewrite <Version> in AgentProxy\AutoCommand.AgentProxy.csproj' }
     [System.IO.File]::WriteAllText($proxyCsproj, $newProxyText)
+
+    # The tracked version-attribute file follows too (the compiled attributes
+    # and the csproj <Version> are one version, shipped together).
+    $verInfoCs = Join-Path $PSScriptRoot 'Properties\GeneratedVersionInfo.cs'
+    $verText = [System.IO.File]::ReadAllText($verInfoCs)
+    $four = if ($Version -match '^\d+\.\d+\.\d+$') { "$Version.0" } else { $Version }
+    $newVerText = $verText -replace 'AssemblyVersion\("[\d.]+"\)', "AssemblyVersion(`"$four`")" `
+        -replace 'AssemblyFileVersion\("[\d.]+"\)', "AssemblyFileVersion(`"$four`")" `
+        -replace 'AssemblyInformationalVersion\("[\d.]+"\)', "AssemblyInformationalVersion(`"$Version`")"
+    if ($newVerText -eq $verText) { Die 'failed to rewrite versions in Properties\GeneratedVersionInfo.cs' }
+    [System.IO.File]::WriteAllText($verInfoCs, $newVerText)
 }
 
 $relVersion = if ($DryRun) { $currentVersion } else { $Version }
@@ -102,6 +113,13 @@ Assert-Exit 'dotnet publish'
 Step "Publishing self-contained single-file AgentProxy (tools)"
 dotnet publish AgentProxy\AutoCommand.AgentProxy.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:PublishTrimmed=true -o "publish/v$relVersion/tools/AgentProxy"
 Assert-Exit 'dotnet publish proxy'
+
+# The headless agent face (phase 6): framework-dependent is fine here - it
+# is a script/unattended tool, run where .NET 10 exists (the app zip itself
+# is self-contained).
+Step "Publishing the headless agent host (AgentHost)"
+dotnet publish AgentHost\AutoCommand.AgentHost.csproj -c Release -r win-x64 --self-contained false -o "publish/v$relVersion/AgentHost"
+Assert-Exit 'dotnet publish agenthost'
 
 # -- Verify the binaries carry the csproj version - the whole point -----------
 $exe = "publish/v$relVersion/AutoCommand.exe"
@@ -150,7 +168,7 @@ if (-not $Yes) {
 
 # -- Commit, tag, push, release -----------------------------------------------
 Step "Committing and tagging v$Version"
-git add AutoCommand.csproj AgentProxy\AutoCommand.AgentProxy.csproj "release_notes_v$Version.md"
+git add AutoCommand.csproj AgentProxy\AutoCommand.AgentProxy.csproj Properties\GeneratedVersionInfo.cs "release_notes_v$Version.md"
 git commit -m "release: v$Version"
 Assert-Exit 'git commit'
 git tag "v$Version"
@@ -175,4 +193,16 @@ Assert-Exit 'gh release upload (app zip)'
 gh release upload "v$Version" $unblockPs1 $sumsFile --clobber
 Assert-Exit 'gh release upload (unblock script + sums)'
 
-Step "Released v${Version}: https://github.com/dparksports/autocommand-windows/releases/tag/v${Version}"
+# -- Keep the archived original repo honest ------------------------------------
+# The frozen repo (dparksports/autocommand-windows) mirrors the current readme
+# so its visitors still see the latest info, with a notice on top and every
+# download link pointed here - GitHub has no cross-repo include, so this is the
+# step that keeps the mirror from drifting. Non-fatal detail: a failed sync
+# must not fail a release that already shipped, but it must be loud.
+Step 'Mirroring README to the archived original repo'
+& (Join-Path $PSScriptRoot 'sync-archived-readme.ps1')
+if ($LASTEXITCODE -ne 0) {
+    Write-Host 'WARNING: archived-README mirror failed to push - the frozen repo is showing a stale readme' -ForegroundColor Yellow
+}
+
+Step "Released v${Version}: https://github.com/dparksports/autocommand-ii/releases/tag/v${Version}"

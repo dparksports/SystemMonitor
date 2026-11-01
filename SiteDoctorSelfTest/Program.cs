@@ -8,6 +8,10 @@
 // accepts TCP then never replies — the failure shape the dual-hello probe
 // exists to detect, asserted end-to-end.
 using System;
+using AutoCommand.Contain.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
+using AutoCommand.Sitedoctor.Core;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -20,7 +24,6 @@ using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoCommand.Models;
-using AutoCommand.Services;
 
 int failures = 0;
 void Check(string name, bool pass, string evidence = "")

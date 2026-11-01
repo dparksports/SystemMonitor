@@ -6,6 +6,13 @@ using System.ServiceProcess;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
+using AutoCommand.Agent.Core;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
+using AutoCommand.Sitedoctor.Core;
+
 namespace AutoCommand
 {
     /// <summary>
@@ -231,7 +238,7 @@ namespace AutoCommand
                 var overrides = Helpers.FirewallConfigManager.Instance.RuleOverrides;
                 if (overrides.Count > 0)
                 {
-                    var driftItems = await Services.FirewallService.Instance.CheckDriftAsync(overrides);
+                    var driftItems = await FirewallService.Instance.CheckDriftAsync(overrides);
                     if (driftItems.Count > 0)
                     {
                         ConfigurationDriftDetected?.Invoke(driftItems);
@@ -298,8 +305,8 @@ namespace AutoCommand
                 if (searcher.Get().Count > 0)
                 {
                     // Kill it using netsh directly (not PowerShell)
-                    Helpers.ProcessRunner.RunDetached("netsh", "wlan stop hostednetwork");
-                    Helpers.ProcessRunner.RunDetached("netsh", "wlan set hostednetwork mode=disallow");
+                    ProcessRunner.RunDetached("netsh", "wlan stop hostednetwork");
+                    ProcessRunner.RunDetached("netsh", "wlan set hostednetwork mode=disallow");
 
                     _onThreatDetected?.Invoke("Hosted Network", "Active Hosted Network detected and disabled.");
                     StatusChanged?.Invoke("Threat Blocked: Hosted Network", "Red");
@@ -386,7 +393,7 @@ namespace AutoCommand
             try
             {
                 bool debugOn = false;
-                string bcdOutput = Helpers.ProcessRunner.Run("bcdedit", "/enum {current}");
+                string bcdOutput = ProcessRunner.Run("bcdedit", "/enum {current}");
                 if (!string.IsNullOrEmpty(bcdOutput))
                 {
                     debugOn = bcdOutput.IndexOf("debug", StringComparison.OrdinalIgnoreCase) >= 0
@@ -400,7 +407,7 @@ namespace AutoCommand
                 if (AutoMitigateAdapters)
                 {
                     if (debugOn)
-                        Helpers.ProcessRunner.RunDetached("bcdedit", "/debug off");
+                        ProcessRunner.RunDetached("bcdedit", "/debug off");
                     if (kdnicActive)
                         Helpers.WanMiniportRemover.RemoveKdnet();
 

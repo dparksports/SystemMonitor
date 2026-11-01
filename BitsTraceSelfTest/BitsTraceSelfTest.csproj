@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+
   <!-- Offline self-test for the BITS Transfers tab's engine: compiles the
        services/models from the app project directly, so what runs here is
        byte-identical to what ships in AutoCommand. Excluded from the app
@@ -17,16 +18,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\Services\BitsWatcherService.cs" />
-    <Compile Include="..\Services\BitsReasonCatalog.cs" />
-    <Compile Include="..\Services\BitsFirewallContextService.cs" />
-    <Compile Include="..\Services\IpClassifier.cs" />
-    <Compile Include="..\Services\RdapService.cs" />
-    <Compile Include="..\Services\DnsResolutionService.cs" />
-    <Compile Include="..\Helpers\AuthenticodeVerifier.cs" />
-    <Compile Include="..\Models\BitsJobItem.cs" />
-    <Compile Include="..\Models\BitsJobStat.cs" />
-    <Compile Include="..\Models\IResolvableHost.cs" />
+    <!-- All engines now from the Forensics core library (phase 4
+         extraction, REWRITE.md) — this harness exercises the shipped
+         assembly; no source copies remain here. -->
+    <ProjectReference Include="..\core\AutoCommand.Forensics.Core\AutoCommand.Forensics.Core.csproj" />
   </ItemGroup>
 
 </Project>

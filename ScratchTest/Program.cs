@@ -3,6 +3,13 @@ using System.IO;
 using LLama.Common;
 using LLama;
 
+using AutoCommand.Agent.Core;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
+using AutoCommand.Sitedoctor.Core;
+
 namespace ScratchTest
 {
     class Program

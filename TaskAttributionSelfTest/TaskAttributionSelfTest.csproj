@@ -1,10 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Offline self-test for the Taskhostw Spawns tab's attribution engine:
-       compiles the services from the app project directly, so what runs here
-       is byte-identical to what ships in AutoCommand. Excluded from the app
-       build (AutoCommand.csproj Compile Remove, like PyTraceSelfTest): it has
-       its own Main() and would double-define the linked service classes. -->
+  <!-- Offline self-test for the Taskhostw Spawns tab's attribution engine.
+       Phase 4 of the AutoCommand II extraction (REWRITE.md): the engines
+       live in core\AutoCommand.Forensics.Core and this harness references
+       the library — what runs here is the shipped assembly itself. The
+       known-tasks knowledge base still ships as loose content (the app
+       loads it the same way), so this harness copies it to its output.
+       Excluded from the app build (AutoCommand.csproj Compile Remove). -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
@@ -15,10 +17,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\Services\TaskAttributionService.cs" />
-    <Compile Include="..\Services\ImageSpawnWatcherService.cs" />
-    <Compile Include="..\Services\KnownTaskCatalog.cs" />
-    <Compile Include="..\Models\SpawnItem.cs" />
+    <ProjectReference Include="..\core\AutoCommand.Forensics.Core\AutoCommand.Forensics.Core.csproj" />
     <Content Include="..\Assets\known-tasks.json" Link="Assets\known-tasks.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

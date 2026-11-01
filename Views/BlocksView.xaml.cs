@@ -1,4 +1,10 @@
 using System;
+using AutoCommand.Agent.Core;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
+using AutoCommand.Sitedoctor.Core;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -72,6 +78,14 @@ namespace AutoCommand.Views
         /// <summary>Newest attempt time (live or archived) — the Restore
         /// guide's ranking signal; null when no traffic was ever found.</summary>
         public DateTime? LastTrafficUtc;
+
+        /// <summary>Containment proof — the raw verdict the group summary
+        /// counts ("leak" | "stale-flow" | "contained" | "quiet" | "paused"
+        /// | "—" when there is nothing to contain).</summary>
+        public string ContainmentVerdict = "…";
+        public string Containment = "…";
+        public string ContainmentToolTip = "Computing the containment join…";
+        public Brush ContainmentBrush;
 
         public string RowActionLabel => RulesEnabled ? "⏸ Pause" : "▶ Resume";
     }
@@ -250,8 +264,80 @@ namespace AutoCommand.Views
                     }
                 });
 
+                // Containment proof — the same join the AI bridge's
+                // verify_block_containment runs (shared gatherer): attempts ×
+                // live sockets × archive bytes since the block was created.
+                // A row says what the block is actually DOING, LastTraffic
+                // above says what the process is still TRYING.
+                int leaks = 0;
+                try
+                {
+                    var snap = await System.Threading.Tasks.Task.Run(() => BlockContainmentReader.Take(60));
+                    foreach (var vm in vms)
+                    {
+                        if (!vm.HasRules)
+                        {
+                            SetContainment(vm, "—", "—", "TextSecondaryBrush",
+                                "No firewall rules exist for this target — nothing to contain.");
+                            continue;
+                        }
+                        if (!vm.RulesEnabled)
+                        {
+                            SetContainment(vm, "paused", "paused", "TextSecondaryBrush",
+                                "Rules are disabled — traffic flows by design, so containment is moot.");
+                            continue;
+                        }
+                        var worst = BlockContainmentVerifier.WorstForTarget(
+                            snap.Instances, vm.Record.Kind, vm.Record.Key);
+                        if (worst == null)
+                        {
+                            SetContainment(vm, "quiet", "quiet", "TextSecondaryBrush",
+                                "No blocked-connect attempts in the last hour — nothing is even trying " +
+                                "this target. The block may be dead weight (CDN edges rotate).");
+                            continue;
+                        }
+
+                        string approx = worst.T0Approximate ? "\n(block time approximate — legacy rule without provenance)" : "";
+                        string reused = worst.PidReused
+                            ? $"\nA live socket under pid {worst.Pid} belonged to a newer process (pid reuse) — not attributed here." : "";
+                        if (worst.Verdict == BlockContainmentVerifier.Leak)
+                        {
+                            leaks++;
+                            string ev = worst.SocketEvidence.Count > 0
+                                ? $"{worst.SocketEvidence.Count} live socket(s) to blocked target(s): {string.Join(", ", worst.SocketEvidence.Take(3))}"
+                                : $"{worst.FlowsSinceT0} archived flow(s), {worst.BytesSinceT0:N0} bytes since the block was created";
+                            SetContainment(vm, "leak", "🔴 LEAK", "AccentRedBrush",
+                                $"{worst.Process} (pid {worst.Pid}): {ev}.\n" +
+                                "Something established AFTER the block was created — the rule is not holding. " +
+                                $"Escalate: transport-level hard block, or remove/restart the process.{approx}{reused}");
+                        }
+                        else if (worst.Verdict == BlockContainmentVerifier.StaleFlow)
+                        {
+                            SetContainment(vm, "stale-flow", "🟠 stale flow", "AccentAmberBrush",
+                                $"{worst.Process} (pid {worst.Pid}) predates the block; socket(s): " +
+                                $"{string.Join(", ", worst.SocketEvidence.Take(3))}.\n" +
+                                "Firewall rules never sever flows that were already established — this socket " +
+                                $"may still be alive. Sever it (restart the process) to be sure.{worst.Note}{approx}{reused}");
+                        }
+                        else
+                        {
+                            SetContainment(vm, "contained", "contained", "AccentGreenBrush",
+                                $"{worst.Process} (pid {worst.Pid}): {worst.Attempts} attempt(s) in the last hour, " +
+                                "all dropped at the kernel. No live socket to a blocked target, no archived " +
+                                $"bytes since the block was created.{approx}{reused}");
+                        }
+                    }
+                }
+                catch
+                {
+                    foreach (var vm in vms)
+                        SetContainment(vm, "—", "—", "TextSecondaryBrush",
+                            "Containment join unavailable this refresh (feed, WMI or archive unreadable).");
+                }
+
                 Render(vms);
                 StatusText.Text = $"synced {DateTime.Now:HH:mm:ss}" +
+                    (leaks > 0 ? $" · ⚠ {leaks} target(s) LEAKING — see containment column" : "") +
                     (BlocksStore.Unrecognized.Count > 0
                         ? $" · {BlocksStore.Unrecognized.Count} unrecognized line(s) preserved in blocks.txt" : "");
 
@@ -303,6 +389,14 @@ namespace AutoCommand.Views
                 "'no traffic found' means this block may be dead weight (CDN edges rotate).";
         }
 
+        private void SetContainment(BlockRowVm vm, string verdict, string text, string brushKey, string toolTip)
+        {
+            vm.ContainmentVerdict = verdict;
+            vm.Containment = text;
+            vm.ContainmentToolTip = toolTip;
+            vm.ContainmentBrush = (Brush)FindResource(brushKey);
+        }
+
         private static string ShortAge(TimeSpan age) => age.TotalDays >= 1
             ? $"{(int)age.TotalDays}d"
             : age.TotalHours >= 1 ? $"{(int)age.TotalHours}h" : $"{(int)age.TotalMinutes}m";
@@ -336,6 +430,9 @@ namespace AutoCommand.Views
                         .OrderByDescending(x => x.Count())
                         .Select(x => $"{x.Count()} {x.Key}");
                     int paused = g.Count(v => v.HasRules && !v.RulesEnabled);
+                    int gLeak = g.Count(v => v.ContainmentVerdict == BlockContainmentVerifier.Leak);
+                    int gStale = g.Count(v => v.ContainmentVerdict == BlockContainmentVerifier.StaleFlow);
+                    int gContained = g.Count(v => v.ContainmentVerdict == BlockContainmentVerifier.Contained);
 
                     return new BlockGroupVm
                     {
@@ -347,7 +444,10 @@ namespace AutoCommand.Views
                             "Repair attribution may recover more detail.",
                         Impact = impact,
                         Summary = $"{g.Count()} block{(g.Count() == 1 ? "" : "s")} · {string.Join(" · ", classes)}" +
-                            (paused > 0 ? $" · {paused} paused" : ""),
+                            (paused > 0 ? $" · {paused} paused" : "") +
+                            (gLeak > 0 ? $" · ⚠ {gLeak} LEAKING" :
+                             gStale > 0 ? $" · {gStale} stale flow" :
+                             gContained > 0 ? $" · {gContained} contained" : ""),
                         Rows = g.OrderBy(v => v.Record.IsIp ? 0 : 1)
                                 .ThenBy(v => v.Record.Key).ToList(),
                         Expanded = impact == ServiceImpact.High,

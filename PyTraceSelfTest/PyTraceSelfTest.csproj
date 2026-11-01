@@ -14,15 +14,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\Services\TcpStreamCaptureService.cs" />
-    <Compile Include="..\Services\TlsKeylogService.cs" />
-    <Compile Include="..\Services\TlsDecryptor.cs" />
-    <Compile Include="..\Services\PyTraceInstallerService.cs" />
-    <Compile Include="..\Services\PyTraceReaderService.cs" />
-    <Compile Include="..\Helpers\MotwUnblocker.cs" />
-    <Compile Include="..\Models\TcpFlowRecord.cs" />
-    <Compile Include="..\Models\TlsDecryptResult.cs" />
-    <Compile Include="..\Models\PyTraceRecord.cs" />
+    <!-- Everything now from the Forensics core library (phase 4
+         extraction, REWRITE.md): the PyTrace pair, MotwUnblocker, and
+         PyTraceRecord — plus the stream capture/TLS engines it exercises
+         via the Intercept core. No source copies remain here. -->
+    <ProjectReference Include="..\core\AutoCommand.Forensics.Core\AutoCommand.Forensics.Core.csproj" />
   </ItemGroup>
 
 </Project>

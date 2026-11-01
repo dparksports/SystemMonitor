@@ -1,4 +1,10 @@
 using System;
+using AutoCommand.Agent.Core;
+using AutoCommand.Contain.Core;
+using AutoCommand.Forensics.Core;
+using AutoCommand.Intercept.Core;
+using AutoCommand.NetWatch.Core;
+using AutoCommand.Sitedoctor.Core;
 using System.Collections.Generic;
 using System.Linq;
 using System.Management;
@@ -65,7 +71,7 @@ namespace AutoCommand.Services
                                 results.AddRange(Helpers.WanMiniportRemover.RemoveKdnet());
                                 results.AddRange(Helpers.WanMiniportRemover.Execute());
                                 progress?.Report("Turning kernel debug off (bcdedit)…");
-                                await Helpers.ProcessRunner.RunAsync("bcdedit", "/debug off");
+                                await ProcessRunner.RunAsync("bcdedit", "/debug off");
 
                                 int removed = results.Count(r => !string.IsNullOrWhiteSpace(r));
                                 return (true, $"{removed} device action(s) performed; SstpSvc disabled; kernel debug off");
@@ -84,7 +90,7 @@ namespace AutoCommand.Services
                                     catch { }
 
                                     bool debugOn = false;
-                                    string bcd = Helpers.ProcessRunner.Run("bcdedit", "/enum {current}");
+                                    string bcd = ProcessRunner.Run("bcdedit", "/enum {current}");
                                     if (!string.IsNullOrEmpty(bcd))
                                         debugOn = bcd.IndexOf("debug", StringComparison.OrdinalIgnoreCase) >= 0
                                                && bcd.IndexOf("yes", StringComparison.OrdinalIgnoreCase) >= 0;
@@ -218,14 +224,14 @@ namespace AutoCommand.Services
                             Apply = async progress =>
                             {
                                 progress?.Report("Disabling hibernation…");
-                                await Helpers.ProcessRunner.RunAsync("powercfg", "/hibernate off");
+                                await ProcessRunner.RunAsync("powercfg", "/hibernate off");
                                 return (true, "hibernation disabled (hiberfile removed)");
                             },
                             Verify = async () =>
                             {
                                 var (ok, detail) = await Task.Run(async () =>
                                 {
-                                    string output = await Helpers.ProcessRunner.RunAsync("powercfg", "/a");
+                                    string output = await ProcessRunner.RunAsync("powercfg", "/a");
                                     bool enabled = output.Contains("Hibernate")
                                                    && !output.Contains("Hibernate is not available")
                                                    && !output.Contains("Hibernation has not been enabled");
@@ -248,7 +254,7 @@ namespace AutoCommand.Services
                 try
                 {
                     string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
-                    var r = Helpers.ProcessRunner.RunWithDetails("schtasks",
+                    var r = ProcessRunner.RunWithDetails("schtasks",
                         $"/create /tn \"{StartupTaskName}\" /tr \"\\\"{exePath}\\\"\" /sc onlogon /rl highest /f");
                     return r.ExitCode == 0;
                 }
@@ -266,7 +272,7 @@ namespace AutoCommand.Services
             {
                 try
                 {
-                    Helpers.ProcessRunner.RunWithDetails("schtasks", $"/delete /tn \"{StartupTaskName}\" /f");
+                    ProcessRunner.RunWithDetails("schtasks", $"/delete /tn \"{StartupTaskName}\" /f");
                     return true;
                 }
                 catch
