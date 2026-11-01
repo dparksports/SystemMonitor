@@ -96,14 +96,14 @@ DNS/geo/RDAP, TLS interception, forensics, site diagnosis, the MCP agent
 bridge), injected with AutoCommand's identity. Same behavior, same
 self-tests, all of them green. The full story — what moved, what was
 ported forward from II, what the seams look like — is in
-**[README-III.md](README-III.md)**.
+**[README-III.md](docs/history/README-III.md)** (the III-era readme, kept in `docs/history/`).
 
 ![The migration](docs/infographic-migration.svg)
 
 ```powershell
 # .NET 10 SDK required
-git clone https://github.com/dparksports/autocommand-iii.git
-cd autocommand-iii
+git clone https://github.com/dparksports/autocommand.git
+cd autocommand
 dotnet build AutoCommand.csproj -c Release
 
 # self-contained build (what the releases ship)

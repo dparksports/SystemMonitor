@@ -51,7 +51,7 @@ namespace AutoCommand.Contain.Core
     public sealed class BlocksLedger
     {
         // The instance core of the former static BlocksStore (phase: DI pilot,
-        // REWRITE.md). Storage location is constructor-injected — no settable
+        // docs/history/REWRITE.md). Storage location is constructor-injected — no settable
         // global, no "set DataDirectory BEFORE first use" ordering trap; a
         // test (or a second host) constructs its own ledger. BlocksStore below
         // is the static facade the app keeps using.
@@ -626,7 +626,7 @@ namespace AutoCommand.Contain.Core
     /// Static facade over the default BlocksLedger — the surface the app has
     /// always called, unchanged at every call site. The instance core above
     /// is what tests and future hosts construct directly (constructor-
-    /// injected storage location; see the DI-pilot note in REWRITE.md).
+    /// injected storage location; see the DI-pilot note in docs/history/REWRITE.md).
     /// The old settable DataDirectory global is gone by design: redirecting
     /// the shared store is exactly the ordering trap the pilot removes.
     /// </summary>
