@@ -1,6 +1,6 @@
 {
-  "captured_at": "2026-11-01T03:25:12Z",
-  "note": "Per-asset download counts recorded by GitHub. GitHub cannot migrate counters; re-uploading an asset zeroes its count. Counts are raw asset-request hits, not unique users. This capture was taken at the AutoCommand III consolidation and supersedes the earlier capture (2026-11-01T03:03:01Z, total 17) preserved in git history at the AutoCommand II consolidation commit.",
+  "captured_at": "2026-11-01T03:43:35Z",
+  "note": "Per-asset download counts recorded by GitHub. GitHub cannot migrate counters; re-uploading an asset zeroes its count. Counts are raw asset-request hits, not unique users. This capture was taken after the AutoCommand III consolidation and reflects the one-release-per-publish-day retention policy. Earlier captures are in git history and the history array below.",
   "history": [
     {
       "captured_at": "2026-11-01T03:03:01Z",
@@ -8,40 +8,58 @@
       "total": 17
     },
     {
-      "captured_at": "2026-11-01T03:25:12Z",
-      "event": "AutoCommand III consolidation",
-      "total": 17
+      "captured_at": "2026-11-01T03:43:35Z",
+      "event": "AutoCommand III consolidation, post retention-policy",
+      "total": 36
     }
   ],
   "repos": {
     "dparksports/autocommand-windows": [
       {
-        "asset": "AutoCommand-v2026.10.29.2-win-x64.zip",
+        "asset": "AutoCommand-v2026.10.30.30-win-x64.zip",
         "downloads": 0,
         "published": "2026-11-01",
-        "tag": "v2026.10.29.2"
+        "tag": "v2026.10.30.30"
       },
       {
         "asset": "SHA256SUMS.txt",
         "downloads": 0,
         "published": "2026-11-01",
-        "tag": "v2026.10.29.2"
+        "tag": "v2026.10.30.30"
       },
       {
         "asset": "unblock-autocommand.ps1",
         "downloads": 0,
         "published": "2026-11-01",
+        "tag": "v2026.10.30.30"
+      },
+      {
+        "asset": "AutoCommand-v2026.10.29.2-win-x64.zip",
+        "downloads": 1,
+        "published": "2026-11-01",
+        "tag": "v2026.10.29.2"
+      },
+      {
+        "asset": "SHA256SUMS.txt",
+        "downloads": 2,
+        "published": "2026-11-01",
+        "tag": "v2026.10.29.2"
+      },
+      {
+        "asset": "unblock-autocommand.ps1",
+        "downloads": 1,
+        "published": "2026-11-01",
         "tag": "v2026.10.29.2"
       },
       {
         "asset": "AutoCommand-v2026.10.28.2-win-x64.zip",
-        "downloads": 0,
+        "downloads": 1,
         "published": "2026-11-01",
         "tag": "v2026.10.28.2"
       },
       {
         "asset": "SHA256SUMS.txt",
-        "downloads": 0,
+        "downloads": 1,
         "published": "2026-11-01",
         "tag": "v2026.10.28.2"
       },
@@ -53,31 +71,31 @@
       },
       {
         "asset": "AutoCommand-v2026.10.27.9-win-x64.zip",
-        "downloads": 0,
+        "downloads": 2,
         "published": "2026-11-01",
         "tag": "v2026.10.27.9"
       },
       {
         "asset": "SHA256SUMS.txt",
-        "downloads": 0,
+        "downloads": 2,
         "published": "2026-11-01",
         "tag": "v2026.10.27.9"
       },
       {
         "asset": "unblock-autocommand.ps1",
-        "downloads": 0,
+        "downloads": 1,
         "published": "2026-11-01",
         "tag": "v2026.10.27.9"
       },
       {
         "asset": "AutoCommand-v2026.10.25.4-win-x64.zip",
-        "downloads": 1,
+        "downloads": 2,
         "published": "2026-10-26",
         "tag": "v2026.10.25.4"
       },
       {
         "asset": "SHA256SUMS.txt",
-        "downloads": 0,
+        "downloads": 1,
         "published": "2026-10-26",
         "tag": "v2026.10.25.4"
       },
@@ -89,31 +107,31 @@
       },
       {
         "asset": "AutoCommand-v2026.10.21.1-win-x64.zip",
+        "downloads": 3,
+        "published": "2026-10-22",
+        "tag": "v2026.10.21.1"
+      },
+      {
+        "asset": "SHA256SUMS.txt",
         "downloads": 2,
         "published": "2026-10-22",
         "tag": "v2026.10.21.1"
       },
       {
-        "asset": "SHA256SUMS.txt",
-        "downloads": 1,
-        "published": "2026-10-22",
-        "tag": "v2026.10.21.1"
-      },
-      {
         "asset": "unblock-autocommand.ps1",
-        "downloads": 0,
+        "downloads": 1,
         "published": "2026-10-22",
         "tag": "v2026.10.21.1"
       },
       {
         "asset": "AutoCommand-v2026.10.20.6-win-x64.zip",
-        "downloads": 1,
+        "downloads": 2,
         "published": "2026-10-21",
         "tag": "v2026.10.20.6"
       },
       {
         "asset": "SHA256SUMS.txt",
-        "downloads": 1,
+        "downloads": 2,
         "published": "2026-10-21",
         "tag": "v2026.10.20.6"
       },
@@ -127,7 +145,7 @@
     "dparksports/autocommand-ii-archive": [
       {
         "asset": "AutoCommand-v2026.10.29.2-win-x64.zip",
-        "downloads": 0,
+        "downloads": 1,
         "published": "2026-10-28",
         "tag": "v2026.10.29.2"
       },
