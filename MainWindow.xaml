@@ -152,7 +152,7 @@
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="🔒" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
                         <TextBlock Text="Shields Up" Style="{StaticResource NavPaneLabel}" VerticalAlignment="Center"
-                                   ToolTip="The standalone Shields Up app, folded in: junk out, firewall presets, doors closed, phone-home silenced."/>
+                                   ToolTip="The standalone Shields Up app, folded in as sub-tabs: quick scan checklist, doors closed, phone-home silenced, junk out, OS hardening."/>
                     </StackPanel>
                 </TabItem.Header>
                 <views:ShieldsUpView x:Name="ShieldsUpTab"/>

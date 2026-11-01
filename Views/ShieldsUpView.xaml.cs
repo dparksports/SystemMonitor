@@ -6,21 +6,17 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using ShieldsUp.Core.Services;
-// Aliases: both ShieldsUp.Core.Services and AutoCommand.Contain.Core define
-// FirewallProfileService; the tab drives presets through the Contain.Core
-// facade (which delegates to the engine), and the baseline manager for the
-// atomic apply.
-using FirewallPresets = AutoCommand.Contain.Core.FirewallProfileService;
-using Baselines = AutoCommand.Helpers.FirewallBaselineManager;
 
 namespace AutoCommand.Views;
 
 /// <summary>
-/// The Shields Up tab: the standalone app's four rituals (junk out, firewall
-/// preset, doors closed, phone-home silenced) plus Quick Scan, driven through
-/// the vendored ShieldsUp.Core services — the same logic the WinUI shell
-/// calls, so the two faces cannot drift. Every action confirms first; state
-/// rows re-read live system state, never a cached verdict.
+/// The Shields Up tab: the standalone app's rituals as sub-tabs — Quick
+/// Scan (the whole ritual as one checklist), Doors, Privacy, Junk and
+/// Hardening — driven through the vendored ShieldsUp.Core services, the
+/// same logic the WinUI shell calls, so the two faces cannot drift. The
+/// firewall presets deliberately live in the Firewall tab (they were a
+/// duplicate here). Every action confirms first; state rows re-read live
+/// system state, never a cached verdict.
 /// </summary>
 public partial class ShieldsUpView : UserControl
 {
@@ -41,6 +37,8 @@ public partial class ShieldsUpView : UserControl
 
     private async Task OnLoadedAsync()
     {
+        RestoreSubTab();
+
         // Migration banner: the standalone app's state, offered once.
         if (StandaloneImport.HasLegacyState())
         {
@@ -413,61 +411,54 @@ public partial class ShieldsUpView : UserControl
         }
     }
 
-    // ── firewall presets ────────────────────────────────────────────────
+    // ── firewall presets: deliberately NOT here ─────────────────────────
+    // The named presets are the Firewall tab's own control (profile dropdown
+    // there, which pauses the drift enforcer, applies and re-captures the
+    // baseline atomically). A duplicate row here meant two doors to the same
+    // operation on two different tabs; the tab now says where they live.
 
-    private async void Preset_Click(object sender, RoutedEventArgs e)
+    // ── sub-tabs ────────────────────────────────────────────────────────
+
+    private static readonly string[] SubTabNames = { "quick-scan", "doors", "privacy", "junk", "hardening" };
+
+    private static string SubTabPrefsPath => System.IO.Path.Combine(
+        System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),
+        "AutoCommand", "shieldsup_subtab.txt");
+
+    /// <summary>Restores the last-used sub-tab (same flat-file pattern as
+    /// rain_panel.txt); Quick Scan stays the default when unset.</summary>
+    private void RestoreSubTab()
     {
-        var type = sender == PresetStrictBtn ? FirewallPresets.ProfileType.BlockSharingDiscoveryRemoteDesktop
-            : sender == PresetHomeBtn ? FirewallPresets.ProfileType.AllowSharingDiscovery
-            : sender == PresetOfficeBtn ? FirewallPresets.ProfileType.AllowSharingDiscoveryRemoteDesktop
-            : sender == PresetGamingBtn ? FirewallPresets.ProfileType.AllowDiscoveryCast
-            : FirewallPresets.ProfileType.ShieldsUpMdns;
-        string name = sender == PresetStrictBtn ? "Strict Public"
-            : sender == PresetHomeBtn ? "Home Trusted"
-            : sender == PresetOfficeBtn ? "Office"
-            : sender == PresetGamingBtn ? "Gaming & Media"
-            : "Shield Up";
-
-        if (!Confirm(
-                $"Apply the {name} firewall preset? This changes many Windows firewall rule states at once.\n\n" +
-                "The firewall baseline is re-captured as part of the same operation, so Auto-Mitigate protects the preset's intent instead of fighting it.\n\n" +
-                "If anything you need stops working, 🚑 Restore Internet (corner of the window) puts it back.",
-                $"Apply {name} preset"))
-            return;
-
-        SetPresetsEnabled(false);
         try
         {
-            // Atomic apply: (1) pause drift enforcement while the preset
-            // churns dozens of rules, (2) apply, (3) re-capture the baseline.
-            // Skipping (3) is the footgun from the 2026-10-30 field report
-            // (§3): a Shields-Up-era mass-disable frozen into the baseline
-            // made Auto-Mitigate keep re-disabling rules Windows re-enables
-            // — visible as WSL egress dropping below the rule model.
-            Baselines.PauseForMinutes(2);
-            var progress = new Progress<string>();
-            var result = await Task.Run(async () =>
-                await FirewallPresets.Instance.ApplyProfile(type, progress));
-            var (count, capturedAt) = await Baselines.CaptureBaselineAsync();
-            ShowResult(PresetResultText,
-                $"{name} applied — {result.TotalChanged} rule(s) changed, {result.TotalFailed} failed. " +
-                $"Baseline re-captured ({count} rules, {capturedAt.ToLocalTime():HH:mm})." +
-                (result.Notes != null ? $" {result.Notes}." : ""));
+            if (!System.IO.File.Exists(SubTabPrefsPath)) return;
+            var name = System.IO.File.ReadAllText(SubTabPrefsPath).Trim();
+            var idx = System.Array.IndexOf(SubTabNames, name);
+            if (idx > 0) SubTabs.SelectedIndex = idx;
         }
-        catch (Exception ex)
-        {
-            ShowResult(PresetResultText, $"{name} preset failed: {ex.Message}");
-        }
-        finally
-        {
-            SetPresetsEnabled(true);
-        }
+        catch { /* persistence is best-effort — default lands on Quick Scan */ }
     }
 
-    private void SetPresetsEnabled(bool enabled)
+    /// <summary>Switching sub-tabs re-reads that section's live state — the
+    /// same rows the refresh buttons re-read, so opening a tab IS a check.</summary>
+    private void SubTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        foreach (var b in new[] { PresetStrictBtn, PresetHomeBtn, PresetOfficeBtn, PresetGamingBtn, PresetShieldUpBtn })
-            b.IsEnabled = enabled;
+        if (SubTabs.SelectedIndex < 0) return;
+        try
+        {
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(SubTabPrefsPath));
+            System.IO.File.WriteAllText(SubTabPrefsPath, SubTabNames[SubTabs.SelectedIndex]);
+        }
+        catch { }
+
+        switch (SubTabs.SelectedIndex)
+        {
+            case 0: _ = QuickScanCheckAsync(); break;
+            case 1: _ = RefreshDoorsAsync(); break;
+            case 2: _ = RefreshTelemetryAsync(); break;
+            case 3: _ = RefreshBloatwareAsync(); break;
+            case 4: _ = RefreshHardeningAsync(); break;
+        }
     }
 
     // ── telemetry opt-outs ──────────────────────────────────────────────
@@ -704,13 +695,13 @@ public partial class ShieldsUpView : UserControl
         try
         {
             await Task.Run(() => HardeningService.SetIpv6Disabled(!disabled));
-            ShowResult(DoorActionResult, disabled
+            ShowResult(HardeningActionResult, disabled
                 ? "IPv6 re-enabled. A reboot is required."
                 : "IPv6 disabled via registry (0xFF). A reboot is required.");
         }
         catch (Exception ex)
         {
-            ShowResult(DoorActionResult, "Failed: " + ex.Message);
+            ShowResult(HardeningActionResult, "Failed: " + ex.Message);
         }
         finally
         {
@@ -731,13 +722,13 @@ public partial class ShieldsUpView : UserControl
         try
         {
             await Task.Run(() => HardeningService.SetLsaProtected(!on));
-            ShowResult(DoorActionResult, on
+            ShowResult(HardeningActionResult, on
                 ? "LSA Protection disabled."
                 : "LSA Protection enabled. A reboot is required for this to take effect.");
         }
         catch (Exception ex)
         {
-            ShowResult(DoorActionResult, "Failed: " + ex.Message);
+            ShowResult(HardeningActionResult, "Failed: " + ex.Message);
         }
         finally
         {
@@ -758,11 +749,11 @@ public partial class ShieldsUpView : UserControl
         try
         {
             await Task.Run(() => HardeningService.SetUacStrict(!strict));
-            ShowResult(DoorActionResult, strict ? "UAC relaxed." : "UAC set to maximum strictness.");
+            ShowResult(HardeningActionResult, strict ? "UAC relaxed." : "UAC set to maximum strictness.");
         }
         catch (Exception ex)
         {
-            ShowResult(DoorActionResult, "Failed: " + ex.Message);
+            ShowResult(HardeningActionResult, "Failed: " + ex.Message);
         }
         finally
         {
@@ -782,11 +773,11 @@ public partial class ShieldsUpView : UserControl
         try
         {
             await Task.Run(HardeningService.ResetHostsFile);
-            ShowResult(DoorActionResult, "Hosts file reset to the Windows default.");
+            ShowResult(HardeningActionResult, "Hosts file reset to the Windows default.");
         }
         catch (Exception ex)
         {
-            ShowResult(DoorActionResult, "Failed: " + ex.Message);
+            ShowResult(HardeningActionResult, "Failed: " + ex.Message);
         }
         finally
         {

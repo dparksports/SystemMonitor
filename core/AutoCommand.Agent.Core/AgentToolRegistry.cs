@@ -399,7 +399,7 @@ namespace AutoCommand.Agent.Core
 
             new Tool(
                 "apply_shieldsup_preset",
-                "Apply one named firewall preset (Shields Up tab): strict_public (kill sharing/discovery/" +
+                "Apply one named firewall preset (the Firewall tab's profile control): strict_public (kill sharing/discovery/" +
                 "remote desktop), home_trusted, gaming_media, office or shield_up (disable every grouped " +
                 "rule, re-enable only mDNS, Core Networking and the WSL/Hyper-V VM-infrastructure groups). " +
                 "The firewall baseline is re-captured atomically with the apply, so Auto-Mitigate protects " +

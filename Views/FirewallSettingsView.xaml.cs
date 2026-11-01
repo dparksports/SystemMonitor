@@ -236,6 +236,11 @@ namespace AutoCommand.Views
 
             try
             {
+                // The profile churns dozens of rule states — keep the drift
+                // enforcer out of the apply window (its 60s tick must not
+                // "fix" the transition); the re-capture below is atomic with
+                // this apply (2026-10-30 field report §3).
+                FirewallBaselineManager.PauseForMinutes(1);
                 ProfileApplyResult result = await FirewallProfileService.Instance.ApplyProfile(type, progress);
 
                 await LoadRules(); // Auto-refresh the grid so the new state is shown immediately

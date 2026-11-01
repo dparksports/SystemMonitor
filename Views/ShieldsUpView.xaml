@@ -8,275 +8,328 @@
         <SolidColorBrush x:Key="OkBrush" Color="#34D399"/>
         <SolidColorBrush x:Key="WarnBrush" Color="#FBBF24"/>
         <SolidColorBrush x:Key="BadBrush" Color="#F87171"/>
+
+        <!-- Sub-tab bar: the checklist + the four rituals, one question per
+             tab. Pill-shaped, house brushes, selected = raised surface. -->
+        <Style x:Key="SubTabItem" TargetType="TabItem">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Margin" Value="0,0,6,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="Bd" CornerRadius="10" Padding="14,7"
+                                Background="Transparent"
+                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                            <ContentPresenter ContentSource="Header" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceAltBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource NavHoverBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="SubTabControl" TargetType="TabControl">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
     </UserControl.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel MaxWidth="880" HorizontalAlignment="Left" Margin="24,20,24,24">
+    <Grid Margin="24,16,24,12" RowDefinitions="Auto,Auto,*">
+        <TextBlock Grid.Row="0" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,10"
+                   Text="The fresh-install ritual, folded into AutoCommand: close the doors Windows leaves open, silence the phone-home, take the junk out, and set the OS switches. Every action asks first, almost every action reverses. The firewall profile lives in the Firewall tab."/>
 
-            <!-- ── migration banner (visible only when the standalone app left state) ── -->
-            <Border x:Name="MigrationBanner" Visibility="Collapsed" CornerRadius="12"
-                    Background="{DynamicResource BadgeAmberBg}" Padding="14" Margin="0,0,0,14">
-                <StackPanel>
-                    <TextBlock x:Name="MigrationText" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                        <Button x:Name="ImportBtn" Content="Import Shields Up state"
-                                Click="ImportBtn_Click" Padding="12,5"/>
-                        <TextBlock x:Name="MigrationResultText" Margin="12,0,0,0"
-                                   VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
-                                   TextWrapping="Wrap"/>
-                    </StackPanel>
-                </StackPanel>
-            </Border>
-
-            <TextBlock Style="{DynamicResource PageHeader}" Text="Shields Up"/>
-            <TextBlock Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,16"
-                       Text="The fresh-install ritual, folded into AutoCommand: take the junk out, set the firewall, close the doors Windows leaves open, and silence the phone-home. Every action asks first, almost every action reverses."/>
+        <TabControl Grid.Row="2" x:Name="SubTabs" Style="{StaticResource SubTabControl}"
+                    SelectionChanged="SubTabs_SelectionChanged">
 
             <!-- ═══════════ QUICK SCAN ═══════════ -->
-            <Border Style="{DynamicResource Card}">
-                <StackPanel>
-                    <TextBlock Style="{DynamicResource SectionHeader}" Text="QUICK SCAN"/>
-                    <TextBlock Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,10"
-                               Text="The whole ritual as one checklist. It reads your machine's current state first — what is already done shows in green — and finishes the rest in order, with one master confirmation."/>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                        <Button x:Name="QuickScanBtn" Style="{DynamicResource PrimaryButton}"
-                                Content="Run Quick Scan" Click="QuickScanBtn_Click"/>
-                        <Button x:Name="QuickScanCheckBtn" Content="Re-check status" Margin="12,0,0,0"
-                                Padding="14,8" Click="QuickScanCheckBtn_Click"/>
+            <TabItem Style="{StaticResource SubTabItem}">
+                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="✅" Margin="0,0,6,0"/><TextBlock Text="Quick Scan"/></StackPanel></TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel MaxWidth="880" HorizontalAlignment="Left" Margin="4,14,4,8">
+
+                        <!-- ── migration banner (visible only when the standalone app left state) ── -->
+                        <Border x:Name="MigrationBanner" Visibility="Collapsed" CornerRadius="12"
+                                Background="{DynamicResource BadgeAmberBg}" Padding="14" Margin="0,0,0,14">
+                            <StackPanel>
+                                <TextBlock x:Name="MigrationText" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <Button x:Name="ImportBtn" Content="Import Shields Up state"
+                                            Click="ImportBtn_Click" Padding="12,5"/>
+                                    <TextBlock x:Name="MigrationResultText" Margin="12,0,0,0"
+                                               VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
+                                               TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{DynamicResource Card}">
+                            <StackPanel>
+                                <TextBlock Style="{DynamicResource SectionHeader}" Text="QUICK SCAN"/>
+                                <TextBlock Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                           Text="The whole ritual as one checklist. It reads your machine's current state first — what is already done shows in green — and finishes the rest in order, with one master confirmation. Each step's manual control lives in its own sub-tab."/>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <Button x:Name="QuickScanBtn" Style="{DynamicResource PrimaryButton}"
+                                            Content="Run Quick Scan" Click="QuickScanBtn_Click"/>
+                                    <Button x:Name="QuickScanCheckBtn" Content="Re-check status" Margin="12,0,0,0"
+                                            Padding="14,8" Click="QuickScanCheckBtn_Click"/>
+                                </StackPanel>
+                                <ItemsControl x:Name="QuickScanList">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,5">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="26"/>
+                                                    <ColumnDefinition Width="260"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Chip}" FontSize="13" VerticalAlignment="Top"
+                                                           Foreground="{Binding ChipBrush}"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding Title}" FontWeight="SemiBold"
+                                                           TextWrapping="Wrap" VerticalAlignment="Top"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding Detail}" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                           TextWrapping="Wrap" VerticalAlignment="Top"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock x:Name="QuickScanProgress" Foreground="{DynamicResource TextSecondaryBrush}"
+                                           Visibility="Collapsed" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
-                    <ItemsControl x:Name="QuickScanList">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="0,5">
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ═══════════ DOORS ═══════════ -->
+            <TabItem Style="{StaticResource SubTabItem}">
+                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="🚪" Margin="0,0,6,0"/><TextBlock Text="Doors"/></StackPanel></TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel MaxWidth="880" HorizontalAlignment="Left" Margin="4,14,4,8">
+                        <Border Style="{DynamicResource Card}">
+                            <StackPanel>
+                                <TextBlock Style="{DynamicResource SectionHeader}" Text="CLOSE THE DOORS"/>
+                                <TextBlock Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                           Text="Built-in remote-access plumbing most people never use. Re-checked live every time this tab opens."/>
+                                <Button x:Name="DoorsRefreshBtn" Content="Re-check doors" Padding="12,5" Margin="0,0,0,10"
+                                        Click="DoorsRefreshBtn_Click"/>
+
+                                <TextBlock Text="SSTP VPN service &amp; miniports" FontWeight="SemiBold" Margin="0,4,0,2"/>
+                                <Grid Margin="0,0,0,8">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="26"/>
-                                        <ColumnDefinition Width="260"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding Chip}" FontSize="13" VerticalAlignment="Top"
-                                               Foreground="{Binding ChipBrush}"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding Title}" FontWeight="SemiBold"
-                                               TextWrapping="Wrap" VerticalAlignment="Top"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding Detail}" Foreground="{DynamicResource TextSecondaryBrush}"
-                                               TextWrapping="Wrap" VerticalAlignment="Top"/>
-                                </Grid>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <TextBlock x:Name="QuickScanProgress" Foreground="{DynamicResource TextSecondaryBrush}"
-                               Visibility="Collapsed" Margin="0,8,0,0" TextWrapping="Wrap"/>
-                </StackPanel>
-            </Border>
-
-            <!-- ═══════════ CLOSE THE DOORS ═══════════ -->
-            <Border Style="{DynamicResource Card}">
-                <StackPanel>
-                    <TextBlock Style="{DynamicResource SectionHeader}" Text="CLOSE THE DOORS"/>
-                    <TextBlock Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,10"
-                               Text="Built-in remote-access plumbing most people never use. Re-checked live every time this tab opens."/>
-                    <Button x:Name="DoorsRefreshBtn" Content="Re-check doors" Padding="12,5" Margin="0,0,0,10"
-                            Click="DoorsRefreshBtn_Click"/>
-
-                    <TextBlock Text="SSTP VPN service &amp; miniports" FontWeight="SemiBold" Margin="0,4,0,2"/>
-                    <Grid Margin="0,0,0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="SstpStatusText" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
-                        <Button x:Name="SstpToggleBtn" Grid.Column="1" Content="Disable + neuter miniports"
-                                Padding="12,5" Margin="12,0,0,0" Click="SstpToggleBtn_Click"/>
-                    </Grid>
-
-                    <TextBlock Text="Wi-Fi Direct ghost hotspot" FontWeight="SemiBold" Margin="0,4,0,2"/>
-                    <Grid Margin="0,0,0,4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="HostedNetworkStatusText" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal">
-                            <Button x:Name="HostedStopBtn" Content="Stop &amp; disallow" Padding="12,5"
-                                    Margin="12,0,0,0" Click="HostedStopBtn_Click"/>
-                            <Button x:Name="WifiDirectRemoveBtn" Content="Remove adapter(s)" Padding="12,5"
-                                    Margin="8,0,0,0" Click="WifiDirectRemoveBtn_Click"/>
-                        </StackPanel>
-                    </Grid>
-
-                    <TextBlock Text="Kernel debug (KDNET)" FontWeight="SemiBold" Margin="0,4,0,2"/>
-                    <Grid Margin="0,0,0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="KdnetStatusText" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <Button x:Name="KdnetToggleBtn" Grid.Column="1" Content="Turn debug off"
-                                Padding="12,5" Margin="12,0,0,0" Click="KdnetToggleBtn_Click"/>
-                    </Grid>
-
-                    <TextBlock Text="Windows VPN services (RasMan, IKEEXT, PolicyAgent, RemoteAccess)" FontWeight="SemiBold" Margin="0,4,0,2"/>
-                    <Grid Margin="0,0,0,4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="VpnStatusText" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal">
-                            <Button x:Name="VpnDisableBtn" Content="Disable all" Padding="12,5"
-                                    Margin="12,0,0,0" Click="VpnDisableBtn_Click"/>
-                            <Button x:Name="VpnEnableBtn" Content="Re-enable" Padding="12,5"
-                                    Margin="8,0,0,0" Click="VpnEnableBtn_Click"/>
-                        </StackPanel>
-                    </Grid>
-
-                    <TextBlock Text="WAN Miniport adapters" FontWeight="SemiBold" Margin="0,4,0,2"/>
-                    <Grid Margin="0,0,0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="MiniportStatusText" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
-                        <Button x:Name="MiniportRemoveBtn" Grid.Column="1" Content="Remove all" Padding="12,5"
-                                Margin="12,0,0,0" Click="MiniportRemoveBtn_Click"/>
-                    </Grid>
-                    <TextBlock x:Name="DoorActionResult" Foreground="{DynamicResource TextSecondaryBrush}"
-                               TextWrapping="Wrap" Visibility="Collapsed"/>
-                </StackPanel>
-            </Border>
-
-            <!-- ═══════════ FIREWALL PRESETS ═══════════ -->
-            <Border Style="{DynamicResource Card}">
-                <StackPanel>
-                    <TextBlock Style="{DynamicResource SectionHeader}" Text="FIREWALL PRESETS"/>
-                    <TextBlock Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,10"
-                               Text="One click decides what stays open and what closes. The firewall baseline is re-captured as part of the same operation, so Auto-Mitigate protects the preset's intent instead of fighting it — and the Shield Up whitelist spares WSL/Hyper-V networking. If anything you need stops working, the 🚑 Restore Internet button (corner of the window) puts it back."/>
-                    <WrapPanel>
-                        <Button x:Name="PresetStrictBtn" Content="Strict Public" Padding="14,7" Click="Preset_Click"/>
-                        <Button x:Name="PresetHomeBtn" Content="Home Trusted" Padding="14,7" Margin="8,0,0,0" Click="Preset_Click"/>
-                        <Button x:Name="PresetOfficeBtn" Content="Office" Padding="14,7" Margin="8,0,0,0" Click="Preset_Click"/>
-                        <Button x:Name="PresetGamingBtn" Content="Gaming &amp; Media" Padding="14,7" Margin="8,0,0,0" Click="Preset_Click"/>
-                        <Button x:Name="PresetShieldUpBtn" Content="Shield Up" Style="{DynamicResource PrimaryButton}"
-                                Margin="8,0,0,0" Click="Preset_Click"/>
-                    </WrapPanel>
-                    <TextBlock x:Name="PresetResultText" Foreground="{DynamicResource TextSecondaryBrush}"
-                               Margin="0,10,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
-                </StackPanel>
-            </Border>
-
-            <!-- ═══════════ SILENCE THE PHONE-HOME ═══════════ -->
-            <Border Style="{DynamicResource Card}">
-                <StackPanel>
-                    <TextBlock Style="{DynamicResource SectionHeader}" Text="SILENCE THE PHONE-HOME"/>
-                    <TextBlock Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,10"
-                               Text="Flips each vendor's own official opt-out switch, saves the previous setting, then checks the app actually stopped. One click reverts exactly. Optional: pin the domains in the hosts file as a backstop — attempts then land in AutoCommand's sinkhole log."/>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                        <Button x:Name="TelemetryRefreshBtn" Content="Re-check vendors" Padding="12,5"
-                                Click="TelemetryRefreshBtn_Click"/>
-                        <Button x:Name="TelemetryEnforceAllBtn" Content="Pin remaining (hosts backstop)" Padding="12,5"
-                                Margin="8,0,0,0" Click="TelemetryEnforceAllBtn_Click"/>
-                    </StackPanel>
-                    <ItemsControl x:Name="TelemetryList">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="0,5">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="220"/>
-                                        <ColumnDefinition Width="150"/>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding AppName}" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding StateText}" Foreground="{Binding StateBrush}"
-                                               TextWrapping="Wrap"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding Evidence}" Foreground="{DynamicResource TextSecondaryBrush}"
-                                               TextWrapping="Wrap"/>
-                                    <StackPanel Grid.Column="3" Orientation="Horizontal">
-                                        <Button Content="Opt out" Padding="10,4" Visibility="{Binding OptOutVis}"
-                                                Click="TelemetryOptOut_Click" Tag="{Binding}"/>
-                                        <Button Content="Revert" Padding="10,4" Margin="6,0,0,0" Visibility="{Binding RevertVis}"
-                                                Click="TelemetryRevert_Click" Tag="{Binding}"/>
+                                    <TextBlock x:Name="SstpStatusText" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                                    <Button x:Name="SstpToggleBtn" Grid.Column="1" Content="Disable + neuter miniports"
+                                            Padding="12,5" Margin="12,0,0,0" Click="SstpToggleBtn_Click"/>
+                                </Grid>
+
+                                <TextBlock Text="Wi-Fi Direct ghost hotspot" FontWeight="SemiBold" Margin="0,4,0,2"/>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="HostedNetworkStatusText" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                        <Button x:Name="HostedStopBtn" Content="Stop &amp; disallow" Padding="12,5"
+                                                Margin="12,0,0,0" Click="HostedStopBtn_Click"/>
+                                        <Button x:Name="WifiDirectRemoveBtn" Content="Remove adapter(s)" Padding="12,5"
+                                                Margin="8,0,0,0" Click="WifiDirectRemoveBtn_Click"/>
                                     </StackPanel>
                                 </Grid>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <TextBlock x:Name="TelemetryResultText" Foreground="{DynamicResource TextSecondaryBrush}"
-                               Margin="0,8,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
-                </StackPanel>
-            </Border>
 
-            <!-- ═══════════ TAKE THE JUNK OUT ═══════════ -->
-            <Border Style="{DynamicResource Card}">
-                <StackPanel>
-                    <TextBlock Style="{DynamicResource SectionHeader}" Text="TAKE THE JUNK OUT"/>
-                    <TextBlock Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,10"
-                               Text="Preinstalled apps — games, trial apps, the ones that come back with the update. Nothing Windows needs to run is ever on the list, and you can edit the list in the standalone Shields Up editor before running this."/>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                        <Button x:Name="BloatRefreshBtn" Content="Scan for bloatware" Padding="12,5"
-                                Click="BloatRefreshBtn_Click"/>
-                        <Button x:Name="BloatRemoveBtn" Content="Remove matched apps" Padding="12,5" Margin="8,0,0,0"
-                                Click="BloatRemoveBtn_Click"/>
+                                <TextBlock Text="Kernel debug (KDNET)" FontWeight="SemiBold" Margin="0,4,0,2"/>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="KdnetStatusText" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <Button x:Name="KdnetToggleBtn" Grid.Column="1" Content="Turn debug off"
+                                            Padding="12,5" Margin="12,0,0,0" Click="KdnetToggleBtn_Click"/>
+                                </Grid>
+
+                                <TextBlock Text="Windows VPN services (RasMan, IKEEXT, PolicyAgent, RemoteAccess)" FontWeight="SemiBold" Margin="0,4,0,2"/>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="VpnStatusText" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                        <Button x:Name="VpnDisableBtn" Content="Disable all" Padding="12,5"
+                                                Margin="12,0,0,0" Click="VpnDisableBtn_Click"/>
+                                        <Button x:Name="VpnEnableBtn" Content="Re-enable" Padding="12,5"
+                                                Margin="8,0,0,0" Click="VpnEnableBtn_Click"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <TextBlock Text="WAN Miniport adapters" FontWeight="SemiBold" Margin="0,4,0,2"/>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="MiniportStatusText" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                                    <Button x:Name="MiniportRemoveBtn" Grid.Column="1" Content="Remove all" Padding="12,5"
+                                            Margin="12,0,0,0" Click="MiniportRemoveBtn_Click"/>
+                                </Grid>
+                                <TextBlock x:Name="DoorActionResult" Foreground="{DynamicResource TextSecondaryBrush}"
+                                           TextWrapping="Wrap" Visibility="Collapsed"/>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
-                    <TextBlock x:Name="BloatListText" Foreground="{DynamicResource TextSecondaryBrush}"
-                               TextWrapping="Wrap" Text="Not scanned yet."/>
-                    <TextBlock x:Name="BloatResultText" Foreground="{DynamicResource TextSecondaryBrush}"
-                               Margin="0,8,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
-                </StackPanel>
-            </Border>
+                </ScrollViewer>
+            </TabItem>
 
-            <!-- ═══════════ OS HARDENING ═══════════ -->
-            <Border Style="{DynamicResource Card}">
-                <StackPanel>
-                    <TextBlock Style="{DynamicResource SectionHeader}" Text="OS HARDENING"/>
-                    <TextBlock Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,10"
-                               Text="Registry-level switches, each reversible. Reboot after changing IPv6 or LSA."/>
+            <!-- ═══════════ PRIVACY ═══════════ -->
+            <TabItem Style="{StaticResource SubTabItem}">
+                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="📵" Margin="0,0,6,0"/><TextBlock Text="Privacy"/></StackPanel></TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel MaxWidth="880" HorizontalAlignment="Left" Margin="4,14,4,8">
+                        <Border Style="{DynamicResource Card}">
+                            <StackPanel>
+                                <TextBlock Style="{DynamicResource SectionHeader}" Text="SILENCE THE PHONE-HOME"/>
+                                <TextBlock Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                           Text="Flips each vendor's own official opt-out switch, saves the previous setting, then checks the app actually stopped. One click reverts exactly. Optional: pin the domains in the hosts file as a backstop — attempts then land in AutoCommand's sinkhole log."/>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <Button x:Name="TelemetryRefreshBtn" Content="Re-check vendors" Padding="12,5"
+                                            Click="TelemetryRefreshBtn_Click"/>
+                                    <Button x:Name="TelemetryEnforceAllBtn" Content="Pin remaining (hosts backstop)" Padding="12,5"
+                                            Margin="8,0,0,0" Click="TelemetryEnforceAllBtn_Click"/>
+                                </StackPanel>
+                                <ItemsControl x:Name="TelemetryList">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,5">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="220"/>
+                                                    <ColumnDefinition Width="150"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding AppName}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding StateText}" Foreground="{Binding StateBrush}"
+                                                           TextWrapping="Wrap"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding Evidence}" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                           TextWrapping="Wrap"/>
+                                                <StackPanel Grid.Column="3" Orientation="Horizontal">
+                                                    <Button Content="Opt out" Padding="10,4" Visibility="{Binding OptOutVis}"
+                                                            Click="TelemetryOptOut_Click" Tag="{Binding}"/>
+                                                    <Button Content="Revert" Padding="10,4" Margin="6,0,0,0" Visibility="{Binding RevertVis}"
+                                                            Click="TelemetryRevert_Click" Tag="{Binding}"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock x:Name="TelemetryResultText" Foreground="{DynamicResource TextSecondaryBrush}"
+                                           Margin="0,8,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
 
-                    <TextBlock Text="IPv6 (global DisabledComponents)" FontWeight="SemiBold" Margin="0,4,0,2"/>
-                    <Grid Margin="0,0,0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="Ipv6StatusText" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <Button x:Name="Ipv6Btn" Grid.Column="1" Content="Disable" Padding="12,5"
-                                Margin="12,0,0,0" Click="Ipv6Btn_Click"/>
-                    </Grid>
+            <!-- ═══════════ JUNK ═══════════ -->
+            <TabItem Style="{StaticResource SubTabItem}">
+                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="🧹" Margin="0,0,6,0"/><TextBlock Text="Junk"/></StackPanel></TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel MaxWidth="880" HorizontalAlignment="Left" Margin="4,14,4,8">
+                        <Border Style="{DynamicResource Card}">
+                            <StackPanel>
+                                <TextBlock Style="{DynamicResource SectionHeader}" Text="TAKE THE JUNK OUT"/>
+                                <TextBlock Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                           Text="Preinstalled apps — games, trial apps, the ones that come back with the update. Nothing Windows needs to run is ever on the list, and you can edit the list in the standalone Shields Up editor before running this."/>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <Button x:Name="BloatRefreshBtn" Content="Scan for bloatware" Padding="12,5"
+                                            Click="BloatRefreshBtn_Click"/>
+                                    <Button x:Name="BloatRemoveBtn" Content="Remove matched apps" Padding="12,5" Margin="8,0,0,0"
+                                            Click="BloatRemoveBtn_Click"/>
+                                </StackPanel>
+                                <TextBlock x:Name="BloatListText" Foreground="{DynamicResource TextSecondaryBrush}"
+                                           TextWrapping="Wrap" Text="Not scanned yet."/>
+                                <TextBlock x:Name="BloatResultText" Foreground="{DynamicResource TextSecondaryBrush}"
+                                           Margin="0,8,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
 
-                    <TextBlock Text="LSA Protection (RunAsPPL)" FontWeight="SemiBold" Margin="0,4,0,2"/>
-                    <Grid Margin="0,0,0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="LsaStatusText" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <Button x:Name="LsaBtn" Grid.Column="1" Content="Enable" Padding="12,5"
-                                Margin="12,0,0,0" Click="LsaBtn_Click"/>
-                    </Grid>
+            <!-- ═══════════ HARDENING ═══════════ -->
+            <TabItem Style="{StaticResource SubTabItem}">
+                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="🔐" Margin="0,0,6,0"/><TextBlock Text="Hardening"/></StackPanel></TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel MaxWidth="880" HorizontalAlignment="Left" Margin="4,14,4,8">
+                        <Border Style="{DynamicResource Card}">
+                            <StackPanel>
+                                <TextBlock Style="{DynamicResource SectionHeader}" Text="OS HARDENING"/>
+                                <TextBlock Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                           Text="Registry-level switches, each reversible. Reboot after changing IPv6 or LSA."/>
 
-                    <TextBlock Text="UAC strictness" FontWeight="SemiBold" Margin="0,4,0,2"/>
-                    <Grid Margin="0,0,0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="UacStatusText" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <Button x:Name="UacBtn" Grid.Column="1" Content="Set maximum" Padding="12,5"
-                                Margin="12,0,0,0" Click="UacBtn_Click"/>
-                    </Grid>
+                                <TextBlock Text="IPv6 (global DisabledComponents)" FontWeight="SemiBold" Margin="0,4,0,2"/>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="Ipv6StatusText" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <Button x:Name="Ipv6Btn" Grid.Column="1" Content="Disable" Padding="12,5"
+                                            Margin="12,0,0,0" Click="Ipv6Btn_Click"/>
+                                </Grid>
 
-                    <TextBlock Text="Hosts file" FontWeight="SemiBold" Margin="0,4,0,2"/>
-                    <Grid Margin="0,0,0,4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="HostsStatusText" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
-                        <Button x:Name="HostsResetBtn" Grid.Column="1" Content="Reset to default" Padding="12,5"
-                                Margin="12,0,0,0" Click="HostsResetBtn_Click"/>
-                    </Grid>
-                </StackPanel>
-            </Border>
+                                <TextBlock Text="LSA Protection (RunAsPPL)" FontWeight="SemiBold" Margin="0,4,0,2"/>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="LsaStatusText" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <Button x:Name="LsaBtn" Grid.Column="1" Content="Enable" Padding="12,5"
+                                            Margin="12,0,0,0" Click="LsaBtn_Click"/>
+                                </Grid>
 
-        </StackPanel>
-    </ScrollViewer>
+                                <TextBlock Text="UAC strictness" FontWeight="SemiBold" Margin="0,4,0,2"/>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="UacStatusText" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <Button x:Name="UacBtn" Grid.Column="1" Content="Set maximum" Padding="12,5"
+                                            Margin="12,0,0,0" Click="UacBtn_Click"/>
+                                </Grid>
+
+                                <TextBlock Text="Hosts file" FontWeight="SemiBold" Margin="0,4,0,2"/>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="HostsStatusText" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                                    <Button x:Name="HostsResetBtn" Grid.Column="1" Content="Reset to default" Padding="12,5"
+                                            Margin="12,0,0,0" Click="HostsResetBtn_Click"/>
+                                </Grid>
+                                <TextBlock x:Name="HardeningActionResult" Foreground="{DynamicResource TextSecondaryBrush}"
+                                           TextWrapping="Wrap" Visibility="Collapsed"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+        </TabControl>
+    </Grid>
 </UserControl>
