@@ -184,16 +184,10 @@ Assert-Exit 'gh release upload (app zip)'
 gh release upload "v$Version" $unblockPs1 $sumsFile --clobber
 Assert-Exit 'gh release upload (unblock script + sums)'
 
-# -- Keep the archived original repo honest ------------------------------------
-# The frozen repo (dparksports/autocommand-windows) mirrors the current readme
-# so its visitors still see the latest info, with a notice on top and every
-# download link pointed here - GitHub has no cross-repo include, so this is the
-# step that keeps the mirror from drifting. Non-fatal detail: a failed sync
-# must not fail a release that already shipped, but it must be loud.
-Step 'Mirroring README to the archived original repo'
-& (Join-Path $PSScriptRoot 'sync-archived-readme.ps1')
-if ($LASTEXITCODE -ne 0) {
-    Write-Host 'WARNING: archived-README mirror failed to push - the frozen repo is showing a stale readme' -ForegroundColor Yellow
-}
+# -- README mirror retired -------------------------------------------------------
+# This repository IS the former "archived original repo" (dparksports/
+# autocommand-windows): AutoCommand II and III were consolidated back into it,
+# so there is no frozen repo left to mirror the readme into. The old
+# sync-archived-readme.ps1 step was removed with the consolidation.
 
-Step "Released v${Version}: https://github.com/dparksports/autocommand-iii/releases/tag/v${Version}"
+Step "Released v${Version}: https://github.com/dparksports/autocommand-windows/releases/tag/v${Version}"
