@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <RootNamespace>ShieldsUp.Core</RootNamespace>
+    <AssemblyName>ShieldsUp.Core</AssemblyName>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Version>2026.10.31</Version>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 10.0.13 to match the engine closure (Contain.Core and its engines
+         reference the same packages; a lower pin here is a downgrade error) -->
+    <PackageReference Include="System.Management" Version="10.0.13" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.13" />
+  </ItemGroup>
+
+  <!-- The AutoCommand III engine stack. In the standalone Shields Up
+       solution these arrive through the external\autocommand-iii submodule;
+       in this vendored copy (inside the autocommand-iii repo itself, same
+       pattern as svchost-watch) they are simply the in-repo projects. The
+       namespace stays ShieldsUp.Core so sources port verbatim. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\core\AutoCommand.Contain.Core\AutoCommand.Contain.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- engine types under the names this core's call sites already use -->
+    <Using Include="FirewallService = AutoCommand.Contain.Core.FirewallService" />
+    <Using Include="GroupToggleResult = AutoCommand.Engines.Firewall.GroupToggleResult" />
+    <Using Include="FleetToggleResult = AutoCommand.Engines.Firewall.FleetToggleResult" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Assets\telemetry_rules.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

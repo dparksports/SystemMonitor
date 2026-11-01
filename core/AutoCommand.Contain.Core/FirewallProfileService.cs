@@ -106,84 +106,21 @@ namespace AutoCommand.Contain.Core
 
         private Task<GroupToggleResult> ApplyShieldsUpMdns()
         {
-            // Disable ALL rules, then re-enable whitelisted groups
-            return Task.Run(() =>
-            {
-                var result = new GroupToggleResult { GroupName = "Shields Up + mDNS (block all)" };
-                try
-                {
-                    Type fwPolicyType = Type.GetTypeFromProgID("HNetCfg.FwPolicy2");
-                    dynamic fwPolicy = Activator.CreateInstance(fwPolicyType);
-                    int disabledCount = 0;
-                    int whitelistEnabled = 0;
+            // The engine owns the Shield Up two-pass and its widened
+            // WSL/Hyper-V-safe whitelist (Engines.Firewall/Profiles.fs) — one
+            // source of truth. This facade used to carry its own COM copy
+            // with the narrow mDNS+Core-Networking whitelist, which is what
+            // silently killed WSL2/Hyper-V egress (2026-10-30 field report §3).
+            return ApplyEnginePresetAsync(AutoCommand.Engines.Firewall.ProfileType.ShieldsUpMdns);
+        }
 
-                    // Pass 1: Disable everything with a group
-                    foreach (dynamic rule in fwPolicy.Rules)
-                    {
-                        try
-                        {
-                            string group = rule.Grouping ?? "";
-                            if (string.IsNullOrEmpty(group)) continue;
-
-                            bool wasEnabled = (bool)rule.Enabled;
-                            rule.Enabled = false;
-                            result.Matched++;
-                            if (wasEnabled)
-                            {
-                                result.Changed++;
-                                disabledCount++;
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            result.Failed++;
-                            if (result.FirstError == null) result.FirstError = ex.Message;
-                        }
-                    }
-
-                    // Pass 2: Re-enable whitelisted groups
-                    var whitelist = new[] { "mDNS", "Core Networking" };
-                    foreach (dynamic rule in fwPolicy.Rules)
-                    {
-                        try
-                        {
-                            string group = rule.Grouping ?? "";
-                            if (string.IsNullOrEmpty(group)) continue;
-                            string display = FirewallService.ResolveGroupName(group);
-                            bool whitelisted = false;
-                            foreach (var wl in whitelist)
-                            {
-                                if (display.Equals(wl, StringComparison.OrdinalIgnoreCase) ||
-                                    group.Equals(wl, StringComparison.OrdinalIgnoreCase))
-                                {
-                                    whitelisted = true;
-                                    break;
-                                }
-                            }
-                            if (!whitelisted) continue;
-
-                            bool wasEnabled = (bool)rule.Enabled;
-                            rule.Enabled = true;
-                            result.Matched++;
-                            whitelistEnabled++;
-                            if (!wasEnabled) result.Changed++;
-                        }
-                        catch (Exception ex)
-                        {
-                            result.Failed++;
-                            if (result.FirstError == null) result.FirstError = ex.Message;
-                        }
-                    }
-
-                    result.Notes = $"{disabledCount} grouped rule(s) disabled, {whitelistEnabled} whitelist rule(s) processed for re-enable";
-                }
-                catch (Exception ex)
-                {
-                    result.FailedCompletely = true;
-                    result.FirstError = ex.Message;
-                }
-                return result;
-            });
+        private static async Task<GroupToggleResult> ApplyEnginePresetAsync(AutoCommand.Engines.Firewall.ProfileType profile)
+        {
+            var presets = new AutoCommand.Engines.Firewall.ProfilePresets(FirewallService.Instance);
+            var result = await presets.ApplyProfile(profile);
+            return result.Groups.Count > 0
+                ? result.Groups[0]
+                : new GroupToggleResult { GroupName = profile.ToString() };
         }
 
         private Task<GroupToggleResult> EnableGroup(string group)

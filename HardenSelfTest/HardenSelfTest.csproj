@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Self-test for the vendored Shields Up core (the Shields Up tab's
+       engine) plus the engine's Shield Up whitelist. Everything synthetic:
+       the data root is pointed at a temp folder before anything constructs,
+       the import test uses a synthetic legacy folder, and no check touches
+       live system state (services, COM, bcdedit) — those paths are exercised
+       by the tab itself and need elevation. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>HardenSelfTest</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ShieldsUp\ShieldsUp.Core\ShieldsUp.Core.csproj" />
+    <ProjectReference Include="..\Engines\Engines.Firewall\Engines.Firewall.fsproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,797 @@
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using ShieldsUp.Core.Services;
+// Aliases: both ShieldsUp.Core.Services and AutoCommand.Contain.Core define
+// FirewallProfileService; the tab drives presets through the Contain.Core
+// facade (which delegates to the engine), and the baseline manager for the
+// atomic apply.
+using FirewallPresets = AutoCommand.Contain.Core.FirewallProfileService;
+using Baselines = AutoCommand.Helpers.FirewallBaselineManager;
+
+namespace AutoCommand.Views;
+
+/// <summary>
+/// The Shields Up tab: the standalone app's four rituals (junk out, firewall
+/// preset, doors closed, phone-home silenced) plus Quick Scan, driven through
+/// the vendored ShieldsUp.Core services — the same logic the WinUI shell
+/// calls, so the two faces cannot drift. Every action confirms first; state
+/// rows re-read live system state, never a cached verdict.
+/// </summary>
+public partial class ShieldsUpView : UserControl
+{
+    // The app's own green/amber/red accents (same hexes as the theme brushes;
+    // resolved here because row models set Foreground in code).
+    private static readonly Brush OkBrush = new SolidColorBrush(Color.FromRgb(0x34, 0xD3, 0x99));
+    private static readonly Brush WarnBrush = new SolidColorBrush(Color.FromRgb(0xFB, 0xBF, 0x24));
+    private static readonly Brush BadBrush = new SolidColorBrush(Color.FromRgb(0xF8, 0x71, 0x71));
+
+    private readonly TelemetryRulesService _telemetry = new();
+    private ObservableCollection<ScanRow> _scanRows;
+
+    public ShieldsUpView()
+    {
+        InitializeComponent();
+        Loaded += async (_, _) => await OnLoadedAsync();
+    }
+
+    private async Task OnLoadedAsync()
+    {
+        // Migration banner: the standalone app's state, offered once.
+        if (StandaloneImport.HasLegacyState())
+        {
+            MigrationText.Text = StandaloneImport.IsStandaloneRunning()
+                ? "A standalone Shields Up install left state on this machine, and the standalone app is running right now. Two apps flipping the same switches will fight — close it, then import its state here (edited bloatware list, telemetry revert history, freeze ledger) and delete the Shields Up folder."
+                : "A standalone Shields Up install left state on this machine. Import it to keep your edited bloatware list, telemetry revert history and update-freeze ledger — then the Shields Up folder can be deleted.";
+            MigrationBanner.Visibility = Visibility.Visible;
+        }
+
+        BuildQuickScanRows();
+        await Task.WhenAll(
+            RefreshDoorsAsync(),
+            RefreshTelemetryAsync(),
+            RefreshBloatwareAsync(),
+            RefreshHardeningAsync(),
+            QuickScanCheckAsync());
+    }
+
+    // ── helpers ─────────────────────────────────────────────────────────
+
+    /// <summary>Every destructive action goes through here. No is the default
+    /// button — Enter dismisses safely (same convention as Shields Up's
+    /// Quick Scan master confirm).</summary>
+    private bool Confirm(string text, string title) =>
+        MessageBox.Show(Window.GetWindow(this), text, title,
+            MessageBoxButton.YesNo, MessageBoxImage.Warning,
+            MessageBoxResult.No) == MessageBoxResult.Yes;
+
+    private void ShowResult(TextBlock target, string message)
+    {
+        target.Text = message;
+        target.Visibility = string.IsNullOrEmpty(message) ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    // ── migration banner ────────────────────────────────────────────────
+
+    private async void ImportBtn_Click(object sender, RoutedEventArgs e)
+    {
+        ImportBtn.IsEnabled = false;
+        try
+        {
+            var report = await Task.Run(() => StandaloneImport.Import(ShieldsUp.Core.AppPaths.DataRoot));
+            MigrationResultText.Text = report.DidAnything
+                ? "Imported: " + string.Join(", ", report.Imported.Concat(report.Merged))
+                : "Nothing to import — this machine's state is already in place.";
+            MigrationBanner.Visibility = Visibility.Collapsed;
+            await Task.WhenAll(RefreshDoorsAsync(), RefreshTelemetryAsync(), RefreshBloatwareAsync(), RefreshHardeningAsync());
+        }
+        finally
+        {
+            ImportBtn.IsEnabled = true;
+        }
+    }
+
+    // ── quick scan ──────────────────────────────────────────────────────
+
+    public sealed class ScanRow : System.ComponentModel.INotifyPropertyChanged
+    {
+        public string Title { get; init; }
+        public string Chip { get; private set; } = "…";
+        public Brush ChipBrush { get; private set; } = Brushes.Gray;
+        public string Detail { get; private set; } = "not checked yet";
+
+        public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
+
+        public void Set(string chip, Brush brush, string detail)
+        {
+            Chip = chip; ChipBrush = brush; Detail = detail;
+            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(string.Empty));
+        }
+    }
+
+    private void BuildQuickScanRows()
+    {
+        _scanRows = new ObservableCollection<ScanRow>(
+            QuickScanService.Steps.Select(s => new ScanRow { Title = s.Title }));
+        QuickScanList.ItemsSource = _scanRows;
+    }
+
+    /// <summary>Verify-only pass: runs every step's Verify lambda and colors
+    /// the row — the checklist doubles as a status dashboard.</summary>
+    private async Task QuickScanCheckAsync()
+    {
+        var steps = QuickScanService.Steps.ToList();
+        for (int i = 0; i < steps.Count; i++)
+        {
+            var row = _scanRows[i];
+            try
+            {
+                var (ok, detail) = await steps[i].Verify();
+                row.Set(ok ? "✓" : "⚠", ok ? OkBrush : WarnBrush, detail);
+            }
+            catch (Exception ex)
+            {
+                row.Set("⚠", WarnBrush, "check failed: " + ex.Message);
+            }
+        }
+    }
+
+    private async void QuickScanCheckBtn_Click(object sender, RoutedEventArgs e)
+    {
+        QuickScanCheckBtn.IsEnabled = false;
+        try { await QuickScanCheckAsync(); }
+        finally { QuickScanCheckBtn.IsEnabled = true; }
+    }
+
+    private async void QuickScanBtn_Click(object sender, RoutedEventArgs e)
+    {
+        var steps = QuickScanService.Steps.ToList();
+        var summary = string.Join("\n", steps.Select(s => "• " + s.Title + " — " + s.Description));
+        if (!Confirm("Quick Scan will apply every step that is not already done:\n\n" + summary +
+                     "\n\nNothing runs without this confirmation. Continue?",
+                     "Run Quick Scan"))
+            return;
+
+        QuickScanBtn.IsEnabled = false;
+        QuickScanProgress.Visibility = Visibility.Visible;
+        try
+        {
+            var progress = new Progress<string>(s => QuickScanProgress.Text = s);
+            for (int i = 0; i < steps.Count; i++)
+            {
+                var row = _scanRows[i];
+                row.Set("…", Brushes.Gray, "running…");
+                try
+                {
+                    var (ok, detail) = await steps[i].Apply(progress);
+                    row.Set(ok ? "✓" : "⚠", ok ? OkBrush : WarnBrush, detail);
+
+                    // Trust the verify, not the apply: re-read live state.
+                    var (vok, vdetail) = await steps[i].Verify();
+                    if (!vok)
+                        row.Set("⚠", WarnBrush, detail + " — but re-check says: " + vdetail);
+                }
+                catch (Exception ex)
+                {
+                    row.Set("✗", BadBrush, "failed: " + ex.Message);
+                }
+            }
+            QuickScanProgress.Text = "Quick Scan finished. Re-check any row by reopening this tab or pressing Re-check status.";
+        }
+        finally
+        {
+            QuickScanBtn.IsEnabled = true;
+            // Actions changed the machine — refresh every section's rows.
+            await Task.WhenAll(RefreshDoorsAsync(), RefreshTelemetryAsync(), RefreshBloatwareAsync(), RefreshHardeningAsync());
+        }
+    }
+
+    // ── doors ───────────────────────────────────────────────────────────
+
+    private async Task RefreshDoorsAsync()
+    {
+        var (sstp, hosted, kdnet, vpn, miniports, wifidirect) = await Task.Run(() =>
+        (
+            AttackSurfaceService.GetSstpStatus(),
+            AttackSurfaceService.GetHostedNetworkStatus(),
+            AttackSurfaceService.IsKernelDebugOn(),
+            PrivacyService.GetVpnStatus(),
+            AttackSurfaceService.ListWanMiniports(),
+            PrivacyService.IsWifiDirectAdapterPresent()
+        ));
+
+        bool sstpActive = sstp.Active;
+        SstpStatusText.Text = sstp.StatusText == "NotFound"
+            ? "SSTP service not installed — door closed ✓"
+            : $"SstpSvc {sstp.StatusText} · startup: {sstp.StartMode}" + (sstpActive ? " — door open ⚠" : " — off ✓");
+        SstpStatusText.Foreground = sstpActive ? WarnBrush : OkBrush;
+        SstpToggleBtn.Content = sstpActive ? "Disable + neuter miniports" : "Re-enable service & miniports";
+
+        bool hostedActive = hosted == "Started";
+        HostedNetworkStatusText.Text = hosted switch
+        {
+            "Started" => "hosted network STARTED — ghost hotspot possible ⚠",
+            "Not started" => "hosted network allowed but not started ⚠",
+            "Not Available" => "hosted network not available ✓",
+            _ => "hosted network state unknown"
+        };
+        HostedNetworkStatusText.Foreground = hostedActive ? WarnBrush : (hosted == "Not Available" ? OkBrush : WarnBrush);
+
+        KdnetStatusText.Text = kdnet
+            ? "Kernel Debug ENABLED — low-level memory exposed ⚠"
+            : "Kernel debug disabled ✓";
+        KdnetStatusText.Foreground = kdnet ? BadBrush : OkBrush;
+        KdnetToggleBtn.Content = kdnet ? "Turn debug off" : "Turn debug on";
+
+        var (running, total) = vpn;
+        VpnStatusText.Text = running > 0
+            ? $"{running} of {total} VPN service(s) running — potential attack surface ⚠"
+            : $"All {total} VPN services stopped ✓";
+        VpnStatusText.Foreground = running > 0 ? WarnBrush : OkBrush;
+
+        MiniportStatusText.Text = miniports.Count == 0
+            ? "no WAN Miniport adapters present ✓"
+            : $"{miniports.Count} WAN Miniport adapter(s) present ⚠ — " +
+              string.Join(", ", miniports.Take(4).Select(a => a.Name)) + (miniports.Count > 4 ? ", …" : "");
+        MiniportStatusText.Foreground = miniports.Count == 0 ? OkBrush : WarnBrush;
+
+        DoorActionResult.Visibility = Visibility.Collapsed;
+    }
+
+    private async void DoorsRefreshBtn_Click(object sender, RoutedEventArgs e)
+    {
+        DoorsRefreshBtn.IsEnabled = false;
+        try { await RefreshDoorsAsync(); }
+        finally { DoorsRefreshBtn.IsEnabled = true; }
+    }
+
+    private async void SstpToggleBtn_Click(object sender, RoutedEventArgs e)
+    {
+        bool active = AttackSurfaceService.GetSstpStatus().Active;
+        if (active && !Confirm(
+                "This will stop the SSTP service and disable all VPN miniport adapters (SSTP, IKEv2, L2TP, PPTP, AgileVPN, NDISWAN).\n\nYou can re-enable them at any time with the same button.",
+                "Disable SSTP & miniports"))
+            return;
+
+        SstpToggleBtn.IsEnabled = false;
+        try
+        {
+            var failures = await Task.Run(() => active
+                ? AttackSurfaceService.DisableSstp()
+                : AttackSurfaceService.EnableSstp());
+            ShowResult(DoorActionResult, failures is { Count: > 0 }
+                ? "Some miniport adapters could not be " + (active ? "disabled" : "re-enabled") + ":\n" + string.Join("\n", failures)
+                : active ? "SSTP disabled; miniports neutered (reversible)." : "SSTP service and miniports re-enabled.");
+        }
+        catch (Exception ex)
+        {
+            ShowResult(DoorActionResult, "SSTP toggle failed: " + ex.Message);
+        }
+        finally
+        {
+            await RefreshDoorsAsync();
+            SstpToggleBtn.IsEnabled = true;
+        }
+    }
+
+    private async void HostedStopBtn_Click(object sender, RoutedEventArgs e)
+    {
+        HostedStopBtn.IsEnabled = false;
+        try
+        {
+            await Task.Run(AttackSurfaceService.DisallowHostedNetwork);
+            ShowResult(DoorActionResult, "Hosted network stopped and disallowed (reversible with netsh mode=allow).");
+        }
+        catch (Exception ex)
+        {
+            ShowResult(DoorActionResult, "Failed: " + ex.Message);
+        }
+        finally
+        {
+            await RefreshDoorsAsync();
+            HostedStopBtn.IsEnabled = true;
+        }
+    }
+
+    private async void WifiDirectRemoveBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (!Confirm("Remove the Wi-Fi Direct Virtual Adapter(s)? The devices reappear when the driver re-enumerates.",
+                "Remove Wi-Fi Direct adapter"))
+            return;
+
+        WifiDirectRemoveBtn.IsEnabled = false;
+        try
+        {
+            var results = await Task.Run(AttackSurfaceService.RemoveWifiDirectAdapters);
+            ShowResult(DoorActionResult, results.Count > 0
+                ? string.Join("\n", results)
+                : "No Wi-Fi Direct adapters found.");
+        }
+        catch (Exception ex)
+        {
+            ShowResult(DoorActionResult, "Failed: " + ex.Message);
+        }
+        finally
+        {
+            await RefreshDoorsAsync();
+            WifiDirectRemoveBtn.IsEnabled = true;
+        }
+    }
+
+    private async void KdnetToggleBtn_Click(object sender, RoutedEventArgs e)
+    {
+        bool on = AttackSurfaceService.IsKernelDebugOn();
+        if (!on && !Confirm("Enable kernel debugging? This is a security risk.", "Enable kernel debug"))
+            return;
+
+        KdnetToggleBtn.IsEnabled = false;
+        try
+        {
+            await Task.Run(() => AttackSurfaceService.SetKernelDebug(!on));
+            ShowResult(DoorActionResult, on ? "Kernel debug turned off (takes effect at next boot)." : "Kernel debug turned on.");
+        }
+        catch (Exception ex)
+        {
+            ShowResult(DoorActionResult, "Failed: " + ex.Message);
+        }
+        finally
+        {
+            await RefreshDoorsAsync();
+            KdnetToggleBtn.IsEnabled = true;
+        }
+    }
+
+    private async void VpnDisableBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (!Confirm(
+                "Stop and disable the Windows VPN services (RasMan, IKEEXT, PolicyAgent, RemoteAccess)?\n\nAny VPN connection you rely on will drop until you re-enable them.",
+                "Disable VPN services"))
+            return;
+
+        VpnDisableBtn.IsEnabled = false;
+        try
+        {
+            await Task.Run(PrivacyService.DisableVpnServices);
+            ShowResult(DoorActionResult, "VPN services stopped and disabled (reversible with Re-enable).");
+        }
+        catch (Exception ex)
+        {
+            ShowResult(DoorActionResult, "Failed to disable VPN services: " + ex.Message);
+        }
+        finally
+        {
+            await RefreshDoorsAsync();
+            VpnDisableBtn.IsEnabled = true;
+        }
+    }
+
+    private async void VpnEnableBtn_Click(object sender, RoutedEventArgs e)
+    {
+        VpnEnableBtn.IsEnabled = false;
+        try
+        {
+            await Task.Run(PrivacyService.EnableVpnServices);
+            ShowResult(DoorActionResult, "VPN services re-enabled.");
+        }
+        catch (Exception ex)
+        {
+            ShowResult(DoorActionResult, "Failed to re-enable VPN services: " + ex.Message);
+        }
+        finally
+        {
+            await RefreshDoorsAsync();
+            VpnEnableBtn.IsEnabled = true;
+        }
+    }
+
+    private async void MiniportRemoveBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (!Confirm("Remove ALL WAN Miniport adapters? This will disable VPN capabilities until the drivers re-enumerate.",
+                "Remove WAN miniports"))
+            return;
+
+        MiniportRemoveBtn.IsEnabled = false;
+        try
+        {
+            var results = await Task.Run(AttackSurfaceService.RemoveAllWanMiniports);
+            ShowResult(DoorActionResult, results.Count > 0
+                ? string.Join("\n", results)
+                : "No WAN Miniports found.");
+        }
+        catch (Exception ex)
+        {
+            ShowResult(DoorActionResult, "Failed: " + ex.Message);
+        }
+        finally
+        {
+            await RefreshDoorsAsync();
+            MiniportRemoveBtn.IsEnabled = true;
+        }
+    }
+
+    // ── firewall presets ────────────────────────────────────────────────
+
+    private async void Preset_Click(object sender, RoutedEventArgs e)
+    {
+        var type = sender == PresetStrictBtn ? FirewallPresets.ProfileType.BlockSharingDiscoveryRemoteDesktop
+            : sender == PresetHomeBtn ? FirewallPresets.ProfileType.AllowSharingDiscovery
+            : sender == PresetOfficeBtn ? FirewallPresets.ProfileType.AllowSharingDiscoveryRemoteDesktop
+            : sender == PresetGamingBtn ? FirewallPresets.ProfileType.AllowDiscoveryCast
+            : FirewallPresets.ProfileType.ShieldsUpMdns;
+        string name = sender == PresetStrictBtn ? "Strict Public"
+            : sender == PresetHomeBtn ? "Home Trusted"
+            : sender == PresetOfficeBtn ? "Office"
+            : sender == PresetGamingBtn ? "Gaming & Media"
+            : "Shield Up";
+
+        if (!Confirm(
+                $"Apply the {name} firewall preset? This changes many Windows firewall rule states at once.\n\n" +
+                "The firewall baseline is re-captured as part of the same operation, so Auto-Mitigate protects the preset's intent instead of fighting it.\n\n" +
+                "If anything you need stops working, 🚑 Restore Internet (corner of the window) puts it back.",
+                $"Apply {name} preset"))
+            return;
+
+        SetPresetsEnabled(false);
+        try
+        {
+            // Atomic apply: (1) pause drift enforcement while the preset
+            // churns dozens of rules, (2) apply, (3) re-capture the baseline.
+            // Skipping (3) is the footgun from the 2026-10-30 field report
+            // (§3): a Shields-Up-era mass-disable frozen into the baseline
+            // made Auto-Mitigate keep re-disabling rules Windows re-enables
+            // — visible as WSL egress dropping below the rule model.
+            Baselines.PauseForMinutes(2);
+            var progress = new Progress<string>();
+            var result = await Task.Run(async () =>
+                await FirewallPresets.Instance.ApplyProfile(type, progress));
+            var (count, capturedAt) = await Baselines.CaptureBaselineAsync();
+            ShowResult(PresetResultText,
+                $"{name} applied — {result.TotalChanged} rule(s) changed, {result.TotalFailed} failed. " +
+                $"Baseline re-captured ({count} rules, {capturedAt.ToLocalTime():HH:mm})." +
+                (result.Notes != null ? $" {result.Notes}." : ""));
+        }
+        catch (Exception ex)
+        {
+            ShowResult(PresetResultText, $"{name} preset failed: {ex.Message}");
+        }
+        finally
+        {
+            SetPresetsEnabled(true);
+        }
+    }
+
+    private void SetPresetsEnabled(bool enabled)
+    {
+        foreach (var b in new[] { PresetStrictBtn, PresetHomeBtn, PresetOfficeBtn, PresetGamingBtn, PresetShieldUpBtn })
+            b.IsEnabled = enabled;
+    }
+
+    // ── telemetry opt-outs ──────────────────────────────────────────────
+
+    public sealed class TelemetryRow
+    {
+        public string AppName { get; init; }
+        public string StateText { get; init; }
+        public Brush StateBrush { get; init; }
+        public string Evidence { get; init; }
+        public Visibility OptOutVis { get; init; }
+        public Visibility RevertVis { get; init; }
+        public TelemetryRule Rule { get; init; }
+    }
+
+    private async Task RefreshTelemetryAsync()
+    {
+        try
+        {
+            var statuses = await _telemetry.EvaluateAllAsync();
+            TelemetryList.ItemsSource = statuses.Select(s => new TelemetryRow
+            {
+                AppName = s.Rule.AppName,
+                StateText = s.StateText,
+                StateBrush = s.State switch
+                {
+                    TelemetryState.Off => OkBrush,
+                    TelemetryState.Ineffective => BadBrush,
+                    TelemetryState.On => WarnBrush,
+                    _ => Brushes.Gray
+                },
+                Evidence = s.Evidence,
+                OptOutVis = s.State == TelemetryState.Off ? Visibility.Collapsed : Visibility.Visible,
+                RevertVis = s.State == TelemetryState.Off ? Visibility.Visible : Visibility.Collapsed,
+                Rule = s.Rule
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            ShowResult(TelemetryResultText, "Telemetry status check failed: " + ex.Message);
+        }
+    }
+
+    private async void TelemetryRefreshBtn_Click(object sender, RoutedEventArgs e)
+    {
+        TelemetryRefreshBtn.IsEnabled = false;
+        try { await RefreshTelemetryAsync(); }
+        finally { TelemetryRefreshBtn.IsEnabled = true; }
+    }
+
+    private async void TelemetryOptOut_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as Button)?.Tag is not TelemetryRow row) return;
+        if (!Confirm(
+                $"Opt out of {row.AppName} telemetry using the vendor's own official switch?\n\nThe previous setting is saved first — Revert puts it back exactly.",
+                "Opt out"))
+            return;
+
+        SetTelemetryButtonsEnabled(false);
+        try
+        {
+            var (ok, message) = await _telemetry.ApplyOptOutAsync(row.Rule);
+            ShowResult(TelemetryResultText, (ok ? "Opted out: " : "Failed: ") + message);
+        }
+        catch (Exception ex)
+        {
+            ShowResult(TelemetryResultText, "Failed: " + ex.Message);
+        }
+        finally
+        {
+            await RefreshTelemetryAsync();
+            SetTelemetryButtonsEnabled(true);
+        }
+    }
+
+    private async void TelemetryRevert_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as Button)?.Tag is not TelemetryRow row) return;
+
+        SetTelemetryButtonsEnabled(false);
+        try
+        {
+            var (ok, message) = await _telemetry.RevertAsync(row.Rule);
+            ShowResult(TelemetryResultText, (ok ? "Reverted: " : "Failed: ") + message);
+        }
+        catch (Exception ex)
+        {
+            ShowResult(TelemetryResultText, "Failed: " + ex.Message);
+        }
+        finally
+        {
+            await RefreshTelemetryAsync();
+            SetTelemetryButtonsEnabled(true);
+        }
+    }
+
+    private async void TelemetryEnforceAllBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (!Confirm(
+                "Pin the watch domains of every detected-but-not-opted-out vendor in the hosts file (127.0.0.1 backstop)?\n\nThe pins are tagged, removable, and attempts show up in AutoCommand's sinkhole log.",
+                "Pin telemetry domains"))
+            return;
+
+        TelemetryEnforceAllBtn.IsEnabled = false;
+        try
+        {
+            var statuses = await _telemetry.EvaluateAllAsync();
+            int pinned = 0, failed = 0;
+            foreach (var s in statuses.Where(s => s.Detected && s.State != TelemetryState.Off))
+            {
+                var (ok, _) = await _telemetry.ApplyEnforceAsync(s.Rule);
+                if (ok) pinned++; else failed++;
+            }
+            ShowResult(TelemetryResultText, pinned > 0
+                ? $"Pinned {pinned} vendor(s)" + (failed > 0 ? $"; {failed} failed (is the app elevated?)" : "") + "."
+                : "Nothing to pin — everyone is already opted out.");
+        }
+        catch (Exception ex)
+        {
+            ShowResult(TelemetryResultText, "Failed: " + ex.Message);
+        }
+        finally
+        {
+            TelemetryEnforceAllBtn.IsEnabled = true;
+        }
+    }
+
+    private void SetTelemetryButtonsEnabled(bool enabled)
+    {
+        TelemetryRefreshBtn.IsEnabled = enabled;
+        TelemetryEnforceAllBtn.IsEnabled = enabled;
+    }
+
+    // ── bloatware ───────────────────────────────────────────────────────
+
+    private List<ShieldsUp.Core.Models.AppPackageItem> _matchedBloat;
+
+    private async Task RefreshBloatwareAsync()
+    {
+        try
+        {
+            _matchedBloat = await AppManagerService.Instance.FindBloatwareAsync();
+            BloatListText.Text = _matchedBloat.Count == 0
+                ? "No bloatware packages installed ✓"
+                : $"{_matchedBloat.Count} matched package(s):\n" +
+                  string.Join("\n", _matchedBloat.Select(a => "• " + a.Name));
+            BloatRemoveBtn.IsEnabled = _matchedBloat.Count > 0;
+        }
+        catch (Exception ex)
+        {
+            BloatListText.Text = "Bloatware scan failed: " + ex.Message;
+        }
+    }
+
+    private async void BloatRefreshBtn_Click(object sender, RoutedEventArgs e)
+    {
+        BloatRefreshBtn.IsEnabled = false;
+        try { await RefreshBloatwareAsync(); }
+        finally { BloatRefreshBtn.IsEnabled = true; }
+    }
+
+    private async void BloatRemoveBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (_matchedBloat is not { Count: > 0 }) return;
+        if (!Confirm(
+                "Uninstall these packages?\n\n" + string.Join("\n", _matchedBloat.Select(a => "• " + a.Name)) +
+                "\n\nThis cannot be undone — the apps can be reinstalled from their stores, but not restored in place.",
+                "Remove bloatware"))
+            return;
+
+        BloatRemoveBtn.IsEnabled = false;
+        try
+        {
+            var progress = new Progress<string>();
+            var (matched, removed, failed) = await AppManagerService.Instance.RemoveBloatwareAsync(progress);
+            ShowResult(BloatResultText, failed.Count == 0
+                ? $"Removed {removed}/{matched.Count} package(s)."
+                : $"Removed {removed}/{matched.Count}; failed: {string.Join(", ", failed)}");
+        }
+        catch (Exception ex)
+        {
+            ShowResult(BloatResultText, "Removal failed: " + ex.Message);
+        }
+        finally
+        {
+            await RefreshBloatwareAsync();
+            BloatRemoveBtn.IsEnabled = true;
+        }
+    }
+
+    // ── OS hardening ────────────────────────────────────────────────────
+
+    private async Task RefreshHardeningAsync()
+    {
+        var (ipv6, lsa, uac, hosts) = await Task.Run(() =>
+        (
+            HardeningService.IsIpv6Disabled(),
+            HardeningService.IsLsaProtected(),
+            HardeningService.IsUacStrict(),
+            HardeningService.AuditHostsFile()
+        ));
+
+        Ipv6StatusText.Text = ipv6 ? "IPv6 disabled globally ✓ (reboot to take effect)" : "IPv6 enabled ⚠";
+        Ipv6StatusText.Foreground = ipv6 ? OkBrush : WarnBrush;
+        Ipv6Btn.Content = ipv6 ? "Re-enable" : "Disable";
+
+        LsaStatusText.Text = lsa ? "LSA Protection enabled ✓" : "LSA Protection disabled ⚠ — credentials unprotected";
+        LsaStatusText.Foreground = lsa ? OkBrush : WarnBrush;
+        LsaBtn.Content = lsa ? "Disable" : "Enable";
+
+        UacStatusText.Text = uac ? "UAC at maximum strictness ✓" : "UAC relaxed ⚠";
+        UacStatusText.Foreground = uac ? OkBrush : WarnBrush;
+        UacBtn.Content = uac ? "Relax" : "Set maximum";
+
+        HostsStatusText.Text = !hosts.Exists
+            ? "hosts file missing (default behavior on some systems) ✓"
+            : hosts.Suspicious
+                ? $"{hosts.ActiveRules} active redirect(s), some non-loopback — potentially hijacked ⚠"
+                : hosts.ActiveRules > 0
+                    ? $"{hosts.ActiveRules} standard redirect(s) ✓"
+                    : "hosts file is clean (default) ✓";
+        HostsStatusText.Foreground = hosts.Suspicious ? BadBrush : OkBrush;
+    }
+
+    private async void Ipv6Btn_Click(object sender, RoutedEventArgs e)
+    {
+        bool disabled = HardeningService.IsIpv6Disabled();
+        if (!disabled && !Confirm(
+                "Disable IPv6 system-wide via registry (DisabledComponents=0xFF)?\n\nNetworks and services that require IPv6 will stop working until it is re-enabled. A reboot is required.",
+                "Disable IPv6"))
+            return;
+
+        Ipv6Btn.IsEnabled = false;
+        try
+        {
+            await Task.Run(() => HardeningService.SetIpv6Disabled(!disabled));
+            ShowResult(DoorActionResult, disabled
+                ? "IPv6 re-enabled. A reboot is required."
+                : "IPv6 disabled via registry (0xFF). A reboot is required.");
+        }
+        catch (Exception ex)
+        {
+            ShowResult(DoorActionResult, "Failed: " + ex.Message);
+        }
+        finally
+        {
+            await RefreshHardeningAsync();
+            Ipv6Btn.IsEnabled = true;
+        }
+    }
+
+    private async void LsaBtn_Click(object sender, RoutedEventArgs e)
+    {
+        bool on = HardeningService.IsLsaProtected();
+        if (!on && !Confirm(
+                "Enable LSA Protection (RunAsPPL)?\n\nThird-party credential providers or VPN plug-ins that hook LSA may stop working at next boot.",
+                "Enable LSA Protection"))
+            return;
+
+        LsaBtn.IsEnabled = false;
+        try
+        {
+            await Task.Run(() => HardeningService.SetLsaProtected(!on));
+            ShowResult(DoorActionResult, on
+                ? "LSA Protection disabled."
+                : "LSA Protection enabled. A reboot is required for this to take effect.");
+        }
+        catch (Exception ex)
+        {
+            ShowResult(DoorActionResult, "Failed: " + ex.Message);
+        }
+        finally
+        {
+            await RefreshHardeningAsync();
+            LsaBtn.IsEnabled = true;
+        }
+    }
+
+    private async void UacBtn_Click(object sender, RoutedEventArgs e)
+    {
+        bool strict = HardeningService.IsUacStrict();
+        if (strict && !Confirm(
+                "Relax UAC from maximum strictness? This lowers the system's elevation security.",
+                "Relax UAC"))
+            return;
+
+        UacBtn.IsEnabled = false;
+        try
+        {
+            await Task.Run(() => HardeningService.SetUacStrict(!strict));
+            ShowResult(DoorActionResult, strict ? "UAC relaxed." : "UAC set to maximum strictness.");
+        }
+        catch (Exception ex)
+        {
+            ShowResult(DoorActionResult, "Failed: " + ex.Message);
+        }
+        finally
+        {
+            await RefreshHardeningAsync();
+            UacBtn.IsEnabled = true;
+        }
+    }
+
+    private async void HostsResetBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (!Confirm(
+                "Reset the hosts file to the Windows default? ALL custom entries will be lost — including any telemetry pins. This cannot be undone.",
+                "Reset hosts file"))
+            return;
+
+        HostsResetBtn.IsEnabled = false;
+        try
+        {
+            await Task.Run(HardeningService.ResetHostsFile);
+            ShowResult(DoorActionResult, "Hosts file reset to the Windows default.");
+        }
+        catch (Exception ex)
+        {
+            ShowResult(DoorActionResult, "Failed: " + ex.Message);
+        }
+        finally
+        {
+            await RefreshHardeningAsync();
+            HostsResetBtn.IsEnabled = true;
+        }
+    }
+}

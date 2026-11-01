@@ -78,6 +78,29 @@ namespace AutoCommand
             AutoCommand.Engines.Watch.WatchConfig.Configure(
                 AutoCommand.Engines.Core.Identity.autocommand());
 
+            // The vendored Shields Up core (Shields Up tab) follows the same
+            // seam: point its data root at AutoCommand's machine folder BEFORE
+            // any of its services construct — FirewallConfigManager captures
+            // its path at first use. The file names match by design, so
+            // firewall_config.json becomes one desired-state store shared
+            // with the drift enforcer, and telemetry_state.json keeps its
+            // revert history next to it.
+            ShieldsUp.Core.AppPaths.Configure(System.IO.Path.Combine(
+                System.Environment.GetFolderPath(System.Environment.SpecialFolder.CommonApplicationData),
+                "AutoCommand"));
+
+            // The bridge's shields-up preset tool needs the baseline manager,
+            // which lives in this app assembly (the enforcer owns it here) —
+            // install the seam headless hosts leave unset (same inversion as
+            // the WpfAgentInteraction confirmation seam).
+            AutoCommand.Agent.Core.AgentToolRegistry.ShieldsUpBaseline = new(
+                PauseMinutes: m => Helpers.FirewallBaselineManager.PauseForMinutes(m),
+                CaptureAsync: async () =>
+                {
+                    var (count, at) = await Helpers.FirewallBaselineManager.CaptureBaselineAsync();
+                    return (count, at);
+                });
+
             // Layer-3 crash safety: if a previous run died mid-intercept, the
             // journal on disk still describes the hooks it installed — undo
             // them (proxy, firewall rule, CA) before anything else runs.

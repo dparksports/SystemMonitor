@@ -95,6 +95,15 @@
          (same in-process pattern as SvchostAnalyzer.Core; the OneSettingsCadence
          CLI exe builds separately over the same Core project). -->
     <ProjectReference Include="OneSettingsCadence\OneSettingsCadence.Core\OneSettingsCadence.Core.csproj" />
+    <!-- Shields Up as a tab (consolidation): the standalone WinUI app's
+         headless core, vendored in-repo at ShieldsUp\ (same pattern as
+         svchost-watch — formerly a sibling repository) with its engine
+         references repointed to the in-repo projects and its namespace kept
+         so sources port verbatim. Its door checks, telemetry opt-outs,
+         bloatware removal and firewall presets power the Shields Up tab;
+         AppPaths.Configure points the data root at %PROGRAMDATA%\AutoCommand
+         at startup so both faces share one desired-state store. -->
+    <ProjectReference Include="ShieldsUp\ShieldsUp.Core\ShieldsUp.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -164,6 +173,10 @@
          own ProjectReference — same glob reason as core\ (unsafe renderer
          + duplicate types in the WPF _wpftmp pass otherwise) -->
     <Compile Remove="MatrixRain\**" />
+    <!-- Vendored Shields Up core (the Shields Up tab): built through its own
+         ProjectReference — same glob reason as core\ and svchost-watch
+         (duplicate types in the WPF _wpftmp pass otherwise) -->
+    <Compile Remove="ShieldsUp\**" />
     <!-- Rain self-test: asInvoker WPF harness over the rain engine with a
          synthetic feed — own Main(), same glob reason as every side project -->
     <Compile Remove="RainSelfTest\**" />
@@ -171,6 +184,10 @@
          (session file ownership, one-dialect errors, no bare closes,
          escaping) — own Main(), same glob reason as every side project -->
     <Compile Remove="BridgeSelfTest\**" />
+    <!-- Harden self-test: the vendored Shields Up core + the engine Shield
+         Up whitelist, offline against a temp data root (own Main(), same
+         glob reason as every side project) -->
+    <Compile Remove="HardenSelfTest\**" />
   </ItemGroup>
 
   <!-- Filter out Linux .so native binaries when publishing for Windows win-x64 -->
