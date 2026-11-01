@@ -7,9 +7,9 @@ using AutoCommand.Matrix;
 namespace AutoCommand.Views
 {
     /// <summary>
-    /// The Rain tab — the same engine as the standalone overlay
-    /// (github.com/dparksports/autocommand-matrix), embedded as a face of
-    /// the app: it renders the LIVE Process Monitor table (no engines of
+    /// The Rain tab — the same engine as the standalone Matrix edition
+    /// (dparksports/autocommand-matrix, since retired with its code folded
+    /// in here), embedded as a face of the app: it renders the LIVE Process Monitor table (no engines of
     /// its own) for users who'd rather watch the animation than read the
     /// grid. Rendering pauses whenever the tab is hidden.
     ///
