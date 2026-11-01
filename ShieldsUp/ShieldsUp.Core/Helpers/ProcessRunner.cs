@@ -40,7 +40,12 @@ namespace ShieldsUp.Core.Helpers
             proc.Start();
             // Drain stderr concurrently: a child that fills the stderr pipe
             // while we block on stdout deadlocks the classic way.
-            using var _errDrain = proc.StandardError.ReadToEndAsync();
+            // Deliberately NOT `using`: disposing a Task that has not reached
+            // a final state throws ("A task may only be disposed if it is in
+            // a completion state"), and WaitForExit() does not guarantee the
+            // async stderr read has drained the pipe tail. Its result is
+            // discarded — stderr is unused here.
+            _ = proc.StandardError.ReadToEndAsync();
             string output = proc.StandardOutput.ReadToEnd();
             proc.WaitForExit();
             return StripNullChars(output);
