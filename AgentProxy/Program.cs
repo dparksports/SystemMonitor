@@ -53,7 +53,9 @@ const string OfflineToolsJson = """
   { "name": "get_shieldsup_status", "description": "The Shields Up status board: doors (SSTP, Wi-Fi Direct, kernel debug, VPN services), hardening switches, hosts audit, per-vendor telemetry opt-out state (needs an active session)." },
   { "name": "close_shieldsup_door", "description": "Close ONE door Windows leaves open - sstp, hostednetwork, vpnservices, kdnet or wifidirect (user-confirmed, reversible; no enable path over the bridge) (needs an active session)." },
   { "name": "opt_out_telemetry", "description": "Flip one vendor's own official telemetry opt-out switch, or revert=true to restore the saved previous value (user-confirmed) (needs an active session)." },
-  { "name": "apply_shieldsup_preset", "description": "Apply a named firewall preset (strict_public/home_trusted/gaming_media/office/shield_up) with the baseline re-captured atomically (user-confirmed) (needs an active session)." }
+  { "name": "apply_shieldsup_preset", "description": "Apply a named firewall preset (strict_public/home_trusted/gaming_media/office/shield_up) with the baseline re-captured atomically (user-confirmed) (needs an active session)." },
+  { "name": "get_wsl_status", "description": "WSL network state: installed, VM running, distros, NAT/mirrored mode, and - when the VM is already up - the Linux-side socket table joined to host WSL-family connections; never starts the VM (needs an active session)." },
+  { "name": "diagnose_wsl", "description": "The staged 'Why is WSL offline?' check: host vs guest probes, rule-model scan, Hyper-V layer, one plain-English verdict; read-only, never starts the VM (needs an active session)." }
 ]
 """;
 

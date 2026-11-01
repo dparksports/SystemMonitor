@@ -152,6 +152,7 @@
                 <ContextMenu Opened="RowMenu_Opened">
                     <MenuItem x:Name="TracePidMenuItem" Header="🔎 Trace: how was this PID spawned?" Click="TracePidMenuItem_Click"/>
                     <MenuItem x:Name="PeerMenuItem" Header="🔬 Peer into this connection" Click="PeerMenuItem_Click"/>
+                    <MenuItem x:Name="WslDiagnosisMenuItem" Header="🩺 Why is WSL offline?" Click="WslDiagnosisMenuItem_Click"/>
                     <MenuItem x:Name="ProgramPeekMenuItem" Header="🔬 Peer into this program" Click="ProgramPeekMenuItem_Click"/>
                     <MenuItem x:Name="TrackServiceMenuItem" Header="⭐ Track this service (follows restarts)" Click="TrackServiceMenuItem_Click"/>
                     <MenuItem x:Name="RevealNameMenuItem" Header="🏷 Reveal real process name (Sysmon record)" Click="RevealNameMenuItem_Click"/>

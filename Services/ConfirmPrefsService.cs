@@ -24,8 +24,9 @@ namespace AutoCommand.Services
         public const string ConfirmProcess = "confirm.process";
         public const string WarnMsInfra = "warn.ms-infra";
         public const string WarnWindowsCore = "warn.windows-core";
+        public const string WarnWslFamily = "warn.wsl-family";
 
-        public static readonly string[] AllKeys = { ConfirmIp, ConfirmProcess, WarnMsInfra, WarnWindowsCore };
+        public static readonly string[] AllKeys = { ConfirmIp, ConfirmProcess, WarnMsInfra, WarnWindowsCore, WarnWslFamily };
 
         private const string PrefsPath = "confirm_prefs.txt";
 

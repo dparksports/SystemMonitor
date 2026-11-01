@@ -130,6 +130,12 @@ type SvchostMonitorItem() as this =
     let mutable identityResolved = false
     let mutable identityPending = false
 
+    // WSL family — "this connection was made from inside the Linux VM"
+    // context. The family matcher lives in NetWatch.Core; the row stays
+    // dumb and is stamped by the view's enrichment pass.
+    let mutable isWslFamily = false
+    let mutable wslNote: string = null
+
     // Firewall-block state — two independent dimensions: the remote IP and
     // the process exe.
     let mutable ipBlock = BlockRuleState.None
@@ -426,6 +432,26 @@ type SvchostMonitorItem() as this =
         this.OnPropertyChanged("ProcessToolTip")
         this.OnPropertyChanged("IdentityLabel")
 
+    /// <summary>True when the row's process is in the WSL family (wslservice,
+    /// vmmem, wslrelay, …) — the connection belongs to the Linux VM.</summary>
+    member _.IsWslFamily: bool = isWslFamily
+
+    /// <summary>Plain-English WSL context for this row (running distros,
+    /// networking mode, and — later — the guest process); null before
+    /// enrichment.</summary>
+    member _.WslNote: string = wslNote
+
+    /// <summary>Stamps the WSL context. Idempotent per note value, so the
+    /// 10-second enrichment tick can call it freely.</summary>
+    member this.SetWslIdentity(note: string) : unit =
+        isWslFamily <- true
+        if not (String.IsNullOrEmpty note) && wslNote <> note then
+            wslNote <- note
+            this.OnPropertyChanged("ProcessDisplay")
+            this.OnPropertyChanged("ProcessToolTip")
+            this.OnPropertyChanged("HasToolTip")
+            this.OnPropertyChanged("IdentityLabel")
+
     /// <summary>Compact service list for the Process cell: "WpnService", "A+B", "A+2 more".</summary>
     member private _.ServicesCompact: string =
         if String.IsNullOrEmpty hostedServices then "no service"
@@ -472,6 +498,8 @@ type SvchostMonitorItem() as this =
         let text =
             if this.IsSvchost && identityResolved then
                 $"{this.ProcessId} (svchost.exe [{this.ServicesCompact}]{suspicion})"
+            elif isWslFamily then
+                $"{this.ProcessId} ({this.ProcessName} [WSL])"
             elif String.IsNullOrEmpty this.ProcessName then
                 string this.ProcessId
             else
@@ -694,6 +722,7 @@ type SvchostMonitorItem() as this =
         not (String.IsNullOrEmpty this.ImagePath)
         || not (isNull this.TaskName)
         || (this.IsSvchost && identityResolved)
+        || isWslFamily
         || not (String.IsNullOrEmpty parentImage)
         || not (isNull nameRevealedFrom)
 
@@ -734,6 +763,16 @@ type SvchostMonitorItem() as this =
             if not (String.IsNullOrEmpty this.TaskUser) then
                 sb.Append("   (as ").Append this.TaskUser |> ignore
                 sb.Append ')' |> ignore
+
+            sb.AppendLine() |> ignore
+
+        if isWslFamily then
+            sb.AppendLine "WSL VM egress — a Linux process inside the WSL utility VM made this"
+            |> ignore
+            sb.AppendLine "connection; host-side attribution stops at the VM boundary." |> ignore
+
+            if not (String.IsNullOrEmpty wslNote) then
+                sb.AppendLine wslNote |> ignore
 
             sb.AppendLine() |> ignore
 

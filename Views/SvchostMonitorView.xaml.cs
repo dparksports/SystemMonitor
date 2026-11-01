@@ -217,6 +217,12 @@ namespace AutoCommand.Views
                 foreach (var item in _uiCollection)
                     EnrichWithSvchostIdentity(item);
 
+                // Stamp WSL context onto the wslservice/vmmem family rows so
+                // "wslservice.exe is uploading" reads as "my Linux VM did
+                // that" before anyone reaches for the Block button.
+                foreach (var item in _uiCollection)
+                    EnrichWithWslIdentity(item);
+
                 // Rows whose name never resolved get one archive-backed
                 // reveal attempt (one-shot per row — the day-file scan is
                 // real disk work, and the archive does not grow backwards)
@@ -487,6 +493,7 @@ namespace AutoCommand.Views
                 }
                 EnrichWithTaskInfo(item);
                 EnrichWithSvchostIdentity(item);
+                EnrichWithWslIdentity(item);
                 // A blocked IP reappearing as a fresh row shows ⛔ immediately,
                 // not only after the next sync pass
                 ApplyBlockState(item);
@@ -504,6 +511,68 @@ namespace AutoCommand.Views
             var info = _taskAttribution.GetTaskForPid(item.ProcessId, item.ProcessStartedUtc);
             if (info == null || string.IsNullOrEmpty(info.TaskPath)) return;
             item.SetTaskInfo(info.TaskPath, info.UserContext);
+        }
+
+        /// <summary>
+        /// Stamps WSL context onto the wslservice/vmmem family rows: the
+        /// plain-English "your Linux VM made this" note (running distros +
+        /// networking mode), and — when the VM is already up — the joined
+        /// guest answer ("linux side: node (pid 4312) → 1.1.1.1:80"). Both
+        /// probes cache internally and can never start the utility VM, so
+        /// the 10-second tick can call this freely; the guest half runs off
+        /// the UI thread with the same PID-recycle guard as the svchost
+        /// enrichment.
+        /// </summary>
+        private async void EnrichWithWslIdentity(SvchostMonitorItem item)
+        {
+            if (!WslIdentityService.IsWslFamilyProcess(item.ProcessName)) return;
+
+            string distros;
+            string modeNote;
+            bool vmRunning;
+            try
+            {
+                var state = WslIdentityService.GetState();
+                distros = state.RunningDistros.Length > 0
+                    ? string.Join(", ", state.RunningDistros)
+                    : "none running";
+                modeNote = state.ModeNote;
+                vmRunning = state.VmRunning;
+            }
+            catch
+            {
+                item.SetWslIdentity("state unavailable");
+                return;
+            }
+
+            string baseNote = $"running distros: {distros}" +
+                              (string.IsNullOrEmpty(modeNote) ? "" : $" · {modeNote}");
+            item.SetWslIdentity(baseNote);
+
+            bool alreadyJoined = item.WslNote != null && item.WslNote.Contains("linux side:");
+            if (!vmRunning || alreadyJoined || string.IsNullOrEmpty(item.RemoteIp)) return;
+
+            int pid = item.ProcessId;
+            string remoteIp = item.RemoteIp;
+            try
+            {
+                var snapshot = await Task.Run(WslGuestProbe.Probe);
+                if (item.ProcessId != pid) return; // re-attributed mid-probe
+                var matches = WslGuestProbe.MatchByRemoteIp(snapshot, remoteIp).Take(4).ToList();
+                if (matches.Count == 0) return;
+                string guest = string.Join("; ", matches.Select(m =>
+                {
+                    var (ip, port) = WslGuestProbe.SplitEndpoint(m.Socket.Peer);
+                    return $"{m.Distro.Distro ?? "default distro"}: " +
+                           $"{m.Socket.Process ?? "unknown process"} " +
+                           $"(pid {m.Socket.Pid?.ToString() ?? "?"}) → {ip}:{port}";
+                }));
+                item.SetWslIdentity(baseNote + "\nlinux side: " + guest);
+            }
+            catch
+            {
+                // guest join is best-effort — the base note still stands
+            }
         }
 
         /// <summary>
@@ -800,6 +869,12 @@ namespace AutoCommand.Views
         {
             if (SvchostGrid.SelectedItem is SvchostMonitorItem item)
                 OpenPidTrace(item.ProcessId, item);
+        }
+
+        private void WslDiagnosisMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            var win = new WslDiagnosisWindow { Owner = Window.GetWindow(this) };
+            win.Show();
         }
 
         // -----------------------------------------------------------------------
@@ -1170,8 +1245,14 @@ namespace AutoCommand.Views
             }
 
             string warning = "";
-            if (string.Equals(item.ProcessName, "svchost.exe", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(item.ProcessName, "taskhostw.exe", StringComparison.OrdinalIgnoreCase))
+            bool wslWarning = WslIdentityService.IsWslFamilyProcess(item.ProcessName);
+            if (wslWarning)
+                warning = $"'{item.ProcessName}' belongs to the WSL family: in NAT mode this connection was\n" +
+                          "made by a Linux process inside the WSL utility VM. Blocking the PROCESS takes down\n" +
+                          "the VM's whole network — every distro, every Linux process. To stop one destination,\n" +
+                          "block the remote IP instead (right-click → Block Remote IP).";
+            else if (string.Equals(item.ProcessName, "svchost.exe", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(item.ProcessName, "taskhostw.exe", StringComparison.OrdinalIgnoreCase))
                 warning = $"'{item.ProcessName}' hosts Windows SERVICES. One instance carries DNS (Dnscache),\n" +
                           "DHCP, diagnostics and more — blocking it is the #1 cause of 'I blocked something\n" +
                           "and lost my internet'. If a specific connection looks bad, block the IP, not this process.";
@@ -1180,9 +1261,10 @@ namespace AutoCommand.Views
                           "widgets, or web content in Start/Settings.";
 
             bool coreApplies = warning.Length > 0;
+            string warnKey = wslWarning ? ConfirmPrefs.WarnWslFamily : ConfirmPrefs.WarnWindowsCore;
             bool confirmSuppressed =
                 ConfirmPrefs.IsSuppressed(ConfirmPrefs.ConfirmProcess) &&
-                (!coreApplies || ConfirmPrefs.IsSuppressed(ConfirmPrefs.WarnWindowsCore));
+                (!coreApplies || ConfirmPrefs.IsSuppressed(warnKey));
 
             // The ran-away note is information, not a warning class: it rides
             // whichever surface the user sees (the dialog when a prompt is
@@ -1200,12 +1282,14 @@ namespace AutoCommand.Views
 
             if (!confirmSuppressed)
             {
-                string shownWarning = coreApplies && !ConfirmPrefs.IsSuppressed(ConfirmPrefs.WarnWindowsCore) ? warning : "";
+                string shownWarning = coreApplies && !ConfirmPrefs.IsSuppressed(warnKey) ? warning : "";
                 string detail = exitedNote + $"{path}\n\n(1 outbound rule)\n" +
                                 "Undo anytime: the Undo button on the toast, right-click the row again,\nor 'Blocked' → Manage all.";
-                string key = shownWarning.Length > 0 ? ConfirmPrefs.WarnWindowsCore : ConfirmPrefs.ConfirmProcess;
+                string key = shownWarning.Length > 0 ? warnKey : ConfirmPrefs.ConfirmProcess;
                 string label = shownWarning.Length > 0
-                    ? "Don't warn me about blocking Windows service hosts / components — I know what I'm doing"
+                    ? (wslWarning
+                        ? "Don't warn me about blocking WSL family processes — I know what I'm doing"
+                        : "Don't warn me about blocking Windows service hosts / components — I know what I'm doing")
                     : "Don't ask again before blocking processes";
                 if (!ConfirmBlockWithDialog(
                         target.SubjectExited

@@ -188,6 +188,11 @@
          Up whitelist, offline against a temp data root (own Main(), same
          glob reason as every side project) -->
     <Compile Remove="HardenSelfTest\**" />
+    <!-- WSL self-test: the WSL family matcher, wsl.exe list decoders,
+         ss -tnp parser, host-guest join and the staged diagnosis verdicts,
+         all offline with synthetic inputs (own Main(), same glob reason as
+         every side project) -->
+    <Compile Remove="WslSelfTest\**" />
   </ItemGroup>
 
   <!-- Filter out Linux .so native binaries when publishing for Windows win-x64 -->

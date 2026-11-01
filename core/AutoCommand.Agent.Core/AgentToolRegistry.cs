@@ -12,6 +12,7 @@ using System.Management;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading;
+using AutoCommand.Services;
 using ShieldsUp.Core.Services;
 using SvchostAnalyzer.Core;
 
@@ -315,6 +316,32 @@ namespace AutoCommand.Agent.Core
                 false,
                 a => GetShieldsUpStatus()),
 
+            new Tool(
+                "get_wsl_status",
+                "WSL (Windows Subsystem for Linux) network state, read-only: whether WSL is installed and the " +
+                "utility VM is running, the running distros, the networking mode (NAT vs mirrored) with its " +
+                "source, and — when the VM is already up — the Linux-side socket table (ss -tnp) joined " +
+                "against the host's WSL-family connections, so 'wslservice.exe is talking to X' becomes " +
+                "'<distro>'s <process> is talking to X'. NEVER starts the utility VM: when it is not running " +
+                "the guest half says so instead of launching it. Pairs with get_monitor_rows (WSL rows carry " +
+                "a wsl object) and diagnose_wsl for the no-internet case.",
+                Schema(),
+                false,
+                a => GetWslStatus()),
+
+            new Tool(
+                "diagnose_wsl",
+                "Run the staged 'Why is WSL offline?' diagnosis — the pipeline from the 2026-10-30 field " +
+                "report, read-only end to end: host egress probe, guest probe from inside the running " +
+                "distro (bash /dev/tcp, exit 0 vs 124), the guest's NAT-gateway leg, the full firewall " +
+                "rule-model scan for WSL/Hyper-V-family rules, and the Hyper-V firewall layer — ending in " +
+                "one plain-English verdict: healthy, machine-wide outage, disabled family rules, Hyper-V " +
+                "layer blocking, or a drop below the rule model (WFP, needs the elevated attribution " +
+                "script). Never starts the utility VM; takes ~15 seconds.",
+                Schema(),
+                false,
+                a => DiagnoseWsl()),
+
             // ── mutating: only present when the session allows, each call confirmed ──
 
             new Tool(
@@ -499,6 +526,24 @@ namespace AutoCommand.Agent.Core
                         ["s"] = id.DeclaredService,
                         ["cmdline_visible"] = id.CommandLineVisible,
                         ["mismatch"] = id.Mismatch,
+                    };
+                }
+
+                // WSL family rows: the connection belongs to the Linux VM, so
+                // say so — and warn that a process block here takes down every
+                // distro. State rides the cached probe; never starts the VM.
+                if (WslIdentityService.IsWslFamilyProcess(name))
+                {
+                    var st = WslIdentityService.GetState();
+                    row["wsl"] = new JsonObject
+                    {
+                        ["egress"] = "WSL2 utility VM — a Linux process made this connection; " +
+                                     "host-side attribution stops at the VM boundary",
+                        ["vm_running"] = st.VmRunning,
+                        ["running_distros"] = new JsonArray(st.RunningDistros.Select(d => (JsonNode)d).ToArray()),
+                        ["networking_mode"] = st.NetworkingMode,
+                        ["block_warning"] = "blocking this PROCESS blocks every distro's whole network — " +
+                                            "block the destination IP instead for anything narrower",
                     };
                 }
                 rows.Add(row);
@@ -1966,6 +2011,182 @@ namespace AutoCommand.Agent.Core
             return $"Apply the '{preset}' firewall preset? This changes many Windows firewall rule states at once; " +
                    "the baseline is re-captured as part of the same operation. " +
                    (string.IsNullOrEmpty(reason) ? "" : $"\n\nReason: {reason}");
+        }
+
+        // ── wsl tools (NetWatch.Core's WslIdentityService) ────────────────
+
+        private static string GetWslStatus()
+        {
+            WslIdentityService.WslState st;
+            try { st = WslIdentityService.GetState(); }
+            catch (Exception ex) { return "WSL state probe failed: " + ex.Message; }
+
+            var o = new JsonObject
+            {
+                ["type"] = "wsl_status",
+                ["installed"] = st.Installed,
+                ["vm_running"] = st.VmRunning,
+                ["running_distros"] = new JsonArray(st.RunningDistros.Select(d => (JsonNode)d).ToArray()),
+                ["networking_mode"] = st.NetworkingMode,
+                ["mode_note"] = st.ModeNote,
+                ["note"] = "WSL-family rows in get_monitor_rows (wslservice/vmmem/wslrelay) carry a 'wsl' " +
+                           "object; in NAT mode host-side process attribution stops at the VM boundary — " +
+                           "this tool never starts the utility VM.",
+            };
+            if (st.Error != null) o["probe_error"] = st.Error;
+
+            if (!st.Installed) o["verdict"] = "WSL is not installed on this machine.";
+            else if (!st.VmRunning) o["verdict"] =
+                "WSL is installed but the utility VM is not running — start a distro yourself to see live " +
+                "traffic; this probe deliberately never launches it.";
+            else
+            {
+                // Guest half: ss -tnp per running distro, joined to the host's
+                // WSL-family connections by destination (NAT preserves it).
+                try
+                {
+                    var snap = WslGuestProbe.Probe();
+                    var hostWsl = GetHostWslConnections();
+
+                    var distrosArr = new JsonArray();
+                    foreach (var d in snap.Distros)
+                    {
+                        var distro = new JsonObject
+                        {
+                            ["distro"] = d.Distro ?? "(default)",
+                            ["ok"] = d.Ok,
+                            ["sockets"] = d.Sockets.Length,
+                        };
+                        if (d.Error != null) distro["error"] = d.Error;
+
+                        var matches = new JsonArray();
+                        foreach (var h in hostWsl.Take(50))
+                        {
+                            var guests = WslGuestProbe.MatchByRemoteIp(snap, WslGuestProbe.SplitEndpoint(h.Remote).Ip)
+                                .Take(5).ToList();
+                            if (guests.Count == 0) continue;
+                            var gArr = new JsonArray();
+                            foreach (var (_, g) in guests)
+                                gArr.Add(new JsonObject
+                                {
+                                    ["process"] = g.Process,
+                                    ["pid"] = g.Pid,
+                                    ["state"] = g.State,
+                                    ["peer"] = g.Peer,
+                                    ["local"] = g.Local,
+                                });
+                            matches.Add(new JsonObject
+                            {
+                                ["host_remote"] = h.Remote,
+                                ["host_process"] = h.Process,
+                                ["host_pid"] = h.Pid,
+                                ["linux_side"] = gArr,
+                            });
+                        }
+                        distro["joined_host_connections"] = matches;
+                        distrosArr.Add(distro);
+                    }
+
+                    o["guest"] = new JsonObject
+                    {
+                        ["probed_utc"] = snap.ProbedUtc.ToString("yyyy-MM-dd HH:mm:ss") + "Z",
+                        ["distros"] = distrosArr,
+                        ["method"] = "ss -tnp per running distro, joined to host WSL-family connections by " +
+                                     "remote endpoint (NAT preserves the destination)",
+                    };
+
+                    // WSL's own firewall layer: profiles + the Hyper-V rule set
+                    // (the Windows-native way to filter WSL traffic per-VM).
+                    var hv = WslDiagnosisService.ReadHyperVDetails();
+                    var hvObj = new JsonObject();
+                    if (hv.Error != null)
+                        hvObj["note"] = $"Hyper-V firewall layer unreadable: {hv.Error} (pre-22H2 Windows lacks it)";
+                    if (hv.Profiles.Count > 0)
+                    {
+                        var profArr = new JsonArray();
+                        foreach (var p in hv.Profiles)
+                            profArr.Add(new JsonObject
+                            {
+                                ["profile"] = p.Name,
+                                ["default_inbound"] = p.DefaultInbound,
+                                ["default_outbound"] = p.DefaultOutbound,
+                                ["allow_host_policy_merge"] = p.AllowHostPolicyMerge,
+                            });
+                        hvObj["profiles"] = profArr;
+                    }
+                    if (hv.Rules.Count > 0)
+                    {
+                        hvObj["rules_total"] = hv.Rules.Count;
+                        hvObj["rules_enabled"] = hv.Rules.Count(r => r.Enabled);
+                        var ruleArr = new JsonArray();
+                        foreach (var r in hv.Rules.Take(30))
+                            ruleArr.Add(new JsonObject
+                            {
+                                ["name"] = r.Name,
+                                ["direction"] = r.Direction,
+                                ["action"] = r.Action,
+                                ["enabled"] = r.Enabled,
+                            });
+                        hvObj["rules_sample"] = ruleArr;
+                        hvObj["rules_note"] = "per-VM filtering lives here (New-NetFirewallHyperVRule) — " +
+                                              "granular WSL containment goes on this layer, not the process layer";
+                    }
+                    if (hvObj.Count > 0) o["hyperv_firewall"] = hvObj;
+
+                    o["verdict"] = $"WSL VM is up ({st.RunningDistros.Length} distro(s)); the guest socket " +
+                                   "table above maps host-side WSL connections to their Linux processes.";
+                }
+                catch (Exception ex)
+                {
+                    o["guest_error"] = ex.Message;
+                }
+            }
+            return ToJson(o);
+        }
+
+        /// <summary>The staged WSL diagnosis over the bridge — the same
+        /// engine the UI's 'Why is WSL offline?' entry runs, so both faces
+        /// answer identically.</summary>
+        private static string DiagnoseWsl()
+        {
+            try
+            {
+                var d = WslDiagnosisService.DiagnoseLiveAsync().GetAwaiter().GetResult();
+                return ToJson(new JsonObject
+                {
+                    ["type"] = "wsl_diagnosis",
+                    ["healthy"] = d.Healthy,
+                    ["verdict"] = d.Verdict,
+                    ["next_step"] = d.NextStep,
+                    ["evidence"] = new JsonArray(d.Evidence.Select(e => (JsonNode)e).ToArray()),
+                });
+            }
+            catch (Exception ex)
+            {
+                return "WSL diagnosis failed: " + ex.Message;
+            }
+        }
+
+        /// <summary>Host-side established connections owned by the WSL
+        /// family (wslservice/vmmem/wslrelay/…) — the rows a guest join can
+        /// explain. Capped by the caller.</summary>
+        private static List<(string Remote, int Pid, string Process)> GetHostWslConnections()
+        {
+            var procs = new Dictionary<int, string>();
+            try
+            {
+                using var s = new ManagementObjectSearcher("SELECT ProcessId, Name FROM Win32_Process");
+                foreach (ManagementObject o in s.Get())
+                    procs[Convert.ToInt32(o["ProcessId"])] = o["Name"]?.ToString() ?? "?";
+            }
+            catch { }
+
+            var list = new List<(string Remote, int Pid, string Process)>();
+            foreach (var c in TcpConnectionTable.GetEstablished())
+                if (procs.TryGetValue(c.Pid, out var name) &&
+                    WslIdentityService.IsWslFamilyProcess(name))
+                    list.Add((c.RemoteEndPoint, c.Pid, name));
+            return list;
         }
 
         private static string ToJson(JsonObject o) => o.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = false });
