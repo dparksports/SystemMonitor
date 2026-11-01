@@ -65,10 +65,15 @@ firewall rule model — has a one-click answer.
   crash.log stack from a real occurrence.
 
 ================================================================================
-  2026.10.31  -  released 2026-10-31
+  2026.10.31  -  released 2026-10-31 · WITHDRAWN (superseded by 2026.10.31.1)
 ================================================================================
 
 # AutoCommand III — v2026.10.31
+
+> ⚠ **Withdrawn.** This build carried a Shields Up tab crash (the Task-dispose
+> bug fixed in 2026.10.31.1 — see that entry's Fixed note). The GitHub release
+> and its tag were removed so downloads and releases/latest serve only the
+> fixed build. The commits and the notes below remain part of the history.
 
 Shields Up moves in: the standalone admin console's four rituals — take the
 junk out, set the firewall, close the doors, silence the phone-home — are now
