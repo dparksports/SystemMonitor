@@ -190,4 +190,4 @@ Assert-Exit 'gh release upload (unblock script + sums)'
 # so there is no frozen repo left to mirror the readme into. The old
 # sync-archived-readme.ps1 step was removed with the consolidation.
 
-Step "Released v${Version}: https://github.com/dparksports/autocommand-windows/releases/tag/v${Version}"
+Step "Released v${Version}: https://github.com/dparksports/autocommand/releases/tag/v${Version}"

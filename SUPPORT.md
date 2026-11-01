@@ -6,10 +6,10 @@ AutoCommand is built and maintained by one person ([Dan Park](https://magicpoint
 
 | I want to… | Go here |
 |---|---|
-| 💬 **Say hello, ask how something works** | [Discussions → General](https://github.com/dparksports/autocommand-windows/discussions/categories/general) |
-| ❤️ **Send kudos / share what I caught** | [Discussions → Show and tell](https://github.com/dparksports/autocommand-windows/discussions/categories/show-and-tell) |
-| 🐛 **Report a bug** | [The bug report form](https://github.com/dparksports/autocommand-windows/issues/new?template=bug_report.yml) — it asks for the few facts that make a report fixable |
-| 💡 **Suggest a feature** | [Discussions → Ideas](https://github.com/dparksports/autocommand-windows/discussions/categories/ideas) — post the *problem* you're trying to solve; ideas that gather 👍 become issues |
+| 💬 **Say hello, ask how something works** | [Discussions → General](https://github.com/dparksports/autocommand/discussions/categories/general) |
+| ❤️ **Send kudos / share what I caught** | [Discussions → Show and tell](https://github.com/dparksports/autocommand/discussions/categories/show-and-tell) |
+| 🐛 **Report a bug** | [The bug report form](https://github.com/dparksports/autocommand/issues/new?template=bug_report.yml) — it asks for the few facts that make a report fixable |
+| 💡 **Suggest a feature** | [Discussions → Ideas](https://github.com/dparksports/autocommand/discussions/categories/ideas) — post the *problem* you're trying to solve; ideas that gather 👍 become issues |
 | 🔒 **Report a security problem** | **Privately** — see [SECURITY.md](SECURITY.md). Please never open a public issue for these |
 
 ## Good to know

@@ -64,7 +64,7 @@ namespace AutoCommand.Services
 
         /// <summary>Stable public download link — what the Share button copies
         /// when the graph page isn't deployed yet.</summary>
-        public const string ReleasesUrl = "https://github.com/dparksports/autocommand-windows/releases/latest";
+        public const string ReleasesUrl = "https://github.com/dparksports/autocommand/releases/latest";
 
         /// <summary>Startup entry point — call once from App.OnStartup (UI thread).</summary>
         public static async Task RunStartupFlowAsync()
