@@ -40,6 +40,12 @@
          the same library - they run the shipped assembly, not a source
          copy. -->
     <ProjectReference Include="core\AutoCommand.NetWatch.Core\AutoCommand.NetWatch.Core.csproj" />
+    <!-- Intercept core: key acquisition (SSLKEYLOGFILE launch-under-watch,
+         system-wide capture) and the Layer-3 intercept stack — the code that
+         deliberately touches key material, proxy settings or the trust store.
+         It aims the F# TLS engines; it does not reimplement them. -->
+    <ProjectReference Include="core\AutoCommand.Intercept.Core\AutoCommand.Intercept.Core.csproj" />
+    <Using Include="AutoCommand.Intercept.Core" />
     <!-- The Matrix-rain face of the process monitor (the Rain tab): the
          same presentation engine the standalone overlay ships (dparksports/
          autocommand-matrix), parked beside the vendored engines — not under

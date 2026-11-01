@@ -1,8 +1,17 @@
 // Traffic Peek engine: the Process Monitor's "Peer into this connection"
 // action. While one peek window is open, a FlowDossierService holds the
 // shared TcpStreamCaptureService via AddRef/Release (it runs for nobody
-// else today), filters every finalized TCP flow to the peered remote IP,
+// else today), filters every finalized TCP flow to the peered subject,
 // runs it through the TLS decryptor, and hands the result to the view.
+//
+// A subject is one of three scopes:
+//   RemoteIpScope  — one remote IP ("this connection")
+//   ProgramScope   — one program instance, matched by the PID Sysmon EID 3
+//                    attributes (never image-matched for shared hosts)
+//   ServiceScope   — a svchost-hosted service name (DiagTrack, CryptSvc…),
+//                    matched by resolving each connecting PID's hosted
+//                    services — the pin survives service restarts, where
+//                    a PID-anchored scope would go stale
 //
 // Honesty rules (same vocabulary the Transmissions pipeline uses):
 //   • TLS metadata (SNI/ALPN/cipher) is always extracted from the
@@ -22,10 +31,62 @@ namespace AutoCommand.Engines.Watch
 
 open System
 open System.Collections.Concurrent
+open System.Collections.Generic
 open System.Diagnostics.Eventing.Reader
 open System.Globalization
+open System.Management
 open System.Text
 open System.Threading
+
+/// <summary>
+/// What one Traffic Peek watches: a remote IP ("this connection"), one
+/// program instance ("this program", PID-anchored via Sysmon EID 3), or
+/// one svchost-hosted service by NAME ("DiagTrack") — the only anchor
+/// that survives service restarts, so a pinned service keeps being
+/// tracked no matter which instance pops up.
+/// </summary>
+type PeekScope =
+    | RemoteIpScope of ip: string
+    | ProgramScope of pid: int * image: string
+    | ServiceScope of service: string
+
+/// PID → hosted-services resolution for ServiceScope, cached per PID with
+/// a short TTL: a svchost instance's service set never changes while it
+/// lives, but PIDs get recycled — a stale answer would attribute a new
+/// tenant's traffic to the pinned service. One WMI roundtrip per PID per
+/// TTL window; steady state is a dictionary lookup.
+module internal ServiceDirectory =
+    let private Ttl = TimeSpan.FromSeconds 30.0
+    let private cache = ConcurrentDictionary<int, string[] * DateTime>()
+    let private gate = obj ()
+
+    let private Fresh(pid: int) : string[] =
+        lock gate (fun () ->
+            let now = DateTime.UtcNow
+            match cache.TryGetValue pid with
+            | true, (s, seen) when now - seen < Ttl -> s
+            | _ ->
+                let found =
+                    try
+                        use searcher = new ManagementObjectSearcher(
+                            $"SELECT Name FROM Win32_Service WHERE ProcessId = {pid}")
+                        Array.ofList [ for o in searcher.Get() -> o["Name"].ToString() ]
+                    with _ -> [||]
+                cache[pid] <- (found, now)
+                found)
+
+    let HostsService(pid: int, service: string) : bool =
+        if pid <= 0 || String.IsNullOrWhiteSpace service then false
+        else
+            let services = Fresh pid
+            services |> Array.exists (fun s -> String.Equals(s, service, StringComparison.OrdinalIgnoreCase))
+
+    /// Drop a dead PID's entry (called on exit events; cheap enough to skip).
+    let Forget(pid: int) = cache.TryRemove pid |> ignore
+
+    /// Self-test seam: pin a fake pid → services answer without WMI.
+    let internal Override(pid: int, services: string[]) =
+        cache[pid] <- (services, DateTime.UtcNow)
 
 /// Short status for the flows list — the pipeline's vocabulary, with
 /// "not TLS" for flows that carried no handshake at all.
@@ -43,19 +104,75 @@ module private DossierStatus =
         s
 
 /// <summary>
+/// Scope matching shared by the flow filter and the TagFlow filter. Shared
+/// hosts (svchost, taskhostw…) host many processes at once, so they are
+/// NEVER image-matched — a program scope on svchost.exe matches only its
+/// exact PID, and a service scope resolves the PID's hosted services
+/// instead (the ii InterceptProxyService guard, carried over).
+/// </summary>
+module private Peek =
+    let SharedHostImages =
+        HashSet<string>(
+            [| "svchost.exe"; "taskhostw.exe"; "runtimebroker.exe"; "dllhost.exe"
+               "explorer.exe"; "conhost.exe"; "csrss.exe" |],
+            StringComparer.OrdinalIgnoreCase)
+
+    let Display(scope: PeekScope) : string =
+        match scope with
+        | RemoteIpScope ip -> $"ip {ip}"
+        | ProgramScope (pid, image) ->
+            let name = if String.IsNullOrEmpty image then "?" else IO.Path.GetFileName image
+            $"{name} (PID {pid})"
+        | ServiceScope service -> $"service {service}"
+
+    let MatchesConnect(scope: PeekScope, evt: SysmonConnectEvent) : bool =
+        match scope with
+        | RemoteIpScope ip ->
+            String.Equals(evt.DestIp, ip, StringComparison.OrdinalIgnoreCase)
+            || String.Equals(evt.SourceIp, ip, StringComparison.OrdinalIgnoreCase)
+        | ProgramScope (pid, image) ->
+            if pid > 0 && evt.Pid = pid then true
+            elif String.IsNullOrEmpty image then false
+            else
+                let name = IO.Path.GetFileName image
+                not (SharedHostImages.Contains name)
+                && String.Equals(evt.Image, image, StringComparison.OrdinalIgnoreCase)
+        | ServiceScope service -> ServiceDirectory.HostsService(evt.Pid, service)
+
+    let MatchesFlow(scope: PeekScope, flow: TcpFlowRecord) : bool =
+        match scope with
+        | RemoteIpScope ip ->
+            let prefix = ip + ":"
+            (flow.ServerEndpoint <> null && flow.ServerEndpoint.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            || (flow.ClientEndpoint <> null && flow.ClientEndpoint.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        | ProgramScope (pid, image) ->
+            if pid > 0 && flow.Pid = pid then true
+            elif String.IsNullOrEmpty image || flow.Pid = 0 then false
+            else
+                let name = IO.Path.GetFileName image
+                not (SharedHostImages.Contains name)
+                && String.Equals(flow.Image, image, StringComparison.OrdinalIgnoreCase)
+        | ServiceScope service -> ServiceDirectory.HostsService(flow.Pid, service)
+
+/// <summary>
 /// One peered conversation: the finalized TCP flow plus the decryptor's
 /// honest verdict. Carries its own display strings so the view binds
 /// directly (the TransmissionRecord pattern — engine types own their
 /// row presentation).
 /// </summary>
-type FlowDossierEntry(flow: TcpFlowRecord, decrypt: TlsDecryptResult, remoteIp: string) =
+type FlowDossierEntry(flow: TcpFlowRecord, decrypt: TlsDecryptResult, scope: PeekScope) =
 
     // Which side of the conversation is the peered endpoint, decided once.
-    let prefix = remoteIp + ":"
+    // IP scope picks whichever endpoint carries the peered IP; program and
+    // service scopes have no endpoint anchor — display server as remote.
     let serverIsPeer =
-        flow.ServerEndpoint <> null && flow.ServerEndpoint.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+        match scope with
+        | RemoteIpScope ip -> flow.ServerEndpoint <> null && flow.ServerEndpoint.StartsWith(ip + ":", StringComparison.OrdinalIgnoreCase)
+        | ProgramScope _ | ServiceScope _ -> true
     let clientIsPeer =
-        flow.ClientEndpoint <> null && flow.ClientEndpoint.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+        match scope with
+        | RemoteIpScope ip -> flow.ClientEndpoint <> null && flow.ClientEndpoint.StartsWith(ip + ":", StringComparison.OrdinalIgnoreCase)
+        | ProgramScope _ | ServiceScope _ -> false
 
     member _.Status: string = DossierStatus.Short decrypt
 
@@ -192,11 +309,12 @@ module ServiceLogProbe =
 /// The peer service behind one Traffic Peek window. Start() takes a
 /// refcount on the shared capture, shortens its idle sweep so quiet
 /// conversations surface within seconds, tags matching Sysmon EID 3
-/// connects with pid/image, and decrypts every finalized flow to the
-/// peered IP on a private worker thread. Stop() undoes all of it; a
-/// window closing must always pair the two.
+/// connects with pid/image, and decrypts every finalized flow that
+/// belongs to the scope (remote IP / program instance / hosted service)
+/// on a private worker thread. Stop() undoes all of it; a window closing
+/// must always pair the two.
 /// </summary>
-type FlowDossierService(remoteIp: string) as this =
+type FlowDossierService private (scope: PeekScope) as this =
 
     let capture = TcpStreamCaptureService.Shared
     let keylog = TlsKeylogService()
@@ -209,14 +327,6 @@ type FlowDossierService(remoteIp: string) as this =
     let mutable entries = 0L
     let savedIdleTimeout = capture.IdleTimeout
 
-    // "ip:port" endpoint / bare ip belongs to the peered IP. Let-bound (not
-    // members) so the capture-thread handlers below can call them without
-    // touching the self identifier.
-    let matchesIp(ip: string) : bool =
-        String.Equals(ip, remoteIp, StringComparison.OrdinalIgnoreCase)
-    let matchesEndpoint(endpoint: string) : bool =
-        endpoint <> null && endpoint.StartsWith(remoteIp + ":", StringComparison.OrdinalIgnoreCase)
-
     let onEntry = DelegateEvent<Action<FlowDossierEntry>>()
     let onError = DelegateEvent<Action<string>>()
 
@@ -227,10 +337,16 @@ type FlowDossierService(remoteIp: string) as this =
     // last departure restores it.
     static let mutable activeDossiers = 0
 
+    // C#-friendly construction — no DU syntax leaks into the views/tests.
+    static member ForIp(ip: string) = FlowDossierService(RemoteIpScope ip)
+    static member ForProgram(pid: int, image: string) = FlowDossierService(ProgramScope(pid, image))
+    static member ForService(service: string) = FlowDossierService(ServiceScope service)
+    static member OfScope(scope: PeekScope) = FlowDossierService scope
+
     /// How many dossiers hold the capture right now (self-test seam).
     static member ActiveCount = activeDossiers
 
-    member _.RemoteIp: string = remoteIp
+    member _.ScopeDisplay: string = Peek.Display scope
 
     member _.IsRunning = Volatile.Read(&running) = 1
 
@@ -286,12 +402,12 @@ type FlowDossierService(remoteIp: string) as this =
 
     member private _.OnConnect(evt: SysmonConnectEvent) =
         if not evt.IsTcp then ()
-        elif not (matchesIp evt.DestIp) && not (matchesIp evt.SourceIp) then ()
+        elif not (Peek.MatchesConnect(scope, evt)) then ()
         else capture.TagFlow(evt.SourceIp, evt.SourcePort, evt.DestIp, evt.DestPort, evt.Pid, evt.Image) |> ignore
 
     member private _.OnFlowFinalized(flow: TcpFlowRecord) =
         // Raised on capture threads — filter cheap, enqueue or drop, never block.
-        if not (matchesEndpoint flow.ServerEndpoint) && not (matchesEndpoint flow.ClientEndpoint) then ()
+        if not (Peek.MatchesFlow(scope, flow)) then ()
         elif not (queue.TryAdd flow) then () // queue full: decryption outpaced — drop silently
         else Interlocked.Increment(&entries) |> ignore
 
@@ -307,4 +423,4 @@ type FlowDossierService(remoteIp: string) as this =
     member private this.Process(flow: TcpFlowRecord) =
         keylog.Refresh()
         let result = TlsDecryptor.Decrypt(flow, keylog)
-        onEntry.Trigger [| box (FlowDossierEntry(flow, result, remoteIp)) |]
+        onEntry.Trigger [| box (FlowDossierEntry(flow, result, scope)) |]

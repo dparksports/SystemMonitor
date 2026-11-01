@@ -68,7 +68,9 @@ namespace AutoCommand.Views
         // Scheduled-task attribution for taskhostw rows (who/what/why launched)
         private readonly TaskAttributionService _taskAttribution = new();
 
-        // Traffic Peek windows, one per remote IP ("Peer into this connection")
+        // Traffic Peek windows, one per subject ("Peer into this connection",
+        // "Peer into this program", "Track this service") — keys name the
+        // scope: "ip:x" · "pid:N" · "svc:name".
         private readonly Dictionary<string, ConnectionPeekWindow> _peekWindows = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>The live monitor instance — the Blocks tab reads current
@@ -637,6 +639,21 @@ namespace AutoCommand.Views
                 ? $"🔬 Peer into this connection ({sel.RemoteIp})"
                 : "🔬 Peer into this connection";
 
+            // Program scope needs a live PID (Sysmon EID 3 does the rest).
+            bool programPeekable = sel != null && sel.ProcessId > 0;
+            ProgramPeekMenuItem.IsEnabled = programPeekable;
+            ProgramPeekMenuItem.Header = programPeekable
+                ? $"🔬 Peer into this program (PID {sel.ProcessId})"
+                : "🔬 Peer into this program";
+
+            // A service pin is the subject that survives restarts — anchored
+            // to the NAME, so it tracks whichever instance pops up next.
+            string pinnedService = sel == null ? null : FirstService(sel.HostedServicesCsv);
+            TrackServiceMenuItem.IsEnabled = !string.IsNullOrEmpty(pinnedService);
+            TrackServiceMenuItem.Header = !string.IsNullOrEmpty(pinnedService)
+                ? $"⭐ Track this service ({pinnedService}) — follows restarts"
+                : "⭐ Track this service (svchost rows only)";
+
             ResolveNowMenuItem.IsEnabled = sel != null &&
                 System.Net.IPAddress.TryParse(sel.RemoteIp, out _) && !sel.IsResolved;
             ResolveNowMenuItem.Visibility = ResolveNowMenuItem.IsEnabled
@@ -795,31 +812,89 @@ namespace AutoCommand.Views
                 string.IsNullOrEmpty(item.RemoteIp))
                 return;
 
-            // One peek per remote IP: a second request focuses the existing
-            // window instead of stacking two captures on the same endpoint.
-            if (_peekWindows.TryGetValue(item.RemoteIp, out var existing))
+            OpenIpPeekWindow(item.RemoteIp, item.ProcessName, item.ProcessId, item.HostedServicesCsv, item.Hostname);
+        }
+
+        private void ProgramPeekMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (SvchostGrid.SelectedItem is not SvchostMonitorItem item || item.ProcessId <= 0)
+                return;
+            OpenProgramPeekWindow(item.ProcessId, item.ImagePath ?? item.ProcessName, item.ProcessName, item.HostedServicesCsv, item.Hostname);
+        }
+
+        private void TrackServiceMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (SvchostGrid.SelectedItem is not SvchostMonitorItem item) return;
+            string service = FirstService(item.HostedServicesCsv);
+            if (string.IsNullOrEmpty(service)) return;
+            OpenServicePeekWindow(service, item.ProcessName, item.HostedServicesCsv, item.Hostname);
+        }
+
+        /// <summary>The first SCM-resident service name on a svchost row.</summary>
+        private static string FirstService(string hostedServicesCsv)
+        {
+            if (string.IsNullOrWhiteSpace(hostedServicesCsv)) return null;
+            foreach (var part in hostedServicesCsv.Split(','))
+                if (!string.IsNullOrWhiteSpace(part)) return part.Trim();
+            return null;
+        }
+
+        // One peek window per subject: a second request focuses the existing
+        // window instead of stacking two captures on the same subject. The
+        // key names the scope ("ip:x" · "pid:N" · "svc:name").
+        private ConnectionPeekWindow OpenOrFocus(string key, Func<ConnectionPeekWindow> create)
+        {
+            if (_peekWindows.TryGetValue(key, out var existing))
             {
                 if (existing != null && existing.IsLoaded)
                 {
                     existing.Activate();
-                    return;
+                    return existing;
                 }
-                _peekWindows.Remove(item.RemoteIp);
+                _peekWindows.Remove(key);
             }
+            var win = create();
+            win.Closed += (_, _) => _peekWindows.Remove(key);
+            _peekWindows[key] = win;
+            win.Show();
+            return win;
+        }
 
-            var win = new ConnectionPeekWindow(
-                item.RemoteIp,
-                item.ProcessName,
-                item.ProcessId,
-                item.HostedServicesCsv,
-                item.Hostname)
+        private ConnectionPeekWindow OpenIpPeekWindow(
+            string remoteIp, string processName, int pid, string hostedServices, string hostname) =>
+            OpenOrFocus($"ip:{remoteIp}", () => new ConnectionPeekWindow(
+                remoteIp, processName, pid, hostedServices, hostname)
             {
                 Owner = Window.GetWindow(this)
-            };
-            win.Closed += (_, _) => _peekWindows.Remove(item.RemoteIp);
-            _peekWindows[item.RemoteIp] = win;
-            win.Show();
-        }
+            });
+
+        /// <summary>
+        /// Opens (or focuses) the program-scoped peek for a PID. Public so
+        /// Launch-under-watch can point a fresh window at the instance it
+        /// just started, from inside any peek window.
+        /// </summary>
+        public ConnectionPeekWindow OpenProgramPeekWindow(
+            int pid, string image, string processName,
+            string hostedServices = null, string hostname = null) =>
+            OpenOrFocus($"pid:{pid}", () => new ConnectionPeekWindow(
+                pid, image, processName, hostedServices, hostname)
+            {
+                Owner = Window.GetWindow(this)
+            });
+
+        /// <summary>
+        /// Opens (or focuses) a service-scoped peek. The window follows the
+        /// service across restarts: the scope is the service NAME, so every
+        /// future svchost instance hosting it is tracked with no user action.
+        /// </summary>
+        public ConnectionPeekWindow OpenServicePeekWindow(
+            string service, string processName, string hostedServices = null, string hostname = null) =>
+            OpenOrFocus($"svc:{service}", () => new ConnectionPeekWindow(
+                AutoCommand.Engines.Watch.PeekScope.NewServiceScope(service), service, processName, 0,
+                hostedServices, hostname)
+            {
+                Owner = Window.GetWindow(this)
+            });
 
         /// <summary>
         /// Opens the read-only PID inquiry window. Row hints (name, Sysmon

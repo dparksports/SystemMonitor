@@ -1,21 +1,27 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Threading;
 
 namespace AutoCommand.Views
 {
     /// <summary>
     /// Traffic Peek — "what does this connection actually carry?", opened
-    /// from the Process Monitor row context menu. While open it holds the
-    /// shared TCP stream capture (FlowDossierService AddRef/Release), shows
-    /// every finalized flow to the peered IP with the TLS decryptor's honest
-    /// verdict, and reads the Windows Update / BITS / Delivery Optimization
-    /// event channels for the same time window — the plaintext answer for
-    /// services whose TLS can never be decrypted.
+    /// from the Process Monitor row context menu. Three scopes: a remote IP
+    /// ("this connection"), a program instance ("this program", PID-anchored
+    /// via Sysmon EID 3), or a svchost-hosted service by name ("DiagTrack" —
+    /// the only anchor that survives service restarts, so a tracked service
+    /// keeps being followed no matter which instance pops up). While open it
+    /// holds the shared TCP stream capture (FlowDossierService AddRef/Release),
+    /// shows every finalized flow to the subject with the TLS decryptor's
+    /// honest verdict, and reads the Windows Update / BITS / Delivery
+    /// Optimization event channels for the same time window — the plaintext
+    /// answer for services whose TLS can never be decrypted.
     ///
     /// Takes identity values (not the live row) so the window survives the
     /// process exiting — the ProcessTraceWindow pattern.
@@ -24,7 +30,8 @@ namespace AutoCommand.Views
     {
         private const int MaxFlowsShown = 200;
 
-        private readonly string _remoteIp;
+        private readonly AutoCommand.Engines.Watch.PeekScope _scope;
+        private readonly string _subject;
         private readonly string _processName;
         private readonly int _pid;
         private readonly string _hostedServices;
@@ -39,17 +46,36 @@ namespace AutoCommand.Views
         private bool _busyRefreshingEvents;
         private bool _closed;
 
+        /// <summary>Peer one remote connection ("this connection").</summary>
         public ConnectionPeekWindow(string remoteIp, string processName, int pid, string hostedServices, string hostname)
+            : this(AutoCommand.Engines.Watch.PeekScope.NewRemoteIpScope(remoteIp), remoteIp, processName, pid, hostedServices, hostname)
         {
-            _remoteIp = remoteIp;
+        }
+
+        /// <summary>Peer one program instance ("this program").</summary>
+        public ConnectionPeekWindow(int pid, string image, string processName, string hostedServices, string hostname)
+            : this(AutoCommand.Engines.Watch.PeekScope.NewProgramScope(pid, image),
+                   string.IsNullOrEmpty(image) ? $"PID {pid}" : System.IO.Path.GetFileName(image),
+                   processName, pid, hostedServices, hostname)
+        {
+        }
+
+        /// <summary>Track one svchost-hosted service by name — survives restarts.</summary>
+        public ConnectionPeekWindow(AutoCommand.Engines.Watch.PeekScope scope, string subject,
+                                    string processName, int pid, string hostedServices, string hostname)
+        {
+            _scope = scope;
+            _subject = subject;
             _processName = processName;
             _pid = pid;
             _hostedServices = hostedServices;
             _hostname = hostname;
             InitializeComponent();
 
-            Title = $"Traffic Peek — {remoteIp}";
-            IdentIp.Text = remoteIp;
+            Title = $"Traffic Peek — {subject}";
+            bool programScope = scope.IsProgramScope || scope.IsServiceScope;
+            IdentIpLabel.Text = scope.IsServiceScope ? "TRACKED SERVICE" : programScope ? "PROGRAM" : "REMOTE IP";
+            IdentIp.Text = subject;
             IdentProcess.Text = BuildProcessLabel();
             IdentServices.Text = string.IsNullOrEmpty(hostedServices) ? "—" : hostedServices;
             IdentHost.Text = string.IsNullOrEmpty(hostname) ? "(not resolved)" : hostname;
@@ -72,14 +98,14 @@ namespace AutoCommand.Views
 
         private void StartPeek()
         {
-            _dossier = new FlowDossierService(_remoteIp);
+            _dossier = FlowDossierService.OfScope(_scope);
             _dossier.OnEntry += entry =>
                 Dispatcher.BeginInvoke(new Action(() => AddFlow(entry)));
             // Non-fatal by contract (Sysmon absent → no PID attribution);
             // shown as a note, never a stop.
             _dossier.OnError += msg =>
                 Dispatcher.BeginInvoke(new Action(() =>
-                    SetWarning("PID attribution note: " + msg)));
+                    SetWarning("attribution: " + msg)));
             _dossier.Start();
             _ = RefreshEventsAsync();
             UpdateStatusStrip();
@@ -153,6 +179,13 @@ namespace AutoCommand.Views
             StatusBannerText.Foreground = new System.Windows.Media.SolidColorBrush(
                 (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(fg));
 
+            // On "encrypted (no keys)": tell the user exactly how plaintext
+            // becomes possible (launch under watch) and why schannel rows
+            // never will — the honest coverage answer, not a gap.
+            bool noKeys = status.StartsWith("encrypted", StringComparison.Ordinal);
+            CoverageNoteText.Text = noKeys ? TransmissionKeyService.CoverageNote : null;
+            CoverageNoteText.Visibility = noKeys ? Visibility.Visible : Visibility.Collapsed;
+
             bool showPlaintext = entry.Decrypt.Success;
             PlaintextSection.Visibility = showPlaintext ? Visibility.Visible : Visibility.Collapsed;
             if (!showPlaintext) return;
@@ -223,10 +256,14 @@ namespace AutoCommand.Views
                 return;
             }
             var capture = TcpStreamCaptureService.Shared;
+            string attribution = _scope.IsRemoteIpScope
+                ? ""
+                : " · flows are attributed via Sysmon EID 3 — without Sysmon this peek stays empty";
             CaptureStatusText.Text =
                 $"Capture running · {_dossier.EntryCount} peered flow(s) shown · " +
-                $"{capture.OutboundPackets} out / {capture.InboundPackets} in packets this session · " +
-                "flows appear when a conversation closes (or ~10 s after it goes quiet).";
+                $"{capture.OutboundPackets} out / {capture.InboundPackets} in packets this session" +
+                attribution +
+                " · flows appear when a conversation closes (or ~10 s after it goes quiet).";
 
             // Some NIC/driver combos deliver only outbound packets to a
             // receive-all socket — say so instead of letting a zero reply
@@ -276,6 +313,90 @@ namespace AutoCommand.Views
 
         // ── footer actions ───────────────────────────────────────────────
 
+        private void LaunchUnderWatchBtn_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Choose a program to launch under watch",
+                Filter = "Programs (*.exe;*.bat;*.cmd)|*.exe;*.bat;*.cmd|All files (*.*)|*.*"
+            };
+            if (dialog.ShowDialog(this) != true) return;
+
+            string arguments = PromptForArguments(dialog.FileName);
+            Process proc = null;
+            try
+            {
+                proc = TransmissionKeyService.LaunchUnderWatch(dialog.FileName, arguments, null);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Launch failed: {ex.Message}", "Launch under watch",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (proc?.Id > 0)
+            {
+                // The launched instance gets its own program-scoped peek: the
+                // subject the user cares about, from its first connection on.
+                var name = System.IO.Path.GetFileName(dialog.FileName);
+                var monitor = SvchostMonitorView.Current;
+                if (monitor != null)
+                    monitor.OpenProgramPeekWindow(proc.Id, dialog.FileName, name);
+                else
+                    new ConnectionPeekWindow(proc.Id, dialog.FileName, name, null, null)
+                    {
+                        Owner = Window.GetWindow(this)
+                    }.Show();
+            }
+        }
+
+        /// <summary>Arguments prompt — a small code-built modal (the ii
+        /// Launch-under-watch pattern): what will be launched, one Consolas
+        /// box for the command line, Launch/Cancel. Cancel launches with
+        /// empty arguments.</summary>
+        private string PromptForArguments(string exePath)
+        {
+            var input = new System.Windows.Controls.TextBox
+            {
+                FontFamily = new System.Windows.Media.FontFamily("Consolas"),
+                FontSize = 12,
+                Margin = new Thickness(0, 8, 0, 0),
+            };
+            var buttons = new System.Windows.Controls.StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+            };
+            var launch = new Button { Content = "Launch", IsDefault = true, MinWidth = 84, Margin = new Thickness(0, 12, 8, 0) };
+            var cancel = new Button { Content = "Cancel", IsCancel = true, MinWidth = 84, Margin = new Thickness(0, 12, 0, 0) };
+            var panel = new System.Windows.Controls.StackPanel { Margin = new Thickness(16) };
+            panel.Children.Add(new TextBlock
+            {
+                Text = $"Launching:\n{exePath}\n\nSSLKEYLOGFILE will be set for this program only.",
+                TextWrapping = TextWrapping.Wrap,
+            });
+            panel.Children.Add(input);
+            buttons.Children.Add(launch);
+            buttons.Children.Add(cancel);
+            panel.Children.Add(buttons);
+            var win = new Window
+            {
+                Title = "🚀 Launch under watch",
+                Width = 540,
+                SizeToContent = SizeToContent.Height,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = this,
+                ResizeMode = ResizeMode.NoResize,
+                Content = panel,
+            };
+            var ok = false;
+            launch.Click += (_, _) => { ok = true; win.Close(); };
+            input.Focus();
+            win.ShowDialog();
+            return ok ? input.Text.Trim() : "";
+        }
+
         private void UpdateKeylogChip() =>
             KeylogChip.Content = TlsKeylogService.KeylogEnabled
                 ? "🔑 Session-key logging: ON"
@@ -320,7 +441,7 @@ namespace AutoCommand.Views
         private string BuildReportText()
         {
             var sb = new StringBuilder();
-            sb.AppendLine($"=== TRAFFIC PEEK: {_remoteIp} ===");
+            sb.AppendLine($"=== TRAFFIC PEEK: {_subject} ===");
             sb.AppendLine($"process: {BuildProcessLabel()}   services: {_hostedServices ?? "—"}   host: {_hostname ?? "(not resolved)"}");
             sb.AppendLine($"window: {_openedUtc:yyyy-MM-dd HH:mm:ss} → {DateTime.Now:HH:mm:ss} (local)");
             sb.AppendLine();

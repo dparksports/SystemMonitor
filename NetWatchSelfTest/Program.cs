@@ -207,7 +207,7 @@ AutoCommand.Engines.Watch.WatchConfig.Configure(new AutoCommand.Engines.Core.App
     Microsoft.FSharp.Collections.ListModule.OfSeq(Array.Empty<string>()), 47821, "netwatch-selftest"));
 
 const string PeerIp = "198.51.100.10"; // TEST-NET-2 — never routed, never real traffic
-var dossier = new AutoCommand.Engines.Watch.FlowDossierService(PeerIp);
+var dossier = AutoCommand.Engines.Watch.FlowDossierService.ForIp(PeerIp);
 var collected = new List<AutoCommand.Engines.Watch.FlowDossierEntry>();
 var dossierNotes = new List<string>();
 object entryGate = new object();
@@ -284,12 +284,80 @@ Check("idle sweep restored to the 60 s default",
       AutoCommand.Engines.Watch.TcpStreamCaptureService.Shared.IdleTimeout == TimeSpan.FromSeconds(60));
 
 // A window close/reopen cycle must re-arm cleanly (one peek per IP, reused).
-var dossier2 = new AutoCommand.Engines.Watch.FlowDossierService(PeerIp);
+var dossier2 = AutoCommand.Engines.Watch.FlowDossierService.ForIp(PeerIp);
 dossier2.Start();
 bool reArmed = AutoCommand.Engines.Watch.TcpStreamCaptureService.Shared.IsRunning;
 dossier2.Stop();
 Check("close/reopen re-arms and re-releases the capture", reArmed &&
       !AutoCommand.Engines.Watch.TcpStreamCaptureService.Shared.IsRunning);
+
+// ─────────────────────────────────────────────────────────────────────
+// 6b. Program + service scopes — the subject-scoped siblings: a pinned
+//     program matches its tagged PID (with an image fallback for normal
+//     images), a pinned svchost-hosted service survives restarts because
+//     the match is the PID's hosted-services answer, and shared hosts
+//     are never image-matched.
+// ─────────────────────────────────────────────────────────────────────
+var progDossier = AutoCommand.Engines.Watch.FlowDossierService.ForProgram(4242, @"C:\Program Files\MyApp\myapp.exe");
+var progCollected = new List<AutoCommand.Engines.Watch.FlowDossierEntry>();
+progDossier.OnEntry += e => { lock (entryGate) progCollected.Add(e); };
+progDossier.Start();
+
+// PID match: a flow tagged 4242 belongs to the program scope
+Feed(cap, Tcp4("192.0.2.10", 51242, "203.0.113.9", 443, 1, 0x18, hello));
+cap.TagFlow("192.0.2.10", 51242, "203.0.113.9", 443, 4242, @"C:\Program Files\MyApp\myapp.exe");
+Feed(cap, Tcp4("192.0.2.10", 51242, "203.0.113.9", 443, 1 + (uint)hello.Length, 0x04, Array.Empty<byte>()));
+
+// Different pid, same (non-shared) image — the restart-under-a-new-pid case
+Feed(cap, Tcp4("192.0.2.10", 51244, "203.0.113.9", 443, 1, 0x18, hello));
+cap.TagFlow("192.0.2.10", 51244, "203.0.113.9", 443, 5001, @"C:\Program Files\MyApp\myapp.exe");
+Feed(cap, Tcp4("192.0.2.10", 51244, "203.0.113.9", 443, 1 + (uint)hello.Length, 0x04, Array.Empty<byte>()));
+
+Check("program scope: pid match + image fallback arrive", WaitForEntries(progCollected, entryGate, 2, 15000),
+      progCollected.Count.ToString());
+
+// Shared-host guard: a program scope on svchost must match ONLY its exact
+// pid — a sibling svchost tenant's flow (pid 8888) is never image-matched.
+var svchostDossier = AutoCommand.Engines.Watch.FlowDossierService.ForProgram(777, @"C:\Windows\System32\svchost.exe");
+var sharedCollected = new List<AutoCommand.Engines.Watch.FlowDossierEntry>();
+svchostDossier.OnEntry += e => { lock (entryGate) sharedCollected.Add(e); };
+svchostDossier.Start();
+Feed(cap, Tcp4("192.0.2.10", 51246, "203.0.113.9", 443, 1, 0x18, hello));
+cap.TagFlow("192.0.2.10", 51246, "203.0.113.9", 443, 8888, @"C:\Windows\System32\svchost.exe");
+Feed(cap, Tcp4("192.0.2.10", 51246, "203.0.113.9", 443, 1 + (uint)hello.Length, 0x04, Array.Empty<byte>()));
+Check("shared-host guard: svchost scope matches only its exact pid",
+      WaitForEntries(progCollected, entryGate, 2, 1000) && sharedCollected.Count == 0,
+      sharedCollected.Count.ToString());
+
+// Service scope: "DiagTrack" pinned — attribution via the PID's hosted
+// services (overridden here so the test never touches real SCM state).
+AutoCommand.Engines.Watch.ServiceDirectory.Override(5999, new[] { "DiagTrack" });
+AutoCommand.Engines.Watch.ServiceDirectory.Override(6000, new[] { "DoSvc" });
+var diagDossier = AutoCommand.Engines.Watch.FlowDossierService.ForService("DiagTrack");
+var diagCollected = new List<AutoCommand.Engines.Watch.FlowDossierEntry>();
+diagDossier.OnEntry += e => { lock (entryGate) diagCollected.Add(e); };
+diagDossier.Start();
+
+Feed(cap, Tcp4("192.0.2.10", 51248, "203.0.113.9", 443, 1, 0x18, hello));
+cap.TagFlow("192.0.2.10", 51248, "203.0.113.9", 443, 5999, @"C:\Windows\System32\svchost.exe");
+Feed(cap, Tcp4("192.0.2.10", 51248, "203.0.113.9", 443, 1 + (uint)hello.Length, 0x04, Array.Empty<byte>()));
+
+// A sibling tenant hosting a different service must stay out.
+Feed(cap, Tcp4("192.0.2.10", 51250, "203.0.113.9", 443, 1, 0x18, hello));
+cap.TagFlow("192.0.2.10", 51250, "203.0.113.9", 443, 6000, @"C:\Windows\System32\svchost.exe");
+Feed(cap, Tcp4("192.0.2.10", 51250, "203.0.113.9", 443, 1 + (uint)hello.Length, 0x04, Array.Empty<byte>()));
+
+Check("service scope: pinned service follows its instance, sibling stays out",
+      WaitForEntries(diagCollected, entryGate, 1, 15000) && diagCollected.Count == 1,
+      diagCollected.Count.ToString());
+
+progDossier.Stop();
+svchostDossier.Stop();
+diagDossier.Stop();
+Check("scoped dossiers all release the capture",
+      !AutoCommand.Engines.Watch.TcpStreamCaptureService.Shared.IsRunning &&
+      AutoCommand.Engines.Watch.FlowDossierService.ActiveCount == 0,
+      AutoCommand.Engines.Watch.FlowDossierService.ActiveCount.ToString());
 
 try { Directory.Delete(peerRoot, true); } catch { }
 

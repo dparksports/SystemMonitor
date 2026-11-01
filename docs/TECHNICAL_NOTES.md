@@ -29,22 +29,26 @@ How AutoCommand delivers what the [README](../README.md) promises: the technolog
 | Live ordering | WPF `ICollectionView` live sorting on the row's `LastSeen` timestamp; stale rows detected off a UI timer |
 | TX-only filter | Off-by-default view lens: `ICollectionView.Filter` + live filtering over a time-gated `IsTxOnly` flag (sent bytes > 0, received = 0, row ≥ 30 s old — the grace keeps mid-handshake rows from flashing, since rows seed at 0/0 and Rx only lands when a reply crosses the sniffer); the checkbox label carries the live count while the lens is off; a view lens only — ingestion, the CSV export and the AI-audit context all read the unfiltered source |
 | Row lifecycle | `LastSeen` seeded from the Sysmon event's UTC time (one-shot connections still get a real timestamp); the UI timer marks rows "— exited" once their PID is gone, and a later Sysmon event re-attributes the row to a new PID on the same remote IP |
-| Traffic Peek | Right-click → **Peer into this connection** opens a per-remote-IP window (see below) |
+| Traffic Peek | Right-click → **Peer into this connection / this program** or **Track this service** opens a subject-scoped window (see below) |
 
 ### Traffic Peek ("Peer into this connection")
 
-A per-remote-IP inspection window from the Process Monitor context menu, powered by a
+A subject-scoped inspection window from the Process Monitor context menu, powered by a
 `FlowDossierService` in `Engines.Watch`:
 
 | Concern | Technology |
 |---|---|
 | Capture lifetime | The shared `TcpStreamCaptureService` (raw socket, SIO_RCVALL) runs **only while a peek window is open** — the dossier is the sole `AddRef`/`Release` holder, so idle AutoCommand captures nothing; nothing is persisted (flow persistence stays off) |
 | Flow finalization | The dossier shortens the capture's idle sweep to 10 s while open (restored on close), so long-lived conversations surface without waiting for them to close; RST/FIN-closed flows appear immediately |
-| PID attribution | Its own `SysmonConnectWatcherService` (Sysmon EID 3) feeds `TagFlow` — first-writer-wins, so a future Transmissions pipeline doing the same is harmless; Sysmon absent degrades to a note, never a failure |
+| Scopes | Three subjects, one engine: **remote IP** (`RemoteIpScope` — "this connection"), **program instance** (`ProgramScope` — PID-anchored via EID 3, with image-equality fallback that is refused for shared hosts), and **service name** (`ServiceScope` — each connecting PID's hosted services are resolved over WMI with a 30 s TTL, so a pinned service keeps being tracked across restarts where a PID pin would go stale) |
+| PID attribution | Its own `SysmonConnectWatcherService` (Sysmon EID 3) feeds `TagFlow` — first-writer-wins, so a future Transmissions pipeline doing the same is harmless; Sysmon absent degrades to a note, never a failure. Program/service scopes say so in the status strip: without Sysmon they stay empty |
+| Track this service | Right-click a svchost row → **Track this service** opens a service-scoped peek: it follows whichever svchost instance hosts the pinned service next (DiagTrack, CryptSvc…), with no user action on respawn — the scope is the NAME, not the PID |
+| Launch under watch | **🚀 Launch under watch…** (`TransmissionKeyService`, recreated from autocommand-ii) starts one program with `SSLKEYLOGFILE` set in *its* environment only and opens a program-scoped peek for the new PID — its flows decrypt as they finalize. The system-wide capture (HKCU\Environment + broadcast) ships in the same service |
 | TLS metadata | Always extracted from the ClientHello (SNI, ALPN, cipher, TLS version) — keys or no keys |
 | Plaintext | Only when session keys exist in the keylog (`%LOCALAPPDATA%\AutoCommand\pytrace\sslkeys.log` — opt-out flag file honored: the dossier never recreates a keylog the user disabled). **schannel services (wuauserv, BITS, DoSvc) never log keys** — their rows stay metadata-only and the window shows the decryptor's verbatim reason instead of pretending |
+| Coverage note | On every "encrypted (no keys)" row the window shows which apps honor SSLKEYLOGFILE and states plainly that schannel components never will — the honest coverage answer, not a gap |
 | Service activity | The Windows Update / BITS / Delivery Optimization operational channels read for the flows' time window — the plaintext "what did this service actually do" that TLS metadata cannot show; missing channels (DO on some SKUs) contribute nothing |
-| Scope guard | Only flows to the peered remote IP are processed; a window per IP (a second "Peer" on the same IP focuses the existing window) |
+| Scope guard | Only flows belonging to the subject are processed; one window per subject ("ip:x" · "pid:N" · "svc:name" — a second Peer on the same subject focuses the existing window) |
 | Where data goes | Nowhere. Capture, decryption and event reads are local; the only network I/O is the connection being observed itself |
 
 ### DNS & org resolution (the Host column)
