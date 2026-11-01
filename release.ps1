@@ -196,4 +196,4 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host 'WARNING: archived-README mirror failed to push - the frozen repo is showing a stale readme' -ForegroundColor Yellow
 }
 
-Step "Released v${Version}: https://github.com/dparksports/autocommand-ii/releases/tag/v${Version}"
+Step "Released v${Version}: https://github.com/dparksports/autocommand-iii/releases/tag/v${Version}"
