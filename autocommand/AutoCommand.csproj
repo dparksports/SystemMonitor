@@ -1,0 +1,267 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <Version>2026.10.31.2</Version>
+    <AssemblyName>AutoCommand</AssemblyName>
+    <Product>AutoCommand</Product>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>app_icon.ico</ApplicationIcon>
+    <!-- Suppress duplicate-attribute CS0579 from the WPF XAML designer _wpftmp project -->
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+    <!-- Keep the bridge self-test's obj\ auto-sources out of the default
+         glob: with this many Compile Remove patterns the BridgeSelfTest\**
+         remove does not reliably match its obj\ subtree (its generated
+         AssemblyInfo.cs collides with GeneratedVersionInfo.cs, CS0579),
+         while DefaultItemExcludes is applied at glob time and always does. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);BridgeSelfTest\**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Management" Version="10.0.13" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.13" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="Engines\Engines.Watch\Engines.Watch.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- NetWatch core (phase 1 of the AutoCommand II extraction, see
+         REWRITE.md): kernel TCP table, IP classification, DNS/RDAP, and the
+         Sysmon engine family, physically moved out of this project into
+         core\AutoCommand.NetWatch.Core (namespaces unchanged, so views and
+         services compile without edits). The self-test harnesses consume
+         the same library - they run the shipped assembly, not a source
+         copy. -->
+    <ProjectReference Include="core\AutoCommand.NetWatch.Core\AutoCommand.NetWatch.Core.csproj" />
+    <!-- Intercept core: key acquisition (SSLKEYLOGFILE launch-under-watch,
+         system-wide capture) and the Layer-3 intercept stack — the code that
+         deliberately touches key material, proxy settings or the trust store.
+         It aims the F# TLS engines; it does not reimplement them. -->
+    <ProjectReference Include="core\AutoCommand.Intercept.Core\AutoCommand.Intercept.Core.csproj" />
+    <Using Include="AutoCommand.Intercept.Core" />
+    <!-- The Matrix-rain face of the process monitor (the Rain tab): the
+         same presentation engine the standalone overlay ships (dparksports/
+         autocommand-matrix), parked beside the vendored engines — not under
+         core\, which stays headless by house rule. Attach-mode only: it
+         renders the monitor's LIVE shared row table, never its own
+         watcher/sniffer, so the grid and the rain are one source of truth. -->
+    <ProjectReference Include="MatrixRain\AutoCommand.MatrixRain.Core\AutoCommand.MatrixRain.Core.csproj" />
+    <!-- Contain core (phase 3 of the AutoCommand II extraction, see
+         REWRITE.md): firewall + blocks-store undo ledger, telemetry opt-out
+         rules and hosts pins, sinkhole receipts, Defender engines, update
+         freeze. Built test-first — ContainSelfTest proved the safety path
+         offline before the move. -->
+    <ProjectReference Include="core\AutoCommand.Contain.Core\AutoCommand.Contain.Core.csproj" />
+    <ProjectReference Include="Engines\Engines.Firewall\Engines.Firewall.fsproj" />
+    <ProjectReference Include="Engines\Engines.Diagnosis\Engines.Diagnosis.fsproj" />
+    <!-- Forensics core (phase 4 of the AutoCommand II extraction, see
+         REWRITE.md): provenance, task attribution + scheduling, spawn
+         watching, trace metrics, BITS watcher, Python instrumentation.
+         The top of the core layering — it references all three other cores. -->
+    <ProjectReference Include="core\AutoCommand.Forensics.Core\AutoCommand.Forensics.Core.csproj" />
+    <!-- Sitedoctor core (phase 5, REWRITE.md): the "why is this site slow?"
+         pipeline - fingerprint, probes, verdicts, dependency blocks, outage
+         map. Its Live half moved too: the archive/block-feed blockers
+         dissolved when Intercept and Contain extracted. -->
+    <ProjectReference Include="core\AutoCommand.Sitedoctor.Core\AutoCommand.Sitedoctor.Core.csproj" />
+    <!-- Agent core (phase 6, REWRITE.md): the Be My Guest MCP bridge, tool
+         registry, and client registration. The confirmation seam is
+         inverted through Sdk\IAgentInteraction - this app installs
+         Services\WpfAgentInteraction at startup; headless hosts install
+         nothing. -->
+    <ProjectReference Include="core\AutoCommand.Agent.Core\AutoCommand.Agent.Core.csproj" />
+    <!-- The svchost capture/analysis engine, linked in-process: the app runs
+         it directly instead of spawning a bundled child exe (which SmartScreen
+         hard-blocks on download extracts). Vendored in-repo at svchost-watch\
+         (formerly a sibling repository, dparksports/svchost-watch — archived).
+         The standalone CLI exe is not built or shipped; already-installed
+         boot-autostart copies keep working. -->
+    <ProjectReference Include="svchost-watch\SvchostAnalyzer.Core\SvchostAnalyzer.Core.csproj" />
+    <!-- The MCP client's spawn target: a tiny asInvoker console exe (no admin,
+         no UAC) that forwards to this app's AI-access listener. Built and
+         published alongside the app; Settings > AI access installs a copy to
+         %LOCALAPPDATA%\AutoCommand\tools and points the client's MCP config
+         at it. This exe itself must never be the spawn target — it carries
+         requireAdministrator. -->
+    <ProjectReference Include="AgentProxy\AutoCommand.AgentProxy.csproj" />
+    <!-- OneSettings cadence engine, linked in-process for the OneSettings tab
+         (same in-process pattern as SvchostAnalyzer.Core; the OneSettingsCadence
+         CLI exe builds separately over the same Core project). -->
+    <ProjectReference Include="OneSettingsCadence\OneSettingsCadence.Core\OneSettingsCadence.Core.csproj" />
+    <!-- Shields Up as a tab (consolidation): the standalone WinUI app's
+         headless core, vendored in-repo at ShieldsUp\ (same pattern as
+         svchost-watch — formerly a sibling repository) with its engine
+         references repointed to the in-repo projects and its namespace kept
+         so sources port verbatim. Its door checks, telemetry opt-outs,
+         bloatware removal and firewall presets power the Shields Up tab;
+         AppPaths.Configure points the data root at %PROGRAMDATA%\AutoCommand
+         at startup so both faces share one desired-state store. -->
+    <ProjectReference Include="ShieldsUp\ShieldsUp.Core\ShieldsUp.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="app_icon.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Plain-English explanations for known scheduled tasks (Taskhostw
+         Spawns tab). User-extensible: add path-keyed entries and restart. -->
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Exclude scratch/test scripts — they define their own Main() -->
+    <Compile Remove="ScratchTest\**" />
+    <Compile Remove="Sdk\**" />
+    <!-- Self-test harness: links the app's services itself and has its own
+         Main() (same reason as ScratchTest) -->
+    <Compile Remove="PyTraceSelfTest\**" />
+    <Compile Remove="TaskAttributionSelfTest\**" />
+    <Compile Remove="OneSettingsCadenceSelfTest\**" />
+    <!-- Intercept self-test: journal + CA mechanics offline (own Main()) -->
+    <Compile Remove="InterceptSelfTest\**" />
+    <!-- BITS tracer self-test: drives ParseMessage/Apply/stat/firewall
+         logic offline with synthetic events (see BitsTraceSelfTest\) -->
+    <Compile Remove="BitsTraceSelfTest\**" />
+    <!-- Proxy install self-test: drives McpClientRegistration's install
+         decision logic with synthetic dirs (see ProxyInstallSelfTest\) -->
+    <Compile Remove="ProxyInstallSelfTest\**" />
+    <!-- Net watch self-test: dual-family TCP table + Sysmon archive engine
+         (watermark dedupe, rotation, search, prune — see NetWatchSelfTest\) -->
+    <Compile Remove="NetWatchSelfTest\**" />
+    <!-- Site doctor self-test: fingerprint + verdict rules offline, and the
+         dual-shape TLS probe against live loopback listeners — one that
+         answers handshakes, one that black-holes them (see SiteDoctorSelfTest\) -->
+    <Compile Remove="SiteDoctorSelfTest\**" />
+    <!-- Spawn watch self-test: rule store, ingestion-time matching, the
+         archive Appended hook and replay dedupe offline (own Main()) -->
+    <Compile Remove="WatchSelfTest\**" />
+    <!-- Vendored engine: compiled through its own ProjectReference — without
+         this exclusion the default glob would pull its .cs into the app
+         assembly too (duplicate types, and the CLI's top-level Program). -->
+    <Compile Remove="svchost-watch\**" />
+    <!-- Agent proxy: built through its own ProjectReference — same glob
+         reason as svchost-watch (its obj\** auto-generated sources would be
+         double-compiled into the WPF temp project) -->
+    <Compile Remove="AgentProxy\**" />
+    <!-- OneSettings cadence CLI — standalone console tool for the inbox
+         OneSettings RefreshCache task, built separately (dotnet build
+         OneSettingsCadence\OneSettingsCadence.csproj); own Main() -->
+    <!-- Contain self-test: the blocking/safety path — built test-first,
+         before the phase 3 extraction (REWRITE.md); own Main() -->
+    <Compile Remove="ContainSelfTest\**" />
+    <!-- AgentHost: the headless console face over the Agent core (phase 6,
+         REWRITE.md) - built through its own ProjectReference from its
+         csproj; own Main(), same glob reason as every other side project -->
+    <Compile Remove="AgentHost\**" />
+    <Compile Remove="OneSettingsCadence\**" />
+    <!-- DnsFeedSelfTest: newest self-test folder (added after the last ii
+         app build); same glob reason as the others -->
+    <Compile Remove="DnsFeedSelfTest\**" />
+    <!-- F# engine sources live in their own fsproj graph -->
+    <Compile Remove="Engines\**" />
+    <!-- Extracted core engines (AutoCommand II phases, REWRITE.md): built
+         through their own ProjectReferences — same glob reason as
+         svchost-watch; without this exclusion the default glob pulls the
+         core sources into the app assembly too, and the WPF _wpftmp pass
+         then trips over the duplicates (CS0579). -->
+    <Compile Remove="core\**" />
+    <!-- Matrix-rain presentation engine (the Rain tab): built through its
+         own ProjectReference — same glob reason as core\ (unsafe renderer
+         + duplicate types in the WPF _wpftmp pass otherwise) -->
+    <Compile Remove="MatrixRain\**" />
+    <!-- Vendored Shields Up core (the Shields Up tab): built through its own
+         ProjectReference — same glob reason as core\ and svchost-watch
+         (duplicate types in the WPF _wpftmp pass otherwise) -->
+    <Compile Remove="ShieldsUp\**" />
+    <!-- Rain self-test: asInvoker WPF harness over the rain engine with a
+         synthetic feed — own Main(), same glob reason as every side project -->
+    <Compile Remove="RainSelfTest\**" />
+    <!-- Bridge self-test: wire-protocol harness over the F# bridge engine
+         (session file ownership, one-dialect errors, no bare closes,
+         escaping) — own Main(), same glob reason as every side project -->
+    <Compile Remove="BridgeSelfTest\**" />
+    <!-- Harden self-test: the vendored Shields Up core + the engine Shield
+         Up whitelist, offline against a temp data root (own Main(), same
+         glob reason as every side project) -->
+    <Compile Remove="HardenSelfTest\**" />
+    <!-- WSL self-test: the WSL family matcher, wsl.exe list decoders,
+         ss -tnp parser, host-guest join and the staged diagnosis verdicts,
+         all offline with synthetic inputs (own Main(), same glob reason as
+         every side project) -->
+    <Compile Remove="WslSelfTest\**" />
+  </ItemGroup>
+
+  <!-- Filter out Linux .so native binaries when publishing for Windows win-x64 -->
+  <Target Name="RemoveUnusedPlatformLibs" AfterTargets="ComputeFilesToPublish">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(ResolvedFileToPublish.Extension)' == '.so'" />
+    </ItemGroup>
+  </Target>
+
+  <!-- ── Versioning: <Version> above is the single source of truth ──
+       GenerateAssemblyInfo stays false (WPF designer CS0579 workaround), so this
+       target generates the assembly version attributes from <Version> into obj\
+       at build time. Properties\AssemblyInfo.cs deliberately carries none — never
+       hand-add AssemblyVersion/FileVersion/InformationalVersion anywhere; bump
+       <Version> and everything (binary, tag, zips, release title via release.ps1)
+       follows. -->
+  <Target Name="GenerateVersionAssemblyInfo" BeforeTargets="BeforeCompile">
+    <Error Condition="'$(Version)' == ''"
+           Text="GenerateVersionAssemblyInfo: &lt;Version&gt; is empty — it is the single source of truth and must be set (e.g. 2026.10.15)." />
+    <PropertyGroup>
+      <!-- exactly four segments: 3-part versions get .0, a same-day fourth
+           segment (2026.10.14.1) passes through unchanged -->
+      <Version4>$([System.Text.RegularExpressions.Regex]::Replace('$(Version)', '^\d+\.\d+\.\d+$', '$0.0'))</Version4>
+      <GeneratedVersionFile>$(IntermediateOutputPath)GeneratedVersionInfo.cs</GeneratedVersionFile>
+    </PropertyGroup>
+    <MakeDir Directories="$(IntermediateOutputPath)" Condition="!Exists('$(IntermediateOutputPath)')" />
+    <ItemGroup>
+      <GeneratedVersionLines Include="// Auto-generated from &lt;Version&gt; in AutoCommand.csproj — do not edit." />
+      <GeneratedVersionLines Include="using System.Reflection%3B" />
+      <GeneratedVersionLines Include="[assembly: AssemblyVersion(&quot;$(Version4)&quot;)]" />
+      <GeneratedVersionLines Include="[assembly: AssemblyFileVersion(&quot;$(Version4)&quot;)]" />
+      <GeneratedVersionLines Include="[assembly: AssemblyInformationalVersion(&quot;$(Version)&quot;)]" />
+    </ItemGroup>
+    <WriteLinesToFile File="$(GeneratedVersionFile)" Lines="@(GeneratedVersionLines)" Overwrite="true" />
+    <ItemGroup>
+      <Compile Include="$(GeneratedVersionFile)" />
+    </ItemGroup>
+  </Target>
+
+  <!-- The Svchost Trace capture engine no longer ships inside the app zip:
+       AutoCommand links SvchostAnalyzer.Core directly and runs captures
+       in-process. The standalone SvchostAnalyzer.exe (headless/boot-autostart
+       host) is a separate release asset built by release.ps1. -->
+
+
+  <ItemGroup>
+    <!-- Engine types under their autocommand-ii names (F# port renamed
+         FirewallRuleItem -> RuleInfo) -->
+    <Using Include="FirewallRuleItem = AutoCommand.Engines.Firewall.RuleInfo" />
+    <Using Include="BlockedTarget = AutoCommand.Engines.Firewall.BlockedTarget" />
+    <Using Include="GroupToggleResult = AutoCommand.Engines.Firewall.GroupToggleResult" />
+    <Using Include="FleetToggleResult = AutoCommand.Engines.Firewall.FleetToggleResult" />
+    <Using Include="FirewallLogHit = AutoCommand.Engines.Firewall.FirewallLogHit" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="AutoCommand.Engines.Diagnosis" />
+    <Using Include="IpClassifier = AutoCommand.Engines.Core.IpClassification" />
+    <Using Include="SiteVerdictService = AutoCommand.Engines.Diagnosis.SiteVerdict" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="AutoCommand.Engines.Watch" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="Engines\Engines.Bridge\Engines.Bridge.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+  </ItemGroup>
+</Project>
+

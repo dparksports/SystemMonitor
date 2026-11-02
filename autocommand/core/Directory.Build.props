@@ -1,0 +1,19 @@
+<Project>
+
+  <!-- Shared settings for the extracted core libraries only (everything
+       under core/). Deliberately NOT at the repository root: the vendored
+       engines (svchost-watch, OneSettingsCadence) and the self-test
+       harnesses keep owning their own settings; nothing about them changes
+       because a new core was extracted. -->
+
+  <PropertyGroup>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <!-- The app's <Version> in AutoCommand.csproj stays the single source
+         of truth for releases; cores carry the same version when built
+         together so a shipped DLL set is self-consistent. -->
+    <Version>2026.10.25.3</Version>
+  </PropertyGroup>
+
+</Project>

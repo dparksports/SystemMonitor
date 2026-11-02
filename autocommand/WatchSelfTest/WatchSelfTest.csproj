@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Self-test for the Spawn Watches pipeline: rule store, ingestion-time
+       matching, the archive Appended hook (driven through the REAL
+       SysmonArchiveService.Append with persistence redirected to temp —
+       what runs here is the shipped assembly itself, per house
+       convention), the per-day hits index and the replay dedupe. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>WatchSelfTest</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Engines\Engines.Watch\Engines.Watch.fsproj" />
+    <ProjectReference Include="..\core\AutoCommand.Agent.Core\AutoCommand.Agent.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="AutoCommand.Engines.Watch" />
+  </ItemGroup>
+</Project>

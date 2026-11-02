@@ -1,0 +1,24 @@
+# Normalize line endings: text files are LF in the repository and are
+# checked out per-platform defaults. Ends the CRLF/LF mixed state that
+# made cross-file diffs and mechanical refactors noisy (every whole-file
+# diff had to be EOL-normalized by hand before this file existed).
+* text=auto
+
+# Windows sources and scripts: keep CRLF in the working tree (VS and
+# PowerShell history are CRLF), LF in the repository — text=auto already
+# normalizes on commit; these entries make the intent explicit.
+*.cs    text
+*.xaml  text
+*.csproj text
+*.json  text
+*.md    text
+*.ps1   text eol=crlf
+*.yml   text
+*.txt   text
+
+# Binaries — never normalize.
+*.png   binary
+*.ico   binary
+*.zip   binary
+*.dll   binary
+*.exe   binary

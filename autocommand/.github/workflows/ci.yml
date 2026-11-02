@@ -1,0 +1,75 @@
+# ci.yml - the push/PR tripwire. Same house pattern as release.yml
+# (setup-dotnet, windows-latest, pwsh steps) — release.yml stays the
+# tag-triggered packaging path; this file gates every push so a broken
+# master cannot sit unnoticed until release day.
+#
+# Strict: the suites whose inputs are fully synthetic — they must pass
+# on a stock runner, always.
+# Advisory (continue-on-error): the two suites that read live OS
+# channels (SiteDoctor's per-edge probes, TaskAttribution's Task
+# Scheduler log) — a stock runner can legitimately have them empty.
+# Their failures still surface in the job, they just don't gate.
+
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build (Release)
+        run: dotnet build AutoCommand.csproj -c Release
+
+      - name: Build (Debug)
+        run: dotnet build AutoCommand.csproj -c Debug
+
+      - name: Offline suites (strict)
+        shell: pwsh
+        run: |
+          # 2026.10.30 dead-code sweep removed the BITS/PyTrace/DnsFeed
+          # families and their self-tests. RainSelfTest is NOT in this list
+          # and must not be: it is a manual visual harness (a WPF window
+          # with no exit path and no pass/fail code — the regression signal
+          # is a human reading the fps title), so as a gate it hung every
+          # run that reached it (both v2026.10.30.17-era runs sat
+          # 'in_progress' 30+ minutes). Run it at the desk; the rest gate.
+          $suites = @(
+            'NetWatchSelfTest',
+            'OneSettingsCadenceSelfTest',
+            'ContainSelfTest',
+            'ProxyInstallSelfTest',
+            'BridgeSelfTest',
+            'PyTraceSelfTest',
+            'InterceptSelfTest',
+            'HardenSelfTest',
+            'WslSelfTest'
+          )
+          foreach ($s in $suites) {
+            Write-Host "== $s =="
+            dotnet run --project $s
+            if ($LASTEXITCODE -ne 0) { throw "$s failed" }
+          }
+
+      - name: Live-channel suites (advisory on a stock runner)
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          Write-Host "== SiteDoctorSelfTest =="
+          dotnet run --project SiteDoctorSelfTest
+          Write-Host "== TaskAttributionSelfTest =="
+          dotnet run --project TaskAttributionSelfTest

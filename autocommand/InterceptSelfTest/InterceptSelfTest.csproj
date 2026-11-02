@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Offline self-test for the Layer-3 intercept stack's safe parts: the
+       journal round-trip (write/read/undo semantics) and the CA service
+       (create, reload, leaf minting with DNS and IP SANs). Everything runs
+       in a temp dir via the internal DirOverride seam — a suite never
+       touches the real %LOCALAPPDATA% intercept state, the system proxy,
+       the firewall or the Root store. The netsh/registry hooks themselves
+       are verified only by the manual E2E pass. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>InterceptSelfTest</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\core\AutoCommand.Intercept.Core\AutoCommand.Intercept.Core.csproj" />
+  </ItemGroup>
+
+</Project>

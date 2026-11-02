@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The NetWatch core: the dual-family kernel TCP table, destination
+       classification, DNS resolution, RDAP, and the Sysmon engine family
+       (archive, installer, diagnostics, watcher, audit). Extracted from the
+       WPF exe in AutoCommand II phase 1 (REWRITE.md) — namespaces are
+       deliberately unchanged (AutoCommand.Services / .Helpers / .Models) so
+       every existing consumer — the app's views, NetWatchSelfTest,
+       BitsTraceSelfTest — compiles against the library without edits and
+       runs the shipped assembly instead of a source copy. Namespaces can be
+       migrated to AutoCommand.NetWatch.* later, cluster by cluster.
+
+       Deliberately NOT here: SysmonConnectWatcherService (Engines.Watch —
+       depends on ImageSpawnWatcherService and TcpStreamCaptureService)
+       and BlockHitFeedService (Contain — depends on FirewallService). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <AssemblyName>AutoCommand.NetWatch.Core</AssemblyName>
+    <RootNamespace>AutoCommand.NetWatch.Core</RootNamespace>
+    <Company>AutoCommand</Company>
+    <Product>AutoCommand.NetWatch.Core</Product>
+    <Description>Net-watch engines behind AutoCommand: the dual-family kernel connection table (GetExtendedTcpTable), IP classification, DNS resolution, RDAP lookup, and the Sysmon engine family (archive with rotation/dedupe/prune, installer with repair, diagnostics, live watcher, process audit).</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- WMI (ManagementObjectSearcher) for the Sysmon family, and
+         EventLogReader/EventLogWatcher for the archive/live channel —
+         same package family OneSettingsCadence.Core pins for its event
+         channel reader. -->
+    <PackageReference Include="System.Management" Version="10.0.13" />
+    <PackageReference Include="System.Diagnostics.EventLog" Version="10.0.13" />
+  </ItemGroup>
+
+  <!-- The offline suite drives the idle reconciler's test seam
+       (RunIdlePassForTest) against the shipped assembly — the same
+       InternalsVisibleTo pattern the Contain/Forensics/Agent cores use. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="NetWatchSelfTest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Engines\Engines.Watch\Engines.Watch.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Engines\Engines.Core\Engines.Core.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="IpClassifier = AutoCommand.Engines.Core.IpClassification" />
+
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="AutoCommand.Engines.Watch" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The Intercept core: key acquisition and (iteration 3) the Layer-3
+       intercept stack — the code paths that deliberately touch the
+       machine's key material, proxy settings or trust store, which is why
+       they live alone behind explicit user actions:
+         • TransmissionKeyService — SSLKEYLOGFILE for one launched program
+           or the user's environment (HKCU\Environment + broadcast)
+         • InterceptCaService / InterceptSystemHooks / InterceptProxyService
+           (the time-boxed PID-scoped MITM session, ported in iteration 3)
+       The TLS engines it aims at (TlsKeylogService, TlsDecryptor) live in
+       the F# Engines.Watch layer; this core only aims them, it does not
+       reimplement them. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>AutoCommand.Intercept.Core</AssemblyName>
+    <RootNamespace>AutoCommand.Intercept.Core</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- TcpConnectionTable (kernel TCP table, PID attribution) -->
+    <ProjectReference Include="..\AutoCommand.NetWatch.Core\AutoCommand.NetWatch.Core.csproj" />
+    <!-- TlsKeylogService and the F# watch engines the keys feed -->
+    <ProjectReference Include="..\..\Engines\Engines.Watch\Engines.Watch.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="AutoCommand.Engines.Watch" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- White-box access for the intercept harness: journal + CA-dir test
+         seams are internal on purpose (they can rename system state). -->
+    <InternalsVisibleTo Include="InterceptSelfTest" />
+  </ItemGroup>
+
+</Project>

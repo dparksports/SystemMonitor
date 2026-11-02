@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Self-test for the dual-family connection table and the Sysmon
+       archive engine. Phase 1 of the AutoCommand II extraction
+       (REWRITE.md): the engines live in core\AutoCommand.NetWatch.Core and
+       this harness references the library — what runs here is the shipped
+       assembly itself, stronger than the old byte-identical source copy
+       (an include list could drift from what ships; a project reference
+       cannot). Archive persistence is redirected to a temp dir; the
+       TCP-table section does ONE live thing — holds an IPv6 loopback
+       connection open and asserts the dual-family enumeration actually
+       sees it (the v2026.10.17.1 gap, proven fixed at the source). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>NetWatchSelfTest</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Engines\Engines.Watch\Engines.Watch.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\core\AutoCommand.NetWatch.Core\AutoCommand.NetWatch.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="AutoCommand.Engines.Watch" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Self-test for the WSL traffic-visibility engines: the family matcher,
+       the wsl.exe list decoders (UTF-16 artifacts, header lines), the
+       .wslconfig mode parser, the ss -tnp guest-socket parser, the
+       host-to-guest join, and — most importantly — every verdict branch of
+       the staged "Why is WSL offline?" diagnosis, driven with synthetic
+       inputs. No check touches a live system or spawns wsl.exe: the service
+       interfaces were shaped so the pure halves carry the logic. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>WslSelfTest</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\core\AutoCommand.NetWatch.Core\AutoCommand.NetWatch.Core.csproj" />
+    <ProjectReference Include="..\core\AutoCommand.Contain.Core\AutoCommand.Contain.Core.csproj" />
+  </ItemGroup>
+</Project>
