@@ -13,6 +13,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading;
 using AutoCommand.Services;
+using AutoCommand.Models;
 using ShieldsUp.Core.Services;
 using SvchostAnalyzer.Core;
 
@@ -101,6 +102,30 @@ namespace AutoCommand.Agent.Core
                        ("archive", "true = query the app's Sysmon archive instead of the live log", false)),
                 false,
                 a => TailSysmon(a)),
+
+            new Tool(
+                "list_watches",
+                "List the user's Spawn Watches — name-based prefilters evaluated at Sysmon " +
+                "INGESTION time (the moment a process is archived, not after the fact): image " +
+                "and parent-image wildcards, parent svchost -s service scoping, command-line " +
+                "substring, allowlist subtraction — each with its 24 h hit count. Rules are JSON " +
+                "files in the watches directory; editing or dropping a file takes effect on the " +
+                "next pass, no restart. Read-only.",
+                Schema(),
+                false,
+                a => ListWatches(a)),
+
+            new Tool(
+                "tail_watches",
+                "Recent spawn-watch hits: processes caught by the user's Spawn Watch rules at " +
+                "Sysmon ingestion time, each with its rule, image, PID, parent image, parent " +
+                "svchost service and command line. This answers 'what did svchost (or anything) " +
+                "spawn' for classes the user prefiltered — no chasing after spawn. Read-only.",
+                Schema(("rule", "Only hits for this rule name (default: all rules)", false),
+                       ("minutes", "Look this many minutes back (default 1440 = 24 h)", false),
+                       ("max", "Maximum hits to return (default 100, cap 500)", false)),
+                false,
+                a => TailWatches(a)),
 
             new Tool(
                 "trace_analyze",
@@ -719,6 +744,65 @@ namespace AutoCommand.Agent.Core
             {
                 return "Sysmon log read failed: " + ex.Message;
             }
+        }
+
+        private static string ListWatches(JsonObject a)
+        {
+            var rules = SpawnWatchStore.Load();
+            if (rules.Count == 0)
+                return "No spawn watches defined yet. Create one in the Spawn Watches tab, or drop a " +
+                       "rule JSON into " + SpawnWatchStore.WatchesDirectory + " (files are the interface).";
+            var counts = SpawnWatchService.HitCounts(DateTime.UtcNow.AddHours(-24));
+            var sb = new StringBuilder();
+            sb.AppendLine($"{rules.Count} spawn watch rule(s) in {SpawnWatchStore.WatchesDirectory}:");
+            foreach (var w in rules)
+            {
+                counts.TryGetValue(w.Name, out var hits);
+                sb.AppendLine($"- {w.Name} [{(w.Enabled ? "enabled" : "disabled")}] — " +
+                              DescribeWatch(w) + $" — {hits} hit(s)/24h" +
+                              (string.IsNullOrWhiteSpace(w.Notes) ? "" : $" — {w.Notes}"));
+            }
+            return sb.ToString();
+        }
+
+        private static string DescribeWatch(SpawnWatch w)
+        {
+            var parts = new List<string>
+            {
+                "process " + (string.IsNullOrWhiteSpace(w.MatchProcess) ? "(none)" : w.MatchProcess),
+            };
+            parts.Add(string.IsNullOrWhiteSpace(w.MatchParent) ? "parent any" : "parent " + w.MatchParent);
+            parts.Add(string.IsNullOrWhiteSpace(w.ServiceKey) ? "service any" : "service " + w.ServiceKey);
+            if (!string.IsNullOrWhiteSpace(w.CommandLineContains))
+                parts.Add("cmd contains '" + w.CommandLineContains + "'");
+            if (w.MinusAllowlist) parts.Add("minus allowlist");
+            return string.Join(", ", parts);
+        }
+
+        private static string TailWatches(JsonObject a)
+        {
+            string rule = a["rule"]?.GetValue<string>();
+            int minutes = Math.Clamp(a["minutes"]?.GetValue<int>() ?? 1440, 1, 24 * 60);
+            int max = Math.Clamp(a["max"]?.GetValue<int>() ?? 100, 1, 500);
+
+            var hits = SpawnWatchService.ReadHits(rule, DateTime.UtcNow.AddMinutes(-minutes), max);
+            if (hits.Count == 0)
+                return $"No spawn-watch hits for {(string.IsNullOrEmpty(rule) ? "any rule" : $"'{rule}'")} " +
+                       $"in the last {minutes} min. Hits land as rules match events at ingestion time — " +
+                       "check list_watches for the defined rules, and the tab's replay button to cover " +
+                       "the archive retroactively.";
+            var sb = new StringBuilder();
+            foreach (var h in hits)
+            {
+                string stamp = h.TsUtc.ToLocalTime().ToString("HH:mm:ss");
+                var line = $"{stamp}  [{h.Rule}]  PID {h.Pid}  {h.Image}" +
+                           $"  ← {h.Parent}" +
+                           (string.IsNullOrEmpty(h.Service) ? "" : $" ({h.Service})") +
+                           (string.IsNullOrEmpty(h.CommandLine) ? "" : $" | {h.CommandLine}");
+                if (line.Length > 400) line = line[..400] + "…";
+                sb.AppendLine(line);
+            }
+            return sb.ToString();
         }
 
         private static string TraceAnalyze(JsonObject a)

@@ -139,6 +139,9 @@
          dual-shape TLS probe against live loopback listeners — one that
          answers handshakes, one that black-holes them (see SiteDoctorSelfTest\) -->
     <Compile Remove="SiteDoctorSelfTest\**" />
+    <!-- Spawn watch self-test: rule store, ingestion-time matching, the
+         archive Appended hook and replay dedupe offline (own Main()) -->
+    <Compile Remove="WatchSelfTest\**" />
     <!-- Vendored engine: compiled through its own ProjectReference — without
          this exclusion the default glob would pull its .cs into the app
          assembly too (duplicate types, and the CLI's top-level Program). -->
