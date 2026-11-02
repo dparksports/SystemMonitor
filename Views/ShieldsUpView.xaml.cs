@@ -10,9 +10,9 @@ using ShieldsUp.Core.Services;
 namespace AutoCommand.Views;
 
 /// <summary>
-/// The Shields Up tab: the standalone app's rituals as sub-tabs — Quick
-/// Scan (the whole ritual as one checklist), Doors, Privacy, Junk and
-/// Hardening — driven through the vendored ShieldsUp.Core services, the
+/// The Shields Up tab: the standalone app's rituals as a left-side rail —
+/// Quick Scan (the whole ritual as one checklist), Doors, Privacy, Junk
+/// and Hardening — driven through the vendored ShieldsUp.Core services, the
 /// same logic the WinUI shell calls, so the two faces cannot drift. The
 /// firewall presets deliberately live in the Firewall tab (they were a
 /// duplicate here). Every action confirms first; state rows re-read live
@@ -38,6 +38,7 @@ public partial class ShieldsUpView : UserControl
     private async Task OnLoadedAsync()
     {
         RestoreSubTab();
+        RestoreRail();
 
         // Migration banner: the standalone app's state, offered once.
         if (StandaloneImport.HasLegacyState())
@@ -136,6 +137,7 @@ public partial class ShieldsUpView : UserControl
                 row.Set("⚠", WarnBrush, "check failed: " + ex.Message);
             }
         }
+        SetQuickScanDot();
     }
 
     private async void QuickScanCheckBtn_Click(object sender, RoutedEventArgs e)
@@ -179,6 +181,7 @@ public partial class ShieldsUpView : UserControl
                 }
             }
             QuickScanProgress.Text = "Quick Scan finished. Re-check any row by reopening this tab or pressing Re-check status.";
+            SetQuickScanDot();
         }
         finally
         {
@@ -236,6 +239,14 @@ public partial class ShieldsUpView : UserControl
             : $"{miniports.Count} WAN Miniport adapter(s) present ⚠ — " +
               string.Join(", ", miniports.Take(4).Select(a => a.Name)) + (miniports.Count > 4 ? ", …" : "");
         MiniportStatusText.Foreground = miniports.Count == 0 ? OkBrush : WarnBrush;
+
+        // Rail dot: red when kernel debug is on (the one BadBrush row),
+        // amber while any door stands open, green when all are closed.
+        int openDoors = (sstpActive ? 1 : 0) + (hostedActive ? 1 : 0) + (kdnet ? 1 : 0)
+            + (running > 0 ? 1 : 0) + (miniports.Count > 0 ? 1 : 0);
+        if (kdnet) SetDot(DoorsDot, BadBrush, "Kernel debug on — open Doors");
+        else if (openDoors > 0) SetDot(DoorsDot, WarnBrush, openDoors + " door(s) open — open Doors");
+        else SetDot(DoorsDot, OkBrush, "All doors closed");
 
         DoorActionResult.Visibility = Visibility.Collapsed;
     }
@@ -417,6 +428,70 @@ public partial class ShieldsUpView : UserControl
     // baseline atomically). A duplicate row here meant two doors to the same
     // operation on two different tabs; the tab now says where they live.
 
+    // ── rail status dots ────────────────────────────────────────────────
+    // Each rail row carries its section's live state as one dot — the same
+    // green/amber/red language as the checklist chips (green = closed/done,
+    // amber = open/not yet set, red = needs attention). The refresh methods
+    // update their dot after re-reading the machine, so the rail doubles as
+    // a checklist visible from every section.
+
+    private static void SetDot(System.Windows.Shapes.Ellipse dot, Brush brush, string tip)
+    {
+        dot.Fill = brush;
+        dot.ToolTip = tip;
+    }
+
+    private void SetQuickScanDot()
+    {
+        int open = _scanRows.Count(r => r.ChipBrush == WarnBrush);
+        int failed = _scanRows.Count(r => r.ChipBrush == BadBrush);
+        if (failed > 0) SetDot(QuickScanDot, BadBrush, failed + " step(s) failed — open Quick Scan");
+        else if (open > 0) SetDot(QuickScanDot, WarnBrush, open + " step(s) open — open Quick Scan");
+        else SetDot(QuickScanDot, OkBrush, "All steps done");
+    }
+
+    // ── rail collapse ───────────────────────────────────────────────────
+    // Mirrors the main window's hamburger (IsPaneCollapsed): the rail
+    // narrows to its icons and status dots while labels, header and legend
+    // hide (the RailLabel/RailExpand/RailMeta styles bind Visibility to
+    // this property). One word persists in shieldsup_rail.txt — the same
+    // flat-file pattern as shieldsup_subtab.txt.
+
+    public static readonly DependencyProperty RailCollapsedProperty =
+        DependencyProperty.Register(nameof(RailCollapsed), typeof(bool), typeof(ShieldsUpView),
+            new PropertyMetadata(false));
+
+    public bool RailCollapsed
+    {
+        get => (bool)GetValue(RailCollapsedProperty);
+        set => SetValue(RailCollapsedProperty, value);
+    }
+
+    private static string RailPrefsPath => System.IO.Path.Combine(
+        System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),
+        "AutoCommand", "shieldsup_rail.txt");
+
+    private void RestoreRail()
+    {
+        try
+        {
+            if (System.IO.File.Exists(RailPrefsPath))
+                RailCollapsed = System.IO.File.ReadAllText(RailPrefsPath).Trim() == "collapsed";
+        }
+        catch { /* persistence is best-effort — the rail starts expanded */ }
+    }
+
+    private void RailCollapseBtn_Click(object sender, RoutedEventArgs e)
+    {
+        RailCollapsed = !RailCollapsed;
+        try
+        {
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(RailPrefsPath));
+            System.IO.File.WriteAllText(RailPrefsPath, RailCollapsed ? "collapsed" : "open");
+        }
+        catch { /* persistence is best-effort */ }
+    }
+
     // ── sub-tabs ────────────────────────────────────────────────────────
 
     private static readonly string[] SubTabNames = { "quick-scan", "doors", "privacy", "junk", "hardening" };
@@ -478,7 +553,7 @@ public partial class ShieldsUpView : UserControl
     {
         try
         {
-            var statuses = await _telemetry.EvaluateAllAsync();
+            var statuses = (await _telemetry.EvaluateAllAsync()).ToList();
             TelemetryList.ItemsSource = statuses.Select(s => new TelemetryRow
             {
                 AppName = s.Rule.AppName,
@@ -495,6 +570,15 @@ public partial class ShieldsUpView : UserControl
                 RevertVis = s.State == TelemetryState.Off ? Visibility.Visible : Visibility.Collapsed,
                 Rule = s.Rule
             }).ToList();
+
+            // Rail dot: red when an opt-out was applied but proved
+            // ineffective, amber while anyone still reports, green when all
+            // vendors are off.
+            int stillOn = statuses.Count(s => s.State != TelemetryState.Off);
+            int ineffective = statuses.Count(s => s.State == TelemetryState.Ineffective);
+            if (ineffective > 0) SetDot(PrivacyDot, BadBrush, ineffective + " opt-out(s) ineffective — open Privacy");
+            else if (stillOn > 0) SetDot(PrivacyDot, WarnBrush, stillOn + " vendor(s) still reporting — open Privacy");
+            else SetDot(PrivacyDot, OkBrush, "All vendors opted out");
         }
         catch (Exception ex)
         {
@@ -606,6 +690,8 @@ public partial class ShieldsUpView : UserControl
                 : $"{_matchedBloat.Count} matched package(s):\n" +
                   string.Join("\n", _matchedBloat.Select(a => "• " + a.Name));
             BloatRemoveBtn.IsEnabled = _matchedBloat.Count > 0;
+            if (_matchedBloat.Count > 0) SetDot(JunkDot, WarnBrush, _matchedBloat.Count + " matched package(s) — open Junk");
+            else SetDot(JunkDot, OkBrush, "Nothing to remove");
         }
         catch (Exception ex)
         {
@@ -681,6 +767,13 @@ public partial class ShieldsUpView : UserControl
                     ? $"{hosts.ActiveRules} standard redirect(s) ✓"
                     : "hosts file is clean (default) ✓";
         HostsStatusText.Foreground = hosts.Suspicious ? BadBrush : OkBrush;
+
+        // Rail dot: red on a hijacked hosts file, amber while switches are
+        // not yet set, green when everything is in place.
+        int unset = (ipv6 ? 0 : 1) + (lsa ? 0 : 1) + (uac ? 0 : 1);
+        if (hosts.Suspicious) SetDot(HardeningDot, BadBrush, "Hosts file may be hijacked — open Hardening");
+        else if (unset > 0) SetDot(HardeningDot, WarnBrush, unset + " switch(es) not set — open Hardening");
+        else SetDot(HardeningDot, OkBrush, "All switches set");
     }
 
     private async void Ipv6Btn_Click(object sender, RoutedEventArgs e)
