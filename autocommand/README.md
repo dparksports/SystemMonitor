@@ -102,8 +102,8 @@ ported forward from II, what the seams look like — is in
 
 ```powershell
 # .NET 10 SDK required
-git clone https://github.com/dparksports/autocommand.git
-cd autocommand
+git clone https://github.com/dparksports/SystemMonitor.git
+cd SystemMonitor/autocommand
 dotnet build AutoCommand.csproj -c Release
 
 # self-contained build (what the releases ship)

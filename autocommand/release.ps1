@@ -185,9 +185,10 @@ gh release upload "v$Version" $unblockPs1 $sumsFile --clobber
 Assert-Exit 'gh release upload (unblock script + sums)'
 
 # -- README mirror retired -------------------------------------------------------
-# This repository IS the former "archived original repo" (dparksports/
-# autocommand-windows): AutoCommand II and III were consolidated back into it,
-# so there is no frozen repo left to mirror the readme into. The old
-# sync-archived-readme.ps1 step was removed with the consolidation.
+# AutoCommand's development tree lives under autocommand/ of dparksports/
+# SystemMonitor (its precursor repo) since the 2026-11 consolidation; earlier
+# consolidations (dparksports/autocommand-windows, autocommand) left no frozen
+# repo to mirror the readme into either. The old sync-archived-readme.ps1
+# step was removed with the first consolidation.
 
-Step "Released v${Version}: https://github.com/dparksports/autocommand/releases/tag/v${Version}"
+Step "Released v${Version}: https://github.com/dparksports/SystemMonitor/releases/tag/v${Version}"

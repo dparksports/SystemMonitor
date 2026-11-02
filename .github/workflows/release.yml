@@ -1,5 +1,15 @@
 # release.yml - build and attach the Windows release zip on GitHub's runners.
 #
+# Since the 2026-11 fold into SystemMonitor the app lives under autocommand/,
+# so every run step executes there (defaults.run.working-directory) and gh
+# targets $Env:GITHUB_REPOSITORY — which is now dparksports/SystemMonitor.
+#
+# Tags are filtered to 'v20*': AutoCommand's calendar versions (v2026.11.x).
+# The classic SystemMonitor semver tags (v3.x) must not trigger this
+# pipeline; the resolve-version guard below would refuse them anyway (tag
+# must equal the AutoCommand csproj version), the filter just keeps the
+# classic release history free of red X's.
+#
 # Why CI: the 82 MB self-contained zip only ever moves inside GitHub's
 # datacenters. The contributor's uplink pushes source (kilobytes); the
 # runner does publish -> verify -> zip -> checksums -> attach. Same
@@ -17,7 +27,7 @@ name: release
 
 on:
   push:
-    tags: ['v*']
+    tags: ['v20*']
   workflow_dispatch:
     inputs:
       tag:
@@ -27,6 +37,10 @@ on:
 
 permissions:
   contents: write
+
+defaults:
+  run:
+    working-directory: autocommand
 
 jobs:
   build-and-attach:

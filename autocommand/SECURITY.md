@@ -12,13 +12,13 @@ Broadly: anything that lets malware, an unprivileged user, or a remote party **b
 - Getting the Security Enforcer or Svchost analyzer to execute attacker-controlled content
 - Crashes/hangs in the capture paths reachable from a non-admin context
 
-"Windows itself has a flaw" or "this blocked process is suspicious" are **not** security issues against AutoCommand — those belong in [Discussions](https://github.com/dparksports/autocommand/discussions) or a [bug report](https://github.com/dparksports/autocommand/issues/new?template=bug_report.yml).
+"Windows itself has a flaw" or "this blocked process is suspicious" are **not** security issues against AutoCommand — those belong in [Discussions](https://github.com/dparksports/SystemMonitor/discussions) or a [bug report](https://github.com/dparksports/SystemMonitor/issues/new?template=bug_report.yml).
 
 ## How to report
 
 **Preferred — GitHub private vulnerability reporting:**
 
-👉 [Report a vulnerability](https://github.com/dparksports/autocommand/security/advisories/new)
+👉 [Report a vulnerability](https://github.com/dparksports/SystemMonitor/security/advisories/new)
 
 This reaches the maintainer privately and lets us coordinate a fix and advisory before anything is public. You'll need a (free) GitHub account.
 

@@ -1,4 +1,14 @@
-# 🛡️ Auto Command
+# AutoCommand lives here now
+
+**[AutoCommand — see what your Windows PC is really doing](autocommand/README.md)** is this repository's successor app. SystemMonitor was its original precursor, and since the 2026-11 consolidation AutoCommand's development tree — complete history included — lives in [`autocommand/`](autocommand/).
+
+- **Want the app?** New releases (calendar-versioned, e.g. `v2026.11.x`) are published from this repo's [Releases page](../../releases) — grab the newest zip. Start at [`autocommand/README.md`](autocommand/README.md) for the five-minute tour.
+- **Looking for the classic v3.x dashboard** (UEFI/DBX forensics, Defender sentinel, firmware NVRAM inspection)? It is unchanged, right below and in this repo's root.
+- **Found a bug?** [Open an issue](../../issues) — please prefix classic reports with `[classic]` so the two apps stay easy to tell apart.
+
+---
+
+# 🛡️ Auto Command *(classic)*
 
 <p align="center">
   <strong>Next-Generation System Security & Firmware Forensics Monitor for Windows</strong>

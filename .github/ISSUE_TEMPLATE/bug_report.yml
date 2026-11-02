@@ -7,7 +7,7 @@ body:
       value: |
         Thanks for taking the time to report — AutoCommand is maintained by one person, and good reports are what keep it sharp.
 
-        **⚠️ Security problem? Do not file it here.** Anything that could let malware or another user bypass AutoCommand's protections belongs in private reporting — see [SECURITY.md](https://github.com/dparksports/autocommand-windows/blob/main/SECURITY.md).
+        **⚠️ Security problem? Do not file it here.** Anything that could let malware or another user bypass AutoCommand's protections belongs in private reporting — see [SECURITY.md](https://github.com/dparksports/SystemMonitor/blob/master/autocommand/SECURITY.md).
 
   - type: checkboxes
     id: preflight
@@ -15,7 +15,7 @@ body:
       label: Before you file
       description: Most reports are solved by one of these.
       options:
-        - label: I'm running the latest build from the [Releases page](https://github.com/dparksports/autocommand-windows/releases)
+        - label: I'm running the latest build from the [Releases page](https://github.com/dparksports/SystemMonitor/releases/latest)
         - label: I ran AutoCommand **as Administrator** (the monitor tabs need elevation to see everything)
         - label: If this involves lost connectivity after blocking — I tried the 🚑 **Restore Internet** button in the status bar
 

@@ -69,7 +69,11 @@ function TotalDownloads([string]$repo) {
 }
 $dlAuto = TotalDownloads 'dparksports/autocommand-windows'
 $dlShields = TotalDownloads 'dparksports/shields-up'
-$downloads = ($dlAuto + $dlShields)
+# AutoCommand releases moved to dparksports/SystemMonitor with the 2026-11
+# consolidation; its asset sum includes the classic SystemMonitor zips too,
+# which only ever inflates the plausibility ceiling below.
+$dlHome = TotalDownloads 'dparksports/SystemMonitor'
+$downloads = ($dlAuto + $dlShields + $dlHome)
 
 # plausibility anchor: DAU can never legitimately exceed downloads
 $yesterday = ($stats.daily | Sort-Object day -Descending | Select-Object -First 1)

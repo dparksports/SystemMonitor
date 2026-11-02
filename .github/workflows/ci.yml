@@ -1,7 +1,12 @@
-# ci.yml - the push/PR tripwire. Same house pattern as release.yml
-# (setup-dotnet, windows-latest, pwsh steps) — release.yml stays the
-# tag-triggered packaging path; this file gates every push so a broken
-# master cannot sit unnoticed until release day.
+# ci.yml - the push/PR tripwire for AutoCommand. Same house pattern as
+# release.yml (setup-dotnet, windows-latest, pwsh steps) — release.yml stays
+# the tag-triggered packaging path; this file gates every push that touches
+# the app so a broken master cannot sit unnoticed until release day.
+#
+# Since the 2026-11 fold into SystemMonitor the app lives under autocommand/,
+# so every run step executes there (defaults.run.working-directory) and the
+# triggers are path-filtered: classic SystemMonitor files at the repo root
+# have no CI and their changes do not build the app.
 #
 # Strict: the suites whose inputs are fully synthetic — they must pass
 # on a stock runner, always.
@@ -15,11 +20,17 @@ name: ci
 on:
   push:
     branches: [master]
+    paths: ['autocommand/**', '.github/workflows/ci.yml']
   pull_request:
+    paths: ['autocommand/**', '.github/workflows/ci.yml']
   workflow_dispatch:
 
 permissions:
   contents: read
+
+defaults:
+  run:
+    working-directory: autocommand
 
 jobs:
   gate:
