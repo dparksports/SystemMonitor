@@ -38,6 +38,7 @@ namespace AutoCommand.Engines.Watch
 open AutoCommand.Engines.Core
 
 open System
+open Microsoft.FSharp.Control
 open System.Collections.Generic
 open System.Diagnostics
 open System.Diagnostics.Eventing.Reader
@@ -113,6 +114,13 @@ type SysmonArchiveService private () =
         | d -> d
 
     static let gate = obj ()
+
+    // Spawn Watches: fired for every event actually written to the archive —
+    // both the live watcher and Backfill funnel through Append, so this is
+    // the one hook point. Subscribers run while `gate` is HELD: they must
+    // only enqueue the event and return (never touch the archive, never do
+    // I/O). [<CLIEvent>] compiles it to a CLR event, so C# can `+=`.
+    static let appended = Event<ArchiveEvent>()
 
     static let mutable watcher: EventLogWatcher = null
 
@@ -225,6 +233,12 @@ type SysmonArchiveService private () =
 
     // ── append ────────────────────────────────────────────────────────
 
+    /// <summary>Every event actually written to the archive — live watch and
+    /// backfill alike. Subscribers run under the archive lock: enqueue and
+    /// return; never touch the archive or do I/O in the handler.</summary>
+    [<CLIEvent>]
+    static member Appended: IEvent<ArchiveEvent> = appended.Publish
+
     /// <summary>Appends one event unless the watermark already covers
     /// it. Returns true when a line was written.</summary>
     static member Append(e: ArchiveEvent) : bool =
@@ -261,6 +275,7 @@ type SysmonArchiveService private () =
                         st.LastUtc <- Nullable e.TsUtc
                         st.TotalEvents <- st.TotalEvents + 1L
                         saveState st
+                        appended.Trigger(e)
                         true
                     with ex ->
                         Debug.WriteLine("SysmonArchive append failed: " + ex.Message)

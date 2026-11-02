@@ -430,6 +430,10 @@ namespace AutoCommand
                     SysmonArchiveService.Prune();
                     SysmonArchiveService.Backfill();
                     SysmonArchiveService.StartLiveWatch();
+                    // spawn watches: user rules evaluated at ingestion time
+                    // (the Appended hook) — started after backfill so the
+                    // replay sees the archive the backfill just filled
+                    Agent.Core.SpawnWatchService.Start();
                     // real-time 'who is being blocked' feed: joins Sysmon connects
                     // against the blocked inventory; without it, blocks fire
                     // silently at the kernel and no tab or tool ever sees them
