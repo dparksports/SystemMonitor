@@ -60,3 +60,7 @@ DeviceMonitorCS.zip
 
 public*
 *.mp4
+connection_history.json
+ip_cache.json
+muted_connections.json
+DeviceMonitorCS/firebase_config.json
